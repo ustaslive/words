@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Words</string>
+    <string name="settings">Settings</string>
+    <string name="shuffle_letters">Shuffle letters</string>
+    <string name="hammer">Hammer</string>
+    <string name="reveal_hint">Tap a tile to reveal a letter</string>
+</resources>

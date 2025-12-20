@@ -1,0 +1,34 @@
+{
+  "name": "words",
+  "dockerComposeFile": [
+    "../compose.yaml"
+  ],
+  "service": "devcontainer",
+  "workspaceFolder": "/words",
+  "remoteUser": "vscode",
+  "overrideCommand": false,
+  "updateRemoteUserUID": false,
+  "containerEnv": {
+    "ANDROID_HOME": "/opt/android/sdk",
+    "ANDROID_SDK_ROOT": "/opt/android/sdk",
+    "JAVA_HOME": "/usr/lib/jvm/java-17-openjdk-amd64",
+    "GRADLE_USER_HOME": "/words/.gradle"
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "java.home": "/usr/lib/jvm/java-17-openjdk-amd64",
+        "java.configuration.checkProjectSettingsExclusions": false
+      },
+      "extensions": [
+        "ms-azuretools.vscode-docker",
+        "ms-vscode.cpptools",
+        "vscjava.vscode-gradle"
+      ]
+    }
+  },
+  "postCreateCommand": "sdkmanager --list",
+  "runServices": [
+    "devcontainer"
+  ]
+}

@@ -1,0 +1,30 @@
+# Android/Gradle
+.gradle/
+**/build/
+**/.externalNativeBuild/
+**/.cxx/
+local.properties
+*.iml
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class
+*.log
+captures/
+outputs/
+*.keystore
+*.jks
+
+# IDE
+.idea/
+.vscode/
+
+# OS/editor noise
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Devcontainer
+.devcontainer/.env

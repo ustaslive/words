@@ -1,0 +1,18 @@
+services:
+  devcontainer:
+    container_name: words
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - ./:/words:cached
+    working_dir: /words
+    privileged: true
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    environment:
+      ANDROID_HOME: /opt/android/sdk
+      ANDROID_SDK_ROOT: /opt/android/sdk
+      JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+      GRADLE_USER_HOME: /words/.gradle
+    command: sleep infinity
