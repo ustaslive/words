@@ -1,0 +1,11 @@
+culture
+tulip
+initialization
+information
+government
+community
+computer
+country
+person
+money
+turmoil
