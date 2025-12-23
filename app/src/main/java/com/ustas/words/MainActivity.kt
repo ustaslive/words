@@ -6,7 +6,9 @@ import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
 import android.content.Context
-import android.widget.Toast
+import android.os.Handler
+import android.os.HandlerThread
+import android.os.Process
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
@@ -34,7 +36,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Slider
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -78,12 +84,6 @@ import com.ustas.words.ui.theme.TileText
 import com.ustas.words.ui.theme.WheelBackground
 import com.ustas.words.ui.theme.WheelLetter
 import com.ustas.words.ui.theme.WordsTheme
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -124,22 +124,48 @@ private sealed interface WordResult {
     data object NotFound : WordResult
 }
 
+private const val PREFS_NAME = "words_settings"
+private const val KEY_MUTE = "mute"
+private const val KEY_MAX_WORD_LENGTH = "max_word_length"
+private const val DEFAULT_MAX_WORD_LENGTH = 9
+private const val MIN_WORD_LENGTH = 5
+private const val MAX_WORD_LENGTH = 9
+
+private data class UserSettings(
+    val muted: Boolean = false,
+    val maxWordLength: Int = DEFAULT_MAX_WORD_LENGTH
+)
+
 @Composable
 private fun GameScreen() {
     val context = LocalContext.current
+    val appContext = remember(context) { context.applicationContext }
     val tonePlayer = remember { TonePlayer() }
     val soundEffects = remember { SoundEffects(tonePlayer) }
+    var settings by remember { mutableStateOf(loadSettings(appContext)) }
+    var showSettings by remember { mutableStateOf(false) }
     DisposableEffect(Unit) {
         onDispose { tonePlayer.dispose() }
     }
+    soundEffects.muted = settings.muted
     val dictionary = remember { loadWordList(context) }
     val dictionarySet = remember(dictionary) { dictionary.toHashSet() }
-    val eligibleWords = remember(dictionarySet) { dictionarySet.filter { it.length >= 5 } }
-    val initialWord = remember(eligibleWords) { pickRandomBaseWord(eligibleWords) }
-    var baseWord by remember { mutableStateOf(initialWord) }
+    val eligibleWords = remember(dictionarySet, settings.maxWordLength) {
+        dictionarySet.filter { it.length in MIN_WORD_LENGTH..settings.maxWordLength }
+    }
+    var baseWord by remember { mutableStateOf(pickRandomBaseWord(eligibleWords)) }
     var letters by remember { mutableStateOf(generateLetterWheel(baseWord).shuffled()) }
     var grid by remember { mutableStateOf(generateCrosswordGrid(baseWord)) }
     var hammerArmed by remember { mutableStateOf(false) }
+    LaunchedEffect(eligibleWords) {
+        if (!eligibleWords.contains(baseWord) || baseWord.length > settings.maxWordLength) {
+            val newWord = pickRandomBaseWord(eligibleWords)
+            baseWord = newWord
+            letters = generateLetterWheel(newWord).shuffled()
+            grid = generateCrosswordGrid(newWord)
+            hammerArmed = false
+        }
+    }
     val crosswordWords = remember(baseWord) { generateCrosswordWords(baseWord).associateBy { it.word } }
     val isSolved = grid.all { row -> row.all { cell -> !cell.isActive || cell.isRevealed } }
 
@@ -152,9 +178,7 @@ private fun GameScreen() {
                 .padding(horizontal = 18.dp, vertical = 16.dp)
         ) {
             TopBar(
-                onSettings = {
-                    Toast.makeText(context, "Settings coming soon", Toast.LENGTH_SHORT).show()
-                }
+                onSettings = { showSettings = true }
             )
             Spacer(modifier = Modifier.height(12.dp))
             CrosswordSection(
@@ -205,6 +229,20 @@ private fun GameScreen() {
                 modifier = Modifier.weight(0.9f)
             )
         }
+        if (showSettings) {
+            SettingsDialog(
+                current = settings,
+                onSave = { updated ->
+                    val normalized = updated.copy(
+                        maxWordLength = updated.maxWordLength.coerceIn(MIN_WORD_LENGTH, MAX_WORD_LENGTH)
+                    )
+                    settings = normalized
+                    saveSettings(appContext, normalized)
+                    showSettings = false
+                },
+                onDismiss = { showSettings = false }
+            )
+        }
     }
 }
 
@@ -220,6 +258,49 @@ private fun TopBar(onSettings: () -> Unit) {
             onClick = onSettings
         )
     }
+}
+
+@Composable
+private fun SettingsDialog(
+    current: UserSettings,
+    onSave: (UserSettings) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var muted by remember(current.muted) { mutableStateOf(current.muted) }
+    var maxLength by remember(current.maxWordLength) { mutableStateOf(current.maxWordLength.toFloat()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = { onSave(UserSettings(muted = muted, maxWordLength = maxLength.roundToInt())) }) {
+                Text(text = "Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = "Cancel")
+            }
+        },
+        title = { Text(text = stringResource(R.string.settings)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = muted, onCheckedChange = { muted = it })
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = "Mute sounds")
+                }
+                Column {
+                    Text(text = "Maximum word length: ${maxLength.roundToInt()}")
+                    Slider(
+                        value = maxLength,
+                        onValueChange = { maxLength = it.roundToInt().toFloat() },
+                        valueRange = MIN_WORD_LENGTH.toFloat()..MAX_WORD_LENGTH.toFloat(),
+                        steps = (MAX_WORD_LENGTH - MIN_WORD_LENGTH - 1).coerceAtLeast(0)
+                    )
+                }
+            }
+        }
+    )
 }
 
 @Composable
@@ -447,11 +528,18 @@ private fun LetterWheel(
             return index.takeIf { it >= 0 }
         }
 
+        fun toneStep(selectionSize: Int): Int {
+            return (selectionSize - 1).coerceAtLeast(0)
+        }
+
         fun updateSelection(nextIndex: Int) {
             val current = selectedIndices
             val last = current.lastOrNull()
             if (last == null) {
-                selectedIndices = listOf(nextIndex)
+                val newSelection = listOf(nextIndex)
+                selectedIndices = newSelection
+                val freq = soundEffectsState.letterBell(toneStep(newSelection.size))
+                lastToneFreq = freq
                 return
             }
             if (nextIndex == last) {
@@ -460,8 +548,8 @@ private fun LetterWheel(
             if (current.size >= 2 && nextIndex == current[current.size - 2]) {
                 val newSelection = current.dropLast(1)
                 selectedIndices = newSelection
-                lastToneFreq = if (newSelection.size > 1) {
-                    soundEffectsState.bellFrequency(newSelection.size - 2)
+                lastToneFreq = if (newSelection.isNotEmpty()) {
+                    soundEffectsState.bellFrequency(toneStep(newSelection.size))
                 } else {
                     null
                 }
@@ -470,10 +558,8 @@ private fun LetterWheel(
             if (!current.contains(nextIndex)) {
                 val newSelection = current + nextIndex
                 selectedIndices = newSelection
-                if (newSelection.size > 1) {
-                    val freq = soundEffectsState.letterBell(newSelection.size - 2)
-                    lastToneFreq = freq
-                }
+                val freq = soundEffectsState.letterBell(toneStep(newSelection.size))
+                lastToneFreq = freq
             }
         }
 
@@ -508,10 +594,9 @@ private fun LetterWheel(
                         val down = awaitFirstDown(requireUnconsumed = false)
                         val startIndex = findHitIndex(down.position) ?: return@awaitEachGesture
                         down.consumeAllChanges()
-                        selectedIndices = listOf(startIndex)
+                        selectedIndices = emptyList()
+                        updateSelection(startIndex)
                         dragPosition = centers[startIndex]
-                        val firstFreq = soundEffectsState.letterBell(0)
-                        lastToneFreq = firstFreq
                         val pointerId = down.id
                         while (true) {
                             val event = awaitPointerEvent()
@@ -677,7 +762,18 @@ private fun AbstractBackground(modifier: Modifier = Modifier) {
 
 private class TonePlayer {
     private val sampleRate = 44_100
-    private val scope = CoroutineScope(Dispatchers.Default + Job())
+    private val handlerThread = HandlerThread("tone-player", Process.THREAD_PRIORITY_URGENT_AUDIO).apply { start() }
+    private val handler = Handler(handlerThread.looper)
+
+    init {
+        warmUpSilently()
+    }
+
+
+    private fun warmUpSilently() {
+        // Preload audio pipeline to remove first-tap latency
+        playTone(listOf(0.0), durationMs = 20, volume = 0f)
+    }
 
     fun playTone(
         frequencies: List<Double>,
@@ -686,10 +782,7 @@ private class TonePlayer {
         startDelayMs: Long = 0
     ) {
         val safeVolume = volume.coerceIn(0f, 1f)
-        scope.launch {
-            if (startDelayMs > 0) {
-                delay(startDelayMs)
-            }
+        val playTask = Runnable {
             val totalSamples = kotlin.math.max(1, (sampleRate * (durationMs / 1000.0)).toInt())
             val buffer = ShortArray(totalSamples)
             val twoPi = 2.0 * PI
@@ -711,6 +804,7 @@ private class TonePlayer {
                 AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_GAME)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .setFlags(AudioAttributes.FLAG_LOW_LATENCY)
                     .build(),
                 AudioFormat.Builder()
                     .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
@@ -724,28 +818,38 @@ private class TonePlayer {
             audioTrack.setVolume(safeVolume)
             audioTrack.write(buffer, 0, buffer.size)
             audioTrack.play()
-            delay(durationMs.toLong() + 20)
-            audioTrack.release()
+            handler.postDelayed({ audioTrack.release() }, durationMs.toLong() + 20)
+        }
+        if (startDelayMs > 0) {
+            handler.postDelayed(playTask, startDelayMs)
+        } else {
+            handler.postAtFrontOfQueue(playTask)
         }
     }
 
     fun dispose() {
-        scope.cancel()
+        handler.removeCallbacksAndMessages(null)
+        handlerThread.quitSafely()
     }
 }
 
 private class SoundEffects(private val player: TonePlayer) {
+    var muted: Boolean = false
     private val bellBaseHz = 660.0
     private val bellStepRatio = 1.08
     private val initialTapHz = 220.0
 
     fun initialTap() {
-        player.playTone(listOf(initialTapHz), durationMs = 70, volume = 0.35f)
+        if (!muted) {
+            player.playTone(listOf(initialTapHz), durationMs = 70, volume = 0.35f)
+        }
     }
 
     fun letterBell(stepIndex: Int): Double {
         val freq = bellFrequency(stepIndex)
-        player.playTone(listOf(freq), durationMs = 80, volume = 0.6f)
+        if (!muted) {
+            player.playTone(listOf(freq), durationMs = 80, volume = 0.6f)
+        }
         return freq
     }
 
@@ -754,6 +858,7 @@ private class SoundEffects(private val player: TonePlayer) {
     }
 
     fun successChord(rootFreq: Double?) {
+        if (muted) return
         val root = rootFreq ?: bellBaseHz
         val brightChord = listOf(root, root * 1.2599, root * 1.4983)
         player.playTone(brightChord, durationMs = 140, volume = 0.55f)
@@ -761,13 +866,31 @@ private class SoundEffects(private val player: TonePlayer) {
     }
 
     fun miss() {
+        if (muted) return
         player.playTone(listOf(200.0, 150.0), durationMs = 130, volume = 0.5f)
         player.playTone(listOf(170.0, 130.0), durationMs = 130, volume = 0.5f, startDelayMs = 100)
     }
 
     fun shortConfirm() {
+        if (muted) return
         player.playTone(listOf(220.0), durationMs = 100, volume = 0.25f)
     }
+}
+
+private fun loadSettings(context: Context): UserSettings {
+    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    val maxLength = prefs.getInt(KEY_MAX_WORD_LENGTH, DEFAULT_MAX_WORD_LENGTH)
+        .coerceIn(MIN_WORD_LENGTH, MAX_WORD_LENGTH)
+    val muted = prefs.getBoolean(KEY_MUTE, false)
+    return UserSettings(muted = muted, maxWordLength = maxLength)
+}
+
+private fun saveSettings(context: Context, settings: UserSettings) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .edit()
+        .putBoolean(KEY_MUTE, settings.muted)
+        .putInt(KEY_MAX_WORD_LENGTH, settings.maxWordLength.coerceIn(MIN_WORD_LENGTH, MAX_WORD_LENGTH))
+        .apply()
 }
 
 // Word list and grid helpers.
@@ -778,7 +901,7 @@ private fun loadWordList(context: Context): List<String> {
             lines.map { it.trim() }
                 .filter { it.isNotEmpty() }
                 .map { it.uppercase() }
-                .filter { it.length <= 13 }
+                .filter { it.length <= MAX_WORD_LENGTH }
                 .toList()
         }
 }
