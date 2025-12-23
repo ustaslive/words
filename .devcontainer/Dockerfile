@@ -19,6 +19,8 @@ RUN apt-get update && \
     unzip \
     wget \
     curl \
+    iputils-ping \
+    netcat-openbsd \
     git \
     zip \
     build-essential \

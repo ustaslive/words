@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := all
 
-.PHONY: build install all
+.PHONY: build install all uninstall
 
 build:
 	./gradlew assembleDebug
@@ -10,3 +10,6 @@ install: build
 
 all: build
 	./gradlew installDebug
+
+uninstall:
+	adb uninstall com.ustas.words
