@@ -1,7 +1,11 @@
 package com.ustas.words
 
-import android.content.Context
 import android.os.Bundle
+import android.media.AudioAttributes
+import android.media.AudioFormat
+import android.media.AudioManager
+import android.media.AudioTrack
+import android.content.Context
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -33,10 +37,10 @@ import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -74,9 +78,16 @@ import com.ustas.words.ui.theme.TileText
 import com.ustas.words.ui.theme.WheelBackground
 import com.ustas.words.ui.theme.WheelLetter
 import com.ustas.words.ui.theme.WordsTheme
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
+import kotlin.math.pow
 import kotlin.math.sin
 
 class MainActivity : ComponentActivity() {
@@ -107,9 +118,20 @@ private data class CrosswordWord(
     val positions: Set<GridPosition>
 )
 
+private sealed interface WordResult {
+    data object Success : WordResult
+    data object AlreadySolved : WordResult
+    data object NotFound : WordResult
+}
+
 @Composable
 private fun GameScreen() {
     val context = LocalContext.current
+    val tonePlayer = remember { TonePlayer() }
+    val soundEffects = remember { SoundEffects(tonePlayer) }
+    DisposableEffect(Unit) {
+        onDispose { tonePlayer.dispose() }
+    }
     val dictionary = remember { loadWordList(context) }
     val dictionarySet = remember(dictionary) { dictionary.toHashSet() }
     val eligibleWords = remember(dictionarySet) { dictionarySet.filter { it.length >= 5 } }
@@ -172,9 +194,14 @@ private fun GameScreen() {
                 onWordSelected = { selectedWord ->
                     val match = crosswordWords[selectedWord.uppercase()]
                     if (match != null) {
+                        val alreadySolved = match.positions.all { pos -> grid[pos.row][pos.col].isRevealed }
                         grid = revealCells(grid, match.positions)
+                        if (alreadySolved) WordResult.AlreadySolved else WordResult.Success
+                    } else {
+                        WordResult.NotFound
                     }
                 },
+                soundEffects = soundEffects,
                 modifier = Modifier.weight(0.9f)
             )
         }
@@ -313,6 +340,7 @@ private fun CrosswordCellItem(
     onClick: () -> Unit
 ) {
     val background = if (cell.isRevealed) TileColor else TileHiddenColor
+    val letterSize = with(LocalDensity.current) { (size * 0.55f).toSp() }
     Box(
         modifier = Modifier
             .size(size)
@@ -325,7 +353,7 @@ private fun CrosswordCellItem(
                 text = cell.letter.toString(),
                 color = TileText,
                 fontWeight = FontWeight.Bold,
-                fontSize = 16.sp
+                fontSize = letterSize
             )
         }
     }
@@ -337,7 +365,8 @@ private fun LetterWheelSection(
     hammerArmed: Boolean,
     onShuffle: () -> Unit,
     onHammer: () -> Unit,
-    onWordSelected: (String) -> Unit,
+    onWordSelected: (String) -> WordResult,
+    soundEffects: SoundEffects,
     modifier: Modifier = Modifier
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
@@ -353,6 +382,7 @@ private fun LetterWheelSection(
                 letters = letters,
                 onShuffle = onShuffle,
                 onWordSelected = onWordSelected,
+                soundEffects = soundEffects,
                 modifier = Modifier
                     .size(wheelSize)
                     .align(Alignment.Center)
@@ -372,7 +402,8 @@ private fun LetterWheelSection(
 private fun LetterWheel(
     letters: List<Char>,
     onShuffle: () -> Unit,
-    onWordSelected: (String) -> Unit,
+    onWordSelected: (String) -> WordResult,
+    soundEffects: SoundEffects,
     modifier: Modifier = Modifier
 ) {
     BoxWithConstraints(modifier = modifier) {
@@ -385,7 +416,9 @@ private fun LetterWheel(
         val lineStrokePx = with(density) { 6.dp.toPx() }
         var selectedIndices by remember { mutableStateOf(listOf<Int>()) }
         var dragPosition by remember { mutableStateOf<Offset?>(null) }
+        var lastToneFreq by remember { mutableStateOf<Double?>(null) }
         val onWordSelectedState by rememberUpdatedState(onWordSelected)
+        val soundEffectsState by rememberUpdatedState(soundEffects)
         val highlightColor = TileColor
         val hitRadius = letterSizePx * 0.55f
         val hitRadiusSq = hitRadius * hitRadius
@@ -402,6 +435,7 @@ private fun LetterWheel(
         LaunchedEffect(letters) {
             selectedIndices = emptyList()
             dragPosition = null
+            lastToneFreq = null
         }
 
         fun findHitIndex(position: Offset): Int? {
@@ -424,25 +458,44 @@ private fun LetterWheel(
                 return
             }
             if (current.size >= 2 && nextIndex == current[current.size - 2]) {
-                selectedIndices = current.dropLast(1)
+                val newSelection = current.dropLast(1)
+                selectedIndices = newSelection
+                lastToneFreq = if (newSelection.size > 1) {
+                    soundEffectsState.bellFrequency(newSelection.size - 2)
+                } else {
+                    null
+                }
                 return
             }
             if (!current.contains(nextIndex)) {
-                selectedIndices = current + nextIndex
+                val newSelection = current + nextIndex
+                selectedIndices = newSelection
+                if (newSelection.size > 1) {
+                    val freq = soundEffectsState.letterBell(newSelection.size - 2)
+                    lastToneFreq = freq
+                }
             }
         }
 
         fun finishSelection() {
-            if (selectedIndices.size >= 3) {
+            val selectionSize = selectedIndices.size
+            if (selectionSize >= 4) {
                 val selectedWord = buildString {
                     selectedIndices.forEach { index ->
                         append(letters[index].uppercaseChar())
                     }
                 }
-                onWordSelectedState(selectedWord)
+                when (onWordSelectedState(selectedWord)) {
+                    WordResult.Success -> soundEffectsState.successChord(lastToneFreq)
+                    WordResult.AlreadySolved -> soundEffectsState.shortConfirm()
+                    WordResult.NotFound -> soundEffectsState.miss()
+                }
+            } else if (selectionSize > 0) {
+                soundEffectsState.shortConfirm()
             }
             selectedIndices = emptyList()
             dragPosition = null
+            lastToneFreq = null
         }
 
         Box(
@@ -457,6 +510,8 @@ private fun LetterWheel(
                         down.consumeAllChanges()
                         selectedIndices = listOf(startIndex)
                         dragPosition = centers[startIndex]
+                        val firstFreq = soundEffectsState.letterBell(0)
+                        lastToneFreq = firstFreq
                         val pointerId = down.id
                         while (true) {
                             val event = awaitPointerEvent()
@@ -620,6 +675,101 @@ private fun AbstractBackground(modifier: Modifier = Modifier) {
     }
 }
 
+private class TonePlayer {
+    private val sampleRate = 44_100
+    private val scope = CoroutineScope(Dispatchers.Default + Job())
+
+    fun playTone(
+        frequencies: List<Double>,
+        durationMs: Int,
+        volume: Float = 0.5f,
+        startDelayMs: Long = 0
+    ) {
+        val safeVolume = volume.coerceIn(0f, 1f)
+        scope.launch {
+            if (startDelayMs > 0) {
+                delay(startDelayMs)
+            }
+            val totalSamples = kotlin.math.max(1, (sampleRate * (durationMs / 1000.0)).toInt())
+            val buffer = ShortArray(totalSamples)
+            val twoPi = 2.0 * PI
+            val fadeSamples = kotlin.math.max(1, kotlin.math.min(totalSamples / 5, (sampleRate * 0.0025).toInt()))
+            for (i in buffer.indices) {
+                val t = i / sampleRate.toDouble()
+                var sample = 0.0
+                frequencies.forEach { freq ->
+                    sample += kotlin.math.sin(twoPi * freq * t)
+                }
+                sample /= frequencies.size
+                val fadeIn = if (i < fadeSamples) i.toDouble() / fadeSamples else 1.0
+                val fadeOut = if (i >= totalSamples - fadeSamples) (totalSamples - 1 - i).toDouble() / fadeSamples else 1.0
+                val envelope = kotlin.math.max(0.0, kotlin.math.min(1.0, fadeIn * fadeOut))
+                val shaped = (sample * envelope).coerceIn(-1.0, 1.0)
+                buffer[i] = (shaped * Short.MAX_VALUE * safeVolume).toInt().toShort()
+            }
+            val audioTrack = AudioTrack(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_GAME)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build(),
+                AudioFormat.Builder()
+                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                    .setSampleRate(sampleRate)
+                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                    .build(),
+                buffer.size * 2,
+                AudioTrack.MODE_STATIC,
+                AudioManager.AUDIO_SESSION_ID_GENERATE
+            )
+            audioTrack.setVolume(safeVolume)
+            audioTrack.write(buffer, 0, buffer.size)
+            audioTrack.play()
+            delay(durationMs.toLong() + 20)
+            audioTrack.release()
+        }
+    }
+
+    fun dispose() {
+        scope.cancel()
+    }
+}
+
+private class SoundEffects(private val player: TonePlayer) {
+    private val bellBaseHz = 660.0
+    private val bellStepRatio = 1.08
+    private val initialTapHz = 220.0
+
+    fun initialTap() {
+        player.playTone(listOf(initialTapHz), durationMs = 70, volume = 0.35f)
+    }
+
+    fun letterBell(stepIndex: Int): Double {
+        val freq = bellFrequency(stepIndex)
+        player.playTone(listOf(freq), durationMs = 80, volume = 0.6f)
+        return freq
+    }
+
+    fun bellFrequency(stepIndex: Int): Double {
+        return bellBaseHz * bellStepRatio.pow(stepIndex.toDouble())
+    }
+
+    fun successChord(rootFreq: Double?) {
+        val root = rootFreq ?: bellBaseHz
+        val brightChord = listOf(root, root * 1.2599, root * 1.4983)
+        player.playTone(brightChord, durationMs = 140, volume = 0.55f)
+        player.playTone(brightChord, durationMs = 240, volume = 0.6f, startDelayMs = 90)
+    }
+
+    fun miss() {
+        player.playTone(listOf(200.0, 150.0), durationMs = 130, volume = 0.5f)
+        player.playTone(listOf(170.0, 130.0), durationMs = 130, volume = 0.5f, startDelayMs = 100)
+    }
+
+    fun shortConfirm() {
+        player.playTone(listOf(220.0), durationMs = 100, volume = 0.25f)
+    }
+}
+
 // Word list and grid helpers.
 private fun loadWordList(context: Context): List<String> {
     return context.assets.open("words.txt")
@@ -628,7 +778,7 @@ private fun loadWordList(context: Context): List<String> {
             lines.map { it.trim() }
                 .filter { it.isNotEmpty() }
                 .map { it.uppercase() }
-                .filter { it.length <= 9 }
+                .filter { it.length <= 13 }
                 .toList()
         }
 }

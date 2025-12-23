@@ -23,7 +23,8 @@
       "extensions": [
         "ms-azuretools.vscode-docker",
         "ms-vscode.cpptools",
-        "vscjava.vscode-gradle"
+        "vscjava.vscode-gradle",
+        "ms-vscode.makefile-tools"
       ]
     }
   },
