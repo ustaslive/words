@@ -779,9 +779,15 @@ private class TonePlayer {
         frequencies: List<Double>,
         durationMs: Int,
         volume: Float = 0.5f,
-        startDelayMs: Long = 0
+        startDelayMs: Long = 0,
+        weights: List<Double>? = null
     ) {
         val safeVolume = volume.coerceIn(0f, 1f)
+        val appliedWeights = when {
+            weights == null || weights.size != frequencies.size -> List(frequencies.size) { 1.0 }
+            else -> weights
+        }
+        val weightSum = appliedWeights.sum().coerceAtLeast(1e-6)
         val playTask = Runnable {
             val totalSamples = kotlin.math.max(1, (sampleRate * (durationMs / 1000.0)).toInt())
             val buffer = ShortArray(totalSamples)
@@ -790,10 +796,10 @@ private class TonePlayer {
             for (i in buffer.indices) {
                 val t = i / sampleRate.toDouble()
                 var sample = 0.0
-                frequencies.forEach { freq ->
-                    sample += kotlin.math.sin(twoPi * freq * t)
+                frequencies.forEachIndexed { idx, freq ->
+                    sample += kotlin.math.sin(twoPi * freq * t) * appliedWeights[idx]
                 }
-                sample /= frequencies.size
+                sample /= weightSum
                 val fadeIn = if (i < fadeSamples) i.toDouble() / fadeSamples else 1.0
                 val fadeOut = if (i >= totalSamples - fadeSamples) (totalSamples - 1 - i).toDouble() / fadeSamples else 1.0
                 val envelope = kotlin.math.max(0.0, kotlin.math.min(1.0, fadeIn * fadeOut))
@@ -859,10 +865,18 @@ private class SoundEffects(private val player: TonePlayer) {
 
     fun successChord(rootFreq: Double?) {
         if (muted) return
-        val root = rootFreq ?: bellBaseHz
-        val brightChord = listOf(root, root * 1.2599, root * 1.4983)
-        player.playTone(brightChord, durationMs = 140, volume = 0.55f)
-        player.playTone(brightChord, durationMs = 240, volume = 0.6f, startDelayMs = 90)
+        val root = (rootFreq ?: bellBaseHz) * 0.6
+        val partials = listOf(
+            root,
+            root * 2.0,
+            root * 3.0,
+            root * 4.0,
+            root * 5.0,
+            root * 6.0
+        )
+        val weights = listOf(1.0, 0.55, 0.45, 0.3, 0.22, 0.18)
+        player.playTone(partials, durationMs = 240, volume = 0.6f, weights = weights)
+        player.playTone(partials, durationMs = 420, volume = 0.64f, startDelayMs = 120, weights = weights)
     }
 
     fun miss() {
