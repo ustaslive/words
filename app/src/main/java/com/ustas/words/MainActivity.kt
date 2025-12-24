@@ -102,28 +102,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private data class CrosswordCell(
-    val letter: Char?,
-    val isActive: Boolean,
-    val isRevealed: Boolean
-)
-
-private data class GridPosition(
-    val row: Int,
-    val col: Int
-)
-
-private data class CrosswordWord(
-    val word: String,
-    val positions: Set<GridPosition>
-)
-
-private sealed interface WordResult {
-    data object Success : WordResult
-    data object AlreadySolved : WordResult
-    data object NotFound : WordResult
-}
-
 private const val PREFS_NAME = "words_settings"
 private const val KEY_MUTE = "mute"
 private const val KEY_MAX_WORD_LENGTH = "max_word_length"
@@ -216,14 +194,9 @@ private fun GameScreen() {
                 onShuffle = { letters = letters.shuffled() },
                 onHammer = { hammerArmed = !hammerArmed },
                 onWordSelected = { selectedWord ->
-                    val match = crosswordWords[selectedWord.uppercase()]
-                    if (match != null) {
-                        val alreadySolved = match.positions.all { pos -> grid[pos.row][pos.col].isRevealed }
-                        grid = revealCells(grid, match.positions)
-                        if (alreadySolved) WordResult.AlreadySolved else WordResult.Success
-                    } else {
-                        WordResult.NotFound
-                    }
+                    val (updatedGrid, result) = applySelectedWord(selectedWord, crosswordWords, grid)
+                    grid = updatedGrid
+                    result
                 },
                 soundEffects = soundEffects,
                 modifier = Modifier.weight(0.9f)
@@ -907,7 +880,6 @@ private fun saveSettings(context: Context, settings: UserSettings) {
         .apply()
 }
 
-// Word list and grid helpers.
 private fun loadWordList(context: Context): List<String> {
     return context.assets.open("words.txt")
         .bufferedReader()
@@ -919,66 +891,3 @@ private fun loadWordList(context: Context): List<String> {
                 .toList()
         }
 }
-
-private fun pickRandomBaseWord(words: List<String>): String {
-    return if (words.isEmpty()) {
-        "WORDS"
-    } else {
-        words.random()
-    }
-}
-
-private fun generateLetterWheel(word: String): List<Char> {
-    return word.uppercase().toList()
-}
-
-private fun generateCrosswordGrid(word: String): List<List<CrosswordCell>> {
-    val normalized = word.uppercase()
-    val size = normalized.length
-    val wordRow = size / 2
-
-    return List(size) { rowIndex ->
-        List(size) { colIndex ->
-            if (rowIndex == wordRow) {
-                CrosswordCell(
-                    letter = normalized[colIndex],
-                    isActive = true,
-                    isRevealed = false
-                )
-            } else {
-                CrosswordCell(letter = null, isActive = false, isRevealed = false)
-            }
-        }
-    }
-}
-private fun revealCells(
-    grid: List<List<CrosswordCell>>,
-    positions: Set<GridPosition>
-): List<List<CrosswordCell>> {
-    if (positions.isEmpty()) {
-        return grid
-    }
-    return grid.mapIndexed { rowIndex, row ->
-        row.mapIndexed { colIndex, cell ->
-            if (positions.contains(GridPosition(rowIndex, colIndex))) {
-                cell.copy(isRevealed = true)
-            } else {
-                cell
-            }
-        }
-    }
-}
-
-private fun generateCrosswordWords(word: String): List<CrosswordWord> {
-    val normalized = word.uppercase()
-    val row = normalized.length / 2
-    return listOf(horizontalWord(normalized, row, startCol = 0))
-}
-
-private fun horizontalWord(word: String, row: Int, startCol: Int): CrosswordWord {
-    val positions = word.indices
-        .map { colOffset -> GridPosition(row, startCol + colOffset) }
-        .toSet()
-    return CrosswordWord(word = word, positions = positions)
-}
-
