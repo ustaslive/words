@@ -52,12 +52,13 @@ class MiniDictionaryTest {
             "CURT"
         )
 
-        val result = buildMiniDictionary("ACCURATE", dictionary)
+        val selectedWords = buildMiniDictionary("ACCURATE", dictionary)
 
         println("Dictionary: ${dictionary.joinToString()}")
         println("Base word: ACCURATE")
-        println("Mini dictionary: ${result.joinToString()}")
+        println("Selected words count: ${selectedWords.size}")
+        println("Selected words: ${selectedWords.joinToString()}")
 
-        assertEquals(expected, result)
+        assertEquals(expected, selectedWords)
     }
 }

@@ -127,7 +127,7 @@ private fun GameScreen() {
         onDispose { tonePlayer.dispose() }
     }
     soundEffects.muted = settings.muted
-    val dictionary = remember { loadWordList(context) }
+    val dictionary = remember { loadWordList { context.assets.open("words.txt") } }
     val dictionarySet = remember(dictionary) { dictionary.toHashSet() }
     val eligibleWords = remember(dictionarySet, settings.maxWordLength) {
         dictionarySet.filter { it.length in MIN_WORD_LENGTH..settings.maxWordLength }
@@ -885,10 +885,4 @@ private fun saveSettings(context: Context, settings: UserSettings) {
         .putBoolean(KEY_MUTE, settings.muted)
         .putInt(KEY_MAX_WORD_LENGTH, settings.maxWordLength.coerceIn(MIN_WORD_LENGTH, MAX_WORD_LENGTH))
         .apply()
-}
-
-private fun loadWordList(context: Context): List<String> {
-    return context.assets.open("words.txt")
-        .bufferedReader()
-        .useLines { lines -> loadWordListFromLines(lines) }
 }

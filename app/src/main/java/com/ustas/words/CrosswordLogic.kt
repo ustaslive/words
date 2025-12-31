@@ -1,5 +1,7 @@
 package com.ustas.words
 
+import java.io.InputStream
+
 private const val ALPHABET_SIZE = 26
 
 internal data class CrosswordCell(
@@ -22,6 +24,11 @@ internal sealed interface WordResult {
     data object Success : WordResult
     data object AlreadySolved : WordResult
     data object NotFound : WordResult
+}
+
+internal fun loadWordList(openStream: () -> InputStream): List<String> {
+    return openStream().bufferedReader()
+        .useLines { lines -> loadWordListFromLines(lines) }
 }
 
 internal fun loadWordListFromLines(lines: Sequence<String>): List<String> {
