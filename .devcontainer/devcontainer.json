@@ -27,6 +27,7 @@
         "vscjava.vscode-gradle",
         "ms-vscode.makefile-tools",
         "fwcd.kotlin",
+        "tamasfe.even-better-toml",
         "openai.chatgpt",
         "ms-vscode.live-server"
       ]

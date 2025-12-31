@@ -31,3 +31,8 @@ outputs/
 
 #
 **/tmp/
+
+# MCP
+/mcp.stderr
+/mcp.stdout
+/.mcp

@@ -27,6 +27,7 @@ RUN apt-get update && \
     build-essential \
     python3 \
     python3-pip \
+    gnupg \
     ca-certificates \
     libc6-i386 \
     lib32stdc++6 \
@@ -34,6 +35,12 @@ RUN apt-get update && \
     libbz2-1.0 \
     libncurses5 \
     libgl1 && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://deb.nodesource.com/setup_current.x | bash - && \
+    apt-get install -y --no-install-recommends nodejs && \
+    npm install -g @openai/codex@latest @google/gemini-cli@latest && \
+    npm cache clean --force && \
     rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p ${ANDROID_SDK_ROOT}/cmdline-tools && \
