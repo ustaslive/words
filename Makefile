@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := all
 
-.PHONY: build install all uninstall
+.PHONY: build install all uninstall test
 
 build:
 	./gradlew assembleDebug
@@ -13,3 +13,12 @@ all: build
 
 uninstall:
 	adb uninstall com.ustas.words
+
+test:
+	./gradlew :app:testDebugUnitTest --rerun-tasks
+
+# All unit tests (debug + release)
+# ./gradlew :app:test
+
+# All unit tests (debug + release), forced re-run
+# ./gradlew :app:test --rerun-tasks

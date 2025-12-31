@@ -1,5 +1,7 @@
 package com.ustas.words
 
+private const val ALPHABET_SIZE = 26
+
 internal data class CrosswordCell(
     val letter: Char?,
     val isActive: Boolean,
@@ -34,6 +36,26 @@ internal fun pickRandomBaseWord(words: List<String>): String {
         "WORDS"
     } else {
         words.random()
+    }
+}
+
+internal fun buildMiniDictionary(baseWord: String, dictionary: Iterable<String>): List<String> {
+    val normalizedBase = baseWord.trim().uppercase()
+    if (normalizedBase.isEmpty()) {
+        return emptyList()
+    }
+    val baseCounts = countLetters(normalizedBase) ?: return emptyList()
+    val baseLength = normalizedBase.length
+
+    return dictionary.mapNotNull { rawWord ->
+        val candidate = rawWord.trim().uppercase()
+        if (candidate.isEmpty() || candidate.length > baseLength) {
+            return@mapNotNull null
+        }
+        if (!canBuildWord(candidate, baseCounts)) {
+            return@mapNotNull null
+        }
+        candidate
     }
 }
 
@@ -105,4 +127,31 @@ private fun horizontalWord(word: String, row: Int, startCol: Int): CrosswordWord
         .map { colOffset -> GridPosition(row, startCol + colOffset) }
         .toSet()
     return CrosswordWord(word = word, positions = positions)
+}
+
+private fun countLetters(word: String): IntArray? {
+    val counts = IntArray(ALPHABET_SIZE)
+    for (char in word) {
+        if (char !in 'A'..'Z') {
+            return null
+        }
+        counts[char - 'A']++
+    }
+    return counts
+}
+
+private fun canBuildWord(word: String, baseCounts: IntArray): Boolean {
+    val counts = IntArray(ALPHABET_SIZE)
+    for (char in word) {
+        if (char !in 'A'..'Z') {
+            return false
+        }
+        val index = char - 'A'
+        val next = counts[index] + 1
+        if (next > baseCounts[index]) {
+            return false
+        }
+        counts[index] = next
+    }
+    return true
 }

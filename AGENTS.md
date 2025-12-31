@@ -24,6 +24,7 @@
 - Kotlin, small pure functions for crossword logic; keep UI in Compose.
 - Minimal comments; add only when logic isn’t obvious.
 - Keep crossword logic decoupled from Android so it’s testable on JVM.
+- Avoid numeric literals; define named constants/macros instead (exception: counters initialized to 0 or 1).
 
 ## Testing guidance
 - Prefer deterministic tests with fixed dictionaries/inputs.
