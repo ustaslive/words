@@ -883,11 +883,5 @@ private fun saveSettings(context: Context, settings: UserSettings) {
 private fun loadWordList(context: Context): List<String> {
     return context.assets.open("words.txt")
         .bufferedReader()
-        .useLines { lines ->
-            lines.map { it.trim() }
-                .filter { it.isNotEmpty() }
-                .map { it.uppercase() }
-                .filter { it.length <= MAX_WORD_LENGTH }
-                .toList()
-        }
+        .useLines { lines -> loadWordListFromLines(lines) }
 }

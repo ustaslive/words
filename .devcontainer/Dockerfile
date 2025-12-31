@@ -23,6 +23,7 @@ RUN apt-get update && \
     netcat-openbsd \
     git \
     zip \
+    ripgrep \
     build-essential \
     python3 \
     python3-pip \

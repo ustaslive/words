@@ -54,6 +54,8 @@ dependencies {
     implementation(composeBom)
     androidTestImplementation(composeBom)
 
+    testImplementation("junit:junit:4.13.2")
+
     implementation("androidx.activity:activity-compose:1.8.2")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
@@ -63,4 +65,22 @@ dependencies {
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+}
+
+tasks.withType<Test> {
+    testLogging {
+        events("passed", "skipped", "failed")
+    }
+    finalizedBy("logTestReport")
+}
+
+tasks.register("logTestReport") {
+    doLast {
+        val reportPath = file("${layout.buildDirectory.get()}/reports/tests/testDebugUnitTest/index.html")
+        println()
+        println("--------------------------------------------------")
+        println("Test Report: file://$reportPath")
+        println("To force re-run: ./gradlew test --rerun-tasks")
+        println("--------------------------------------------------")
+    }
 }

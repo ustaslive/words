@@ -22,6 +22,13 @@ internal sealed interface WordResult {
     data object NotFound : WordResult
 }
 
+internal fun loadWordListFromLines(lines: Sequence<String>): List<String> {
+    return lines.map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .map { it.uppercase() }
+        .toList()
+}
+
 internal fun pickRandomBaseWord(words: List<String>): String {
     return if (words.isEmpty()) {
         "WORDS"

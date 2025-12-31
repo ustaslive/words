@@ -18,19 +18,25 @@
     "vscode": {
       "settings": {
         "java.home": "/usr/lib/jvm/java-17-openjdk-amd64",
-        "java.configuration.checkProjectSettingsExclusions": false
+        "java.configuration.checkProjectSettingsExclusions": false,
+        "livePreview.portNumber": 3000
       },
       "extensions": [
         "ms-azuretools.vscode-docker",
         "ms-vscode.cpptools",
         "vscjava.vscode-gradle",
         "ms-vscode.makefile-tools",
-        "openai.chatgpt"
+        "fwcd.kotlin",
+        "openai.chatgpt",
+        "ms-vscode.live-server"
       ]
     }
   },
   "postCreateCommand": "sdkmanager --list",
   "runServices": [
     "devcontainer"
+  ],
+  "forwardPorts": [
+    3000
   ]
 }
