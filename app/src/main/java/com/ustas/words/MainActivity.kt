@@ -14,7 +14,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
@@ -113,7 +115,9 @@ private const val KEY_MAX_WORD_LENGTH = "max_word_length"
 private const val DEFAULT_MAX_WORD_LENGTH = 9
 private const val MIN_WORD_LENGTH = 5
 private const val MAX_WORD_LENGTH = 9
+private const val WHEEL_SIZE_RATIO = 0.8f
 private val WHEEL_LETTER_SIZE = 48.dp
+private val WHEEL_MAX_SIZE = 320.dp
 private val WHEEL_CONTAINER_EXTRA_HEIGHT = 24.dp
 private val WHEEL_VERTICAL_OFFSET = WHEEL_LETTER_SIZE
 private val COMPLETION_BANNER_AREA_HEIGHT = 64.dp
@@ -122,6 +126,12 @@ private data class UserSettings(
     val muted: Boolean = false,
     val maxWordLength: Int = DEFAULT_MAX_WORD_LENGTH
 )
+
+private enum class HammerMode {
+    Off,
+    Single,
+    Caps
+}
 
 @Composable
 private fun GameScreen() {
@@ -145,7 +155,7 @@ private fun GameScreen() {
     val initialLayout = remember { buildCrosswordLayout(baseWord, dictionary) }
     var grid by remember { mutableStateOf(initialLayout.grid) }
     var crosswordWords by remember { mutableStateOf(initialLayout.words) }
-    var hammerArmed by remember { mutableStateOf(false) }
+    var hammerMode by remember { mutableStateOf(HammerMode.Off) }
 
     fun startNewGame(newWord: String) {
         val layout = buildCrosswordLayout(newWord, dictionary)
@@ -153,7 +163,7 @@ private fun GameScreen() {
         letters = generateLetterWheel(newWord).shuffled()
         grid = layout.grid
         crosswordWords = layout.words
-        hammerArmed = false
+        hammerMode = HammerMode.Off
     }
 
     LaunchedEffect(eligibleWords) {
@@ -163,6 +173,7 @@ private fun GameScreen() {
         }
     }
     val isSolved = grid.isNotEmpty() && grid.all { row -> row.all { cell -> !cell.isActive || cell.isRevealed } }
+    val hammerActive = hammerMode != HammerMode.Off
 
     Box(modifier = Modifier.fillMaxSize()) {
         AbstractBackground(modifier = Modifier.fillMaxSize())
@@ -183,11 +194,11 @@ private fun GameScreen() {
             Spacer(modifier = Modifier.height(12.dp))
             CrosswordSection(
                 grid = grid,
-                hammerArmed = hammerArmed,
+                hammerActive = hammerActive,
                 isSolved = isSolved,
                 onCellTap = { rowIndex, colIndex ->
                     val cell = grid[rowIndex][colIndex]
-                    if (hammerArmed && cell.isActive && !cell.isRevealed) {
+                    if (hammerMode != HammerMode.Off && cell.isActive && !cell.isRevealed) {
                         grid = grid.mapIndexed { row, rowCells ->
                             rowCells.mapIndexed { col, item ->
                                 if (row == rowIndex && col == colIndex) {
@@ -197,7 +208,9 @@ private fun GameScreen() {
                                 }
                             }
                         }
-                        hammerArmed = false
+                        if (hammerMode == HammerMode.Single) {
+                            hammerMode = HammerMode.Off
+                        }
                     }
                 },
                 modifier = Modifier.weight(1f)
@@ -211,9 +224,21 @@ private fun GameScreen() {
             )
             LetterWheelSection(
                 letters = letters,
-                hammerArmed = hammerArmed,
+                hammerActive = hammerActive,
                 onShuffle = { letters = letters.shuffled() },
-                onHammer = { hammerArmed = !hammerArmed },
+                onHammerTap = {
+                    hammerMode = when (hammerMode) {
+                        HammerMode.Off -> HammerMode.Single
+                        HammerMode.Single -> HammerMode.Off
+                        HammerMode.Caps -> HammerMode.Single
+                    }
+                },
+                onHammerLongPress = {
+                    if (hammerMode != HammerMode.Caps) {
+                        hammerMode = HammerMode.Caps
+                    }
+                },
+                onSelectionStart = { hammerMode = HammerMode.Off },
                 onWordSelected = { selectedWord ->
                     val (updatedGrid, result) = applySelectedWord(selectedWord, crosswordWords, grid)
                     grid = updatedGrid
@@ -335,7 +360,7 @@ private fun SettingsDialog(
 @Composable
 private fun CrosswordSection(
     grid: List<List<CrosswordCell>>,
-    hammerArmed: Boolean,
+    hammerActive: Boolean,
     isSolved: Boolean,
     onCellTap: (Int, Int) -> Unit,
     modifier: Modifier = Modifier
@@ -349,7 +374,7 @@ private fun CrosswordSection(
             onCellTap = onCellTap,
             modifier = Modifier.fillMaxWidth()
         )
-        if (hammerArmed && !isSolved) {
+        if (hammerActive && !isSolved) {
             Text(
                 text = stringResource(R.string.reveal_hint),
                 color = TileText.copy(alpha = 0.8f),
@@ -483,38 +508,44 @@ private fun CrosswordCellItem(
 @Composable
 private fun LetterWheelSection(
     letters: List<Char>,
-    hammerArmed: Boolean,
+    hammerActive: Boolean,
     onShuffle: () -> Unit,
-    onHammer: () -> Unit,
+    onHammerTap: () -> Unit,
+    onHammerLongPress: () -> Unit,
+    onSelectionStart: () -> Unit,
     onWordSelected: (String) -> WordResult,
     soundEffects: SoundEffects,
     modifier: Modifier = Modifier
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-        val wheelSize = maxWidth.coerceAtMost(320.dp) * 0.8f
+        val verticalPadding = WHEEL_CONTAINER_EXTRA_HEIGHT + WHEEL_VERTICAL_OFFSET
+        val maxWheelWidth = maxWidth.coerceAtMost(WHEEL_MAX_SIZE)
+        val heightBudget = maxHeight.coerceAtLeast(verticalPadding) - verticalPadding
+        val wheelSize = minOf(maxWheelWidth * WHEEL_SIZE_RATIO, heightBudget)
 
         @Suppress("DEPRECATION")
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(wheelSize + WHEEL_CONTAINER_EXTRA_HEIGHT + WHEEL_VERTICAL_OFFSET)
+                .height(wheelSize + verticalPadding)
+                .padding(top = WHEEL_VERTICAL_OFFSET)
         ) {
             LetterWheel(
                 letters = letters,
                 onShuffle = onShuffle,
+                onSelectionStart = onSelectionStart,
                 onWordSelected = onWordSelected,
                 soundEffects = soundEffects,
                 modifier = Modifier
                     .size(wheelSize)
                     .align(Alignment.Center)
-                    .offset(y = WHEEL_VERTICAL_OFFSET)
             )
             HammerButton(
-                armed = hammerArmed,
-                onClick = onHammer,
+                armed = hammerActive,
+                onClick = onHammerTap,
+                onLongPress = onHammerLongPress,
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .offset(y = WHEEL_VERTICAL_OFFSET)
                     .padding(start = 4.dp, top = 4.dp)
             )
         }
@@ -525,6 +556,7 @@ private fun LetterWheelSection(
 private fun LetterWheel(
     letters: List<Char>,
     onShuffle: () -> Unit,
+    onSelectionStart: () -> Unit,
     onWordSelected: (String) -> WordResult,
     soundEffects: SoundEffects,
     modifier: Modifier = Modifier
@@ -542,6 +574,7 @@ private fun LetterWheel(
         var lastToneFreq by remember { mutableStateOf<Double?>(null) }
         val onWordSelectedState by rememberUpdatedState(onWordSelected)
         val soundEffectsState by rememberUpdatedState(soundEffects)
+        val onSelectionStartState by rememberUpdatedState(onSelectionStart)
         val highlightColor = TileColor
         val hitRadius = letterSizePx * 0.55f
         val hitRadiusSq = hitRadius * hitRadius
@@ -636,6 +669,7 @@ private fun LetterWheel(
                         val down = awaitFirstDown(requireUnconsumed = false)
                         val startIndex = findHitIndex(down.position) ?: return@awaitEachGesture
                         down.consumeAllChanges()
+                        onSelectionStartState()
                         selectedIndices = emptyList()
                         updateSelection(startIndex)
                         dragPosition = centers[startIndex]
@@ -734,6 +768,7 @@ private fun LetterWheel(
 private fun HammerButton(
     armed: Boolean,
     onClick: () -> Unit,
+    onLongPress: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val background = if (armed) AccentOrange else IconBase
@@ -741,9 +776,17 @@ private fun HammerButton(
         color = background,
         shape = CircleShape,
         shadowElevation = 8.dp,
-        modifier = modifier.size(56.dp)
+        modifier = modifier
+            .size(56.dp)
+            .hammerCombinedClickable(
+                onClick = onClick,
+                onLongClick = onLongPress
+            )
     ) {
-        IconButton(onClick = onClick) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
             Icon(
                 imageVector = Icons.Filled.Gavel,
                 contentDescription = stringResource(R.string.hammer),
@@ -751,6 +794,17 @@ private fun HammerButton(
             )
         }
     }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+private fun Modifier.hammerCombinedClickable(
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
+): Modifier {
+    return combinedClickable(
+        onClick = onClick,
+        onLongClick = onLongClick
+    )
 }
 
 @Composable
