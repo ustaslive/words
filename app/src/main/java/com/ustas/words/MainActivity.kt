@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -35,11 +36,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Gavel
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Slider
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
@@ -109,6 +113,10 @@ private const val KEY_MAX_WORD_LENGTH = "max_word_length"
 private const val DEFAULT_MAX_WORD_LENGTH = 9
 private const val MIN_WORD_LENGTH = 5
 private const val MAX_WORD_LENGTH = 9
+private val WHEEL_LETTER_SIZE = 48.dp
+private val WHEEL_CONTAINER_EXTRA_HEIGHT = 24.dp
+private val WHEEL_VERTICAL_OFFSET = WHEEL_LETTER_SIZE
+private val COMPLETION_BANNER_AREA_HEIGHT = 64.dp
 
 private data class UserSettings(
     val muted: Boolean = false,
@@ -165,17 +173,18 @@ private fun GameScreen() {
                 .padding(horizontal = 18.dp, vertical = 16.dp)
         ) {
             TopBar(
-                onSettings = { showSettings = true }
+                onSettings = { showSettings = true },
+                onNewGame = {
+                    val newWord = pickRandomBaseWord(eligibleWords)
+                    startNewGame(newWord)
+                },
+                onExit = { (context as? ComponentActivity)?.finishAffinity() }
             )
             Spacer(modifier = Modifier.height(12.dp))
             CrosswordSection(
                 grid = grid,
                 hammerArmed = hammerArmed,
                 isSolved = isSolved,
-                onNewGame = {
-                    val newWord = pickRandomBaseWord(eligibleWords)
-                    startNewGame(newWord)
-                },
                 onCellTap = { rowIndex, colIndex ->
                     val cell = grid[rowIndex][colIndex]
                     if (hammerArmed && cell.isActive && !cell.isRevealed) {
@@ -193,7 +202,13 @@ private fun GameScreen() {
                 },
                 modifier = Modifier.weight(1f)
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            CompletionBannerArea(
+                isSolved = isSolved,
+                onNewGame = {
+                    val newWord = pickRandomBaseWord(eligibleWords)
+                    startNewGame(newWord)
+                }
+            )
             LetterWheelSection(
                 letters = letters,
                 hammerArmed = hammerArmed,
@@ -226,7 +241,12 @@ private fun GameScreen() {
 }
 
 @Composable
-private fun TopBar(onSettings: () -> Unit) {
+private fun TopBar(
+    onSettings: () -> Unit,
+    onNewGame: () -> Unit,
+    onExit: () -> Unit
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.End
@@ -234,8 +254,38 @@ private fun TopBar(onSettings: () -> Unit) {
         CircleIconButton(
             icon = Icons.Filled.Settings,
             contentDescription = stringResource(R.string.settings),
-            onClick = onSettings
+            onClick = {
+                menuExpanded = false
+                onSettings()
+            }
         )
+        Spacer(modifier = Modifier.width(8.dp))
+        Box {
+            CircleIconButton(
+                icon = Icons.Filled.MoreVert,
+                contentDescription = stringResource(R.string.menu),
+                onClick = { menuExpanded = true }
+            )
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = { menuExpanded = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text(text = stringResource(R.string.menu_new)) },
+                    onClick = {
+                        menuExpanded = false
+                        onNewGame()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text(text = stringResource(R.string.menu_exit)) },
+                    onClick = {
+                        menuExpanded = false
+                        onExit()
+                    }
+                )
+            }
+        }
     }
 }
 
@@ -287,7 +337,6 @@ private fun CrosswordSection(
     grid: List<List<CrosswordCell>>,
     hammerArmed: Boolean,
     isSolved: Boolean,
-    onNewGame: () -> Unit,
     onCellTap: (Int, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -300,12 +349,6 @@ private fun CrosswordSection(
             onCellTap = onCellTap,
             modifier = Modifier.fillMaxWidth()
         )
-        if (isSolved) {
-            CompletionBanner(
-                onNewGame = onNewGame,
-                modifier = Modifier.padding(top = 12.dp)
-            )
-        }
         if (hammerArmed && !isSolved) {
             Text(
                 text = stringResource(R.string.reveal_hint),
@@ -313,6 +356,24 @@ private fun CrosswordSection(
                 fontSize = 14.sp,
                 modifier = Modifier.padding(top = 10.dp)
             )
+        }
+    }
+}
+
+@Composable
+private fun CompletionBannerArea(
+    isSolved: Boolean,
+    onNewGame: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (isSolved) {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .heightIn(min = COMPLETION_BANNER_AREA_HEIGHT),
+            contentAlignment = Alignment.Center
+        ) {
+            CompletionBanner(onNewGame = onNewGame)
         }
     }
 }
@@ -436,7 +497,7 @@ private fun LetterWheelSection(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(wheelSize + 24.dp)
+                .height(wheelSize + WHEEL_CONTAINER_EXTRA_HEIGHT + WHEEL_VERTICAL_OFFSET)
         ) {
             LetterWheel(
                 letters = letters,
@@ -446,13 +507,15 @@ private fun LetterWheelSection(
                 modifier = Modifier
                     .size(wheelSize)
                     .align(Alignment.Center)
+                    .offset(y = WHEEL_VERTICAL_OFFSET)
             )
             HammerButton(
                 armed = hammerArmed,
                 onClick = onHammer,
                 modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 4.dp)
+                    .align(Alignment.TopStart)
+                    .offset(y = WHEEL_VERTICAL_OFFSET)
+                    .padding(start = 4.dp, top = 4.dp)
             )
         }
     }
@@ -468,7 +531,7 @@ private fun LetterWheel(
 ) {
     BoxWithConstraints(modifier = modifier) {
         val diameter = maxWidth.coerceAtMost(maxHeight)
-        val letterSize = 48.dp
+        val letterSize = WHEEL_LETTER_SIZE
         val density = LocalDensity.current
         val letterSizePx = with(density) { letterSize.toPx() }
         val radiusPx = with(density) { (diameter / 2 - letterSize * 0.7f).toPx() }

@@ -4,4 +4,7 @@
     <string name="shuffle_letters">Shuffle letters</string>
     <string name="hammer">Hammer</string>
     <string name="reveal_hint">Tap a tile to reveal a letter</string>
+    <string name="menu">Menu</string>
+    <string name="menu_new">New</string>
+    <string name="menu_exit">Exit</string>
 </resources>
