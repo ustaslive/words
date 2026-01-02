@@ -115,6 +115,8 @@ private const val KEY_MAX_WORD_LENGTH = "max_word_length"
 private const val DEFAULT_MAX_WORD_LENGTH = 9
 private const val MIN_WORD_LENGTH = 5
 private const val MAX_WORD_LENGTH = 9
+private const val MIN_PROBLEM_LOG_WORD_COUNT = 5
+private const val PROBLEM_LOG_TYPE_WORD = "word"
 private const val WHEEL_SIZE_RATIO = 0.8f
 private val WHEEL_LETTER_SIZE = 48.dp
 private val WHEEL_MAX_SIZE = 320.dp
@@ -166,6 +168,10 @@ private fun GameScreen() {
         hammerMode = HammerMode.Off
     }
 
+    LaunchedEffect(baseWord) {
+        logSmallWordListIfNeeded(appContext, baseWord, dictionary)
+    }
+
     LaunchedEffect(eligibleWords) {
         if (!eligibleWords.contains(baseWord) || baseWord.length > settings.maxWordLength) {
             val newWord = pickRandomBaseWord(eligibleWords)
@@ -189,6 +195,8 @@ private fun GameScreen() {
                     val newWord = pickRandomBaseWord(eligibleWords)
                     startNewGame(newWord)
                 },
+                onShareProblems = { shareProblemLog(context) },
+                onResetProblems = { resetProblemLog(appContext) },
                 onExit = { (context as? ComponentActivity)?.finishAffinity() }
             )
             Spacer(modifier = Modifier.height(12.dp))
@@ -269,6 +277,8 @@ private fun GameScreen() {
 private fun TopBar(
     onSettings: () -> Unit,
     onNewGame: () -> Unit,
+    onShareProblems: () -> Unit,
+    onResetProblems: () -> Unit,
     onExit: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -300,6 +310,20 @@ private fun TopBar(
                     onClick = {
                         menuExpanded = false
                         onNewGame()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text(text = stringResource(R.string.menu_share_problems)) },
+                    onClick = {
+                        menuExpanded = false
+                        onShareProblems()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text(text = stringResource(R.string.menu_reset_problems)) },
+                    onClick = {
+                        menuExpanded = false
+                        onResetProblems()
                     }
                 )
                 DropdownMenuItem(
@@ -999,6 +1023,15 @@ private fun loadSettings(context: Context): UserSettings {
         .coerceIn(MIN_WORD_LENGTH, MAX_WORD_LENGTH)
     val muted = prefs.getBoolean(KEY_MUTE, false)
     return UserSettings(muted = muted, maxWordLength = maxLength)
+}
+
+private fun logSmallWordListIfNeeded(context: Context, baseWord: String, dictionary: List<String>) {
+    val matchingWordCount = buildMiniDictionary(baseWord, dictionary)
+        .count { it.length >= MIN_CROSSWORD_WORD_LENGTH }
+    if (matchingWordCount < MIN_PROBLEM_LOG_WORD_COUNT) {
+        val description = "$baseWord: could only find $matchingWordCount words for crossword."
+        appendProblemLogEntry(context, PROBLEM_LOG_TYPE_WORD, description)
+    }
 }
 
 private fun saveSettings(context: Context, settings: UserSettings) {
