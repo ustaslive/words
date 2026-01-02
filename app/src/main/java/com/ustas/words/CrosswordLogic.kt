@@ -6,6 +6,8 @@ import kotlin.random.Random
 private const val ALPHABET_SIZE = 26
 internal const val CROSSWORD_EMPTY_CELL = '.'
 internal const val MIN_CROSSWORD_WORD_LENGTH = 4
+internal const val MAX_CROSSWORD_ROWS = 14
+internal const val MAX_CROSSWORD_COLUMNS = 14
 private const val ORIGIN_INDEX = 0
 private const val INDEX_STEP = 1
 private const val LAST_INDEX_OFFSET = 1
@@ -184,6 +186,12 @@ internal fun generateRandomCrossword(
         .filterNot { it == baseWord }
         .shuffled(random)
 
+    val baseFitsHorizontal = baseWord.length <= MAX_CROSSWORD_COLUMNS
+    val baseFitsVertical = baseWord.length <= MAX_CROSSWORD_ROWS
+    if (!baseFitsHorizontal && !baseFitsVertical) {
+        return emptyList()
+    }
+
     val grid = mutableMapOf<GridPosition, CellState>()
     val letterIndex = mutableMapOf<Char, MutableList<GridPosition>>()
     val bounds = CrosswordBounds(
@@ -193,10 +201,12 @@ internal fun generateRandomCrossword(
         maxCol = ORIGIN_INDEX
     )
 
-    val baseOrientation = if (random.nextBoolean()) {
-        WordOrientation.HORIZONTAL
-    } else {
-        WordOrientation.VERTICAL
+    val baseOrientation = when {
+        baseFitsHorizontal && baseFitsVertical -> {
+            if (random.nextBoolean()) WordOrientation.HORIZONTAL else WordOrientation.VERTICAL
+        }
+        baseFitsHorizontal -> WordOrientation.HORIZONTAL
+        else -> WordOrientation.VERTICAL
     }
     placeWord(
         placement = WordPlacement(
@@ -210,7 +220,7 @@ internal fun generateRandomCrossword(
     )
 
     for (word in remainingWords) {
-        val candidates = findCandidatePlacements(word, grid, letterIndex)
+        val candidates = findCandidatePlacements(word, grid, letterIndex, bounds)
         if (candidates.isEmpty()) {
             continue
         }
@@ -303,7 +313,8 @@ private fun pickLongestWords(words: List<String>): List<String> {
 private fun findCandidatePlacements(
     word: String,
     grid: Map<GridPosition, CellState>,
-    letterIndex: Map<Char, List<GridPosition>>
+    letterIndex: Map<Char, List<GridPosition>>,
+    bounds: CrosswordBounds
 ): List<WordPlacement> {
     val placements = LinkedHashSet<WordPlacement>()
     for ((index, letter) in word.withIndex()) {
@@ -311,12 +322,12 @@ private fun findCandidatePlacements(
         for (position in positions) {
             val horizontalStart = GridPosition(position.row, position.col - index)
             val horizontalPlacement = WordPlacement(word, horizontalStart, WordOrientation.HORIZONTAL)
-            if (canPlaceWord(horizontalPlacement, grid)) {
+            if (canPlaceWord(horizontalPlacement, grid, bounds)) {
                 placements.add(horizontalPlacement)
             }
             val verticalStart = GridPosition(position.row - index, position.col)
             val verticalPlacement = WordPlacement(word, verticalStart, WordOrientation.VERTICAL)
-            if (canPlaceWord(verticalPlacement, grid)) {
+            if (canPlaceWord(verticalPlacement, grid, bounds)) {
                 placements.add(verticalPlacement)
             }
         }
@@ -430,7 +441,8 @@ private fun collectWordsFromLine(
 
 private fun canPlaceWord(
     placement: WordPlacement,
-    grid: Map<GridPosition, CellState>
+    grid: Map<GridPosition, CellState>,
+    bounds: CrosswordBounds
 ): Boolean {
     val step = orientationStep(placement.orientation)
     val beforeStart = GridPosition(
@@ -449,6 +461,11 @@ private fun canPlaceWord(
     if (grid.containsKey(afterEnd)) {
         return false
     }
+
+    var minRow = bounds.minRow
+    var maxRow = bounds.maxRow
+    var minCol = bounds.minCol
+    var maxCol = bounds.maxCol
 
     var addsNewCell = false
     for (index in placement.word.indices) {
@@ -474,6 +491,15 @@ private fun canPlaceWord(
                 return false
             }
         }
+        minRow = minOf(minRow, row)
+        maxRow = maxOf(maxRow, row)
+        minCol = minOf(minCol, col)
+        maxCol = maxOf(maxCol, col)
+    }
+    val rowCount = (maxRow - minRow) + INDEX_STEP
+    val columnCount = (maxCol - minCol) + INDEX_STEP
+    if (rowCount > MAX_CROSSWORD_ROWS || columnCount > MAX_CROSSWORD_COLUMNS) {
+        return false
     }
     return addsNewCell
 }
