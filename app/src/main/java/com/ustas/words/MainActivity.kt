@@ -134,19 +134,27 @@ private fun GameScreen() {
     }
     var baseWord by remember { mutableStateOf(pickRandomBaseWord(eligibleWords)) }
     var letters by remember { mutableStateOf(generateLetterWheel(baseWord).shuffled()) }
-    var grid by remember { mutableStateOf(generateCrosswordGrid(baseWord)) }
+    val initialLayout = remember { buildCrosswordLayout(baseWord, dictionary) }
+    var grid by remember { mutableStateOf(initialLayout.grid) }
+    var crosswordWords by remember { mutableStateOf(initialLayout.words) }
     var hammerArmed by remember { mutableStateOf(false) }
+
+    fun startNewGame(newWord: String) {
+        val layout = buildCrosswordLayout(newWord, dictionary)
+        baseWord = newWord
+        letters = generateLetterWheel(newWord).shuffled()
+        grid = layout.grid
+        crosswordWords = layout.words
+        hammerArmed = false
+    }
+
     LaunchedEffect(eligibleWords) {
         if (!eligibleWords.contains(baseWord) || baseWord.length > settings.maxWordLength) {
             val newWord = pickRandomBaseWord(eligibleWords)
-            baseWord = newWord
-            letters = generateLetterWheel(newWord).shuffled()
-            grid = generateCrosswordGrid(newWord)
-            hammerArmed = false
+            startNewGame(newWord)
         }
     }
-    val crosswordWords = remember(baseWord) { generateCrosswordWords(baseWord).associateBy { it.word } }
-    val isSolved = grid.all { row -> row.all { cell -> !cell.isActive || cell.isRevealed } }
+    val isSolved = grid.isNotEmpty() && grid.all { row -> row.all { cell -> !cell.isActive || cell.isRevealed } }
 
     Box(modifier = Modifier.fillMaxSize()) {
         AbstractBackground(modifier = Modifier.fillMaxSize())
@@ -166,10 +174,7 @@ private fun GameScreen() {
                 isSolved = isSolved,
                 onNewGame = {
                     val newWord = pickRandomBaseWord(eligibleWords)
-                    baseWord = newWord
-                    grid = generateCrosswordGrid(newWord)
-                    letters = generateLetterWheel(newWord).shuffled()
-                    hammerArmed = false
+                    startNewGame(newWord)
                 },
                 onCellTap = { rowIndex, colIndex ->
                     val cell = grid[rowIndex][colIndex]
@@ -539,7 +544,7 @@ private fun LetterWheel(
 
         fun finishSelection() {
             val selectionSize = selectedIndices.size
-            if (selectionSize >= 4) {
+            if (selectionSize >= MIN_CROSSWORD_WORD_LENGTH) {
                 val selectedWord = buildString {
                     selectedIndices.forEach { index ->
                         append(letters[index].uppercaseChar())
