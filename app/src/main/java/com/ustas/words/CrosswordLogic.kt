@@ -11,6 +11,7 @@ internal const val MAX_CROSSWORD_COLUMNS = 14
 private const val ORIGIN_INDEX = 0
 private const val INDEX_STEP = 1
 private const val LAST_INDEX_OFFSET = 1
+private const val PRIORITY_LONGEST_WORDS_COUNT = 3
 
 internal data class CrosswordCell(
     val letter: Char?,
@@ -182,8 +183,10 @@ internal fun generateRandomCrossword(
 
     val longestWords = pickLongestWords(normalizedWords)
     val baseWord = longestWords[random.nextInt(longestWords.size)]
+    val priorityWords = pickPriorityWords(normalizedWords, baseWord)
+    val priorityWordSet = priorityWords.toSet()
     val remainingWords = normalizedWords
-        .filterNot { it == baseWord }
+        .filterNot { priorityWordSet.contains(it) }
         .shuffled(random)
 
     val baseFitsHorizontal = baseWord.length <= MAX_CROSSWORD_COLUMNS
@@ -219,7 +222,8 @@ internal fun generateRandomCrossword(
         bounds = bounds
     )
 
-    for (word in remainingWords) {
+    val orderedWords = priorityWords.drop(INDEX_STEP) + remainingWords
+    for (word in orderedWords) {
         val candidates = findCandidatePlacements(word, grid, letterIndex, bounds)
         if (candidates.isEmpty()) {
             continue
@@ -308,6 +312,22 @@ private fun normalizeCrosswordWords(words: List<String>): List<String> {
 private fun pickLongestWords(words: List<String>): List<String> {
     val maxLength = words.maxOf { it.length }
     return words.filter { it.length == maxLength }
+}
+
+private fun pickPriorityWords(words: List<String>, baseWord: String): List<String> {
+    val orderedByLength = words.sortedByDescending { it.length }
+    val priorityWords = mutableListOf<String>()
+    priorityWords.add(baseWord)
+    for (word in orderedByLength) {
+        if (word == baseWord) {
+            continue
+        }
+        priorityWords.add(word)
+        if (priorityWords.size == PRIORITY_LONGEST_WORDS_COUNT) {
+            break
+        }
+    }
+    return priorityWords
 }
 
 private fun findCandidatePlacements(
