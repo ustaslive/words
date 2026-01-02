@@ -36,3 +36,7 @@ outputs/
 /mcp.stderr
 /mcp.stdout
 /.mcp
+
+# Upstash/Context7 cache files
+.cache_upstash*
+.context7/
