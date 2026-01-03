@@ -84,7 +84,35 @@ private data class CrosswordBounds(
 internal sealed interface WordResult {
     data object Success : WordResult
     data object AlreadySolved : WordResult
+    data object MissingWordFound : WordResult
+    data object MissingWordAlreadyFound : WordResult
     data object NotFound : WordResult
+}
+
+internal data class MissingWordEntry(
+    val word: String,
+    val isGuessed: Boolean
+)
+
+internal data class MissingWordsState(
+    val entries: Map<String, MissingWordEntry>,
+    val remainingCount: Int,
+    val lastGuessedWord: String?
+)
+
+internal enum class MissingWordMatch {
+    None,
+    AlreadyGuessed,
+    NewlyGuessed
+}
+
+internal data class MissingWordGuessResult(
+    val state: MissingWordsState,
+    val match: MissingWordMatch
+)
+
+internal fun emptyMissingWordsState(): MissingWordsState {
+    return MissingWordsState(emptyMap(), ORIGIN_INDEX, null)
 }
 
 internal fun loadWordList(openStream: () -> InputStream): List<String> {
@@ -339,6 +367,45 @@ internal fun applySelectedWord(
     } else {
         grid to WordResult.NotFound
     }
+}
+
+internal fun buildMissingWordsState(
+    baseWord: String,
+    dictionary: List<String>,
+    crosswordWords: Map<String, CrosswordWord>
+): MissingWordsState {
+    if (baseWord.isBlank()) {
+        return emptyMissingWordsState()
+    }
+    val candidates = buildMiniDictionary(baseWord, dictionary)
+        .filter { it.length >= MIN_CROSSWORD_WORD_LENGTH }
+    val normalizedCandidates = normalizeCrosswordWords(candidates)
+    val missingWords = normalizedCandidates.filterNot { crosswordWords.containsKey(it) }
+    val entries = missingWords.associateWith { MissingWordEntry(word = it, isGuessed = false) }
+    return MissingWordsState(entries, entries.size, null)
+}
+
+internal fun applyMissingWordGuess(
+    selectedWord: String,
+    state: MissingWordsState
+): MissingWordGuessResult {
+    val normalized = selectedWord.trim().uppercase()
+    if (normalized.isEmpty()) {
+        return MissingWordGuessResult(state, MissingWordMatch.None)
+    }
+    val entry = state.entries[normalized] ?: return MissingWordGuessResult(state, MissingWordMatch.None)
+    if (entry.isGuessed) {
+        return MissingWordGuessResult(state, MissingWordMatch.AlreadyGuessed)
+    }
+    val updatedEntries = state.entries.toMutableMap()
+    updatedEntries[normalized] = entry.copy(isGuessed = true)
+    val updatedCount = (state.remainingCount - INDEX_STEP).coerceAtLeast(ORIGIN_INDEX)
+    val updatedState = state.copy(
+        entries = updatedEntries.toMap(),
+        remainingCount = updatedCount,
+        lastGuessedWord = normalized
+    )
+    return MissingWordGuessResult(updatedState, MissingWordMatch.NewlyGuessed)
 }
 
 private fun horizontalWord(word: String, row: Int, startCol: Int): CrosswordWord {

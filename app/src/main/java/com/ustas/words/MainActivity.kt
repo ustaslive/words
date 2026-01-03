@@ -72,6 +72,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.consumeAllChanges
 import androidx.compose.ui.input.pointer.pointerInput
@@ -140,6 +141,12 @@ private val NEW_GAME_TEXT_SIZE = 18.sp
 private val CROSSWORD_MAX_SIZE = WHEEL_MAX_SIZE
 private val WHEEL_SELECTION_TEXT_SIZE = 26.sp
 private val WHEEL_SELECTION_LETTER_SPACING = 4.sp
+private val WHEEL_CORNER_BUTTON_SIZE = 56.dp
+private val WHEEL_CORNER_BUTTON_PADDING = 4.dp
+private val MISSING_WORD_COUNT_TEXT_SIZE = 20.sp
+private val MISSING_WORD_LABEL_TEXT_SIZE = 12.sp
+private val MISSING_WORD_LABEL_SPACING = 4.dp
+private const val MISSING_WORD_LABEL_ALPHA = 0.8f
 
 private data class UserSettings(
     val muted: Boolean = false,
@@ -173,6 +180,7 @@ private fun GameScreen() {
     var letters by remember { mutableStateOf(emptyList<Char>()) }
     var grid by remember { mutableStateOf(emptyList<List<CrosswordCell>>()) }
     var crosswordWords by remember { mutableStateOf(emptyMap<String, CrosswordWord>()) }
+    var missingWordsState by remember { mutableStateOf(emptyMissingWordsState()) }
     var hammerMode by remember { mutableStateOf(HammerMode.Off) }
     var generationError by remember { mutableStateOf(false) }
 
@@ -192,6 +200,7 @@ private fun GameScreen() {
                 letters = generateLetterWheel(result.baseWord).shuffled()
                 grid = result.layout.grid
                 crosswordWords = result.layout.words
+                missingWordsState = buildMissingWordsState(result.baseWord, dictionary, result.layout.words)
                 hammerMode = HammerMode.Off
                 generationError = false
             }
@@ -206,6 +215,7 @@ private fun GameScreen() {
                     baseWord = ""
                     letters = emptyList()
                     crosswordWords = emptyMap()
+                    missingWordsState = emptyMissingWordsState()
                 }
             }
         }
@@ -279,6 +289,8 @@ private fun GameScreen() {
                 letters = letters,
                 hammerActive = hammerActive,
                 showNewGameButton = showNewGameButton,
+                missingWordsCount = missingWordsState.remainingCount,
+                lastMissingWord = missingWordsState.lastGuessedWord,
                 onShuffle = { letters = letters.shuffled() },
                 onNewGame = {
                     startNewGame()
@@ -299,7 +311,17 @@ private fun GameScreen() {
                 onWordSelected = { selectedWord ->
                     val (updatedGrid, result) = applySelectedWord(selectedWord, crosswordWords, grid)
                     grid = updatedGrid
-                    result
+                    if (result != WordResult.NotFound) {
+                        result
+                    } else {
+                        val missingResult = applyMissingWordGuess(selectedWord, missingWordsState)
+                        missingWordsState = missingResult.state
+                        when (missingResult.match) {
+                            MissingWordMatch.NewlyGuessed -> WordResult.MissingWordFound
+                            MissingWordMatch.AlreadyGuessed -> WordResult.MissingWordAlreadyFound
+                            MissingWordMatch.None -> WordResult.NotFound
+                        }
+                    }
                 },
                 soundEffects = soundEffects,
                 modifier = Modifier.weight(0.9f)
@@ -539,6 +561,8 @@ private fun LetterWheelSection(
     letters: List<Char>,
     hammerActive: Boolean,
     showNewGameButton: Boolean,
+    missingWordsCount: Int,
+    lastMissingWord: String?,
     onShuffle: () -> Unit,
     onNewGame: () -> Unit,
     onHammerTap: () -> Unit,
@@ -606,7 +630,14 @@ private fun LetterWheelSection(
                         onLongPress = onHammerLongPress,
                         modifier = Modifier
                             .align(Alignment.TopStart)
-                            .padding(start = 4.dp, top = 4.dp)
+                            .padding(start = WHEEL_CORNER_BUTTON_PADDING, top = WHEEL_CORNER_BUTTON_PADDING)
+                    )
+                    MissingWordsIndicator(
+                        remainingCount = missingWordsCount,
+                        lastGuessedWord = lastMissingWord,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(end = WHEEL_CORNER_BUTTON_PADDING, top = WHEEL_CORNER_BUTTON_PADDING)
                     )
                 }
             }
@@ -747,6 +778,8 @@ private fun LetterWheel(
                 when (onWordSelectedState(selectedWord)) {
                     WordResult.Success -> soundEffectsState.successChord(lastToneFreq)
                     WordResult.AlreadySolved -> soundEffectsState.shortConfirm()
+                    WordResult.MissingWordFound -> soundEffectsState.shortConfirm()
+                    WordResult.MissingWordAlreadyFound -> soundEffectsState.shortConfirm()
                     WordResult.NotFound -> soundEffectsState.miss()
                 }
             } else if (selectionSize > 0) {
@@ -923,7 +956,7 @@ private fun HammerButton(
         shape = CircleShape,
         shadowElevation = 8.dp,
         modifier = modifier
-            .size(56.dp)
+            .size(WHEEL_CORNER_BUTTON_SIZE)
             .hammerCombinedClickable(
                 onClick = onClick,
                 onLongClick = onLongPress
@@ -938,6 +971,48 @@ private fun HammerButton(
                 contentDescription = stringResource(R.string.hammer),
                 tint = Color.White
             )
+        }
+    }
+}
+
+@Composable
+private fun MissingWordsIndicator(
+    remainingCount: Int,
+    lastGuessedWord: String?,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        if (!lastGuessedWord.isNullOrBlank()) {
+            Text(
+                text = lastGuessedWord,
+                color = TileText.copy(alpha = MISSING_WORD_LABEL_ALPHA),
+                fontWeight = FontWeight.SemiBold,
+                fontSize = MISSING_WORD_LABEL_TEXT_SIZE,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(MISSING_WORD_LABEL_SPACING))
+        }
+        Surface(
+            color = IconBase,
+            shape = CircleShape,
+            shadowElevation = 8.dp,
+            modifier = Modifier.size(WHEEL_CORNER_BUTTON_SIZE)
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = remainingCount.toString(),
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = MISSING_WORD_COUNT_TEXT_SIZE
+                )
+            }
         }
     }
 }

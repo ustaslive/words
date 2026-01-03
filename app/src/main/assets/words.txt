@@ -366,6 +366,7 @@ argue
 argued
 arguing
 argument
+arial
 ariel
 arise
 arising
@@ -491,13 +492,13 @@ autonomy
 autopsy
 autumn
 auxiliary
-avail
 available
 avatar
 avenue
 average
 averaged
 averaging
+avia
 aviation
 avid
 avoid
@@ -3946,7 +3947,6 @@ large
 largely
 larger
 largest
-larvae
 laser
 last
 lasted
