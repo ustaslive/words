@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -42,7 +41,6 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -62,6 +60,9 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -82,6 +83,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import com.ustas.words.ui.theme.AccentOrange
 import com.ustas.words.ui.theme.DeepGreen
+import com.ustas.words.ui.theme.GoldHighlight
+import com.ustas.words.ui.theme.GoldMid
+import com.ustas.words.ui.theme.GoldShadow
 import com.ustas.words.ui.theme.IconBase
 import com.ustas.words.ui.theme.LightGreen
 import com.ustas.words.ui.theme.MidGreen
@@ -122,7 +126,15 @@ private val WHEEL_LETTER_SIZE = 48.dp
 private val WHEEL_MAX_SIZE = 320.dp
 private val WHEEL_CONTAINER_EXTRA_HEIGHT = 24.dp
 private val WHEEL_VERTICAL_OFFSET = WHEEL_LETTER_SIZE
-private val COMPLETION_BANNER_AREA_HEIGHT = 64.dp
+private const val DIAMETER_TO_RADIUS_DIVISOR = 2f
+private const val WHEEL_LETTER_RING_INSET_FACTOR = 0.7f
+private const val NEW_GAME_DIAMETER_REDUCTION_FACTOR =
+    WHEEL_LETTER_RING_INSET_FACTOR * DIAMETER_TO_RADIUS_DIVISOR
+private const val NEW_GAME_GRADIENT_CENTER_RATIO = 0.3f
+private const val NEW_GAME_GRADIENT_RADIUS_RATIO = 0.85f
+private const val NEW_GAME_CIRCLE_RADIUS_RATIO = 0.5f
+private val NEW_GAME_BUTTON_ELEVATION = 10.dp
+private val NEW_GAME_TEXT_SIZE = 18.sp
 private val CROSSWORD_MAX_SIZE = WHEEL_MAX_SIZE
 
 private data class UserSettings(
@@ -224,17 +236,15 @@ private fun GameScreen() {
                 },
                 modifier = Modifier.weight(1f)
             )
-            CompletionBannerArea(
-                isSolved = isSolved,
-                onNewGame = {
-                    val newWord = pickRandomBaseWord(eligibleWords)
-                    startNewGame(newWord)
-                }
-            )
             LetterWheelSection(
                 letters = letters,
                 hammerActive = hammerActive,
+                isSolved = isSolved,
                 onShuffle = { letters = letters.shuffled() },
+                onNewGame = {
+                    val newWord = pickRandomBaseWord(eligibleWords)
+                    startNewGame(newWord)
+                },
                 onHammerTap = {
                     hammerMode = when (hammerMode) {
                         HammerMode.Off -> HammerMode.Single
@@ -411,53 +421,6 @@ private fun CrosswordSection(
 }
 
 @Composable
-private fun CompletionBannerArea(
-    isSolved: Boolean,
-    onNewGame: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    if (isSolved) {
-        Box(
-            modifier = modifier
-                .fillMaxWidth()
-                .heightIn(min = COMPLETION_BANNER_AREA_HEIGHT),
-            contentAlignment = Alignment.Center
-        ) {
-            CompletionBanner(onNewGame = onNewGame)
-        }
-    }
-}
-
-@Composable
-private fun CompletionBanner(
-    onNewGame: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        color = WheelBackground,
-        shape = RoundedCornerShape(16.dp),
-        shadowElevation = 6.dp,
-        modifier = modifier
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = "excellent",
-                color = WheelLetter,
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp
-            )
-            Button(onClick = onNewGame) {
-                Text(text = "New game")
-            }
-        }
-    }
-}
-
-@Composable
 private fun CrosswordGrid(
     grid: List<List<CrosswordCell>>,
     onCellTap: (Int, Int) -> Unit,
@@ -537,7 +500,9 @@ private fun CrosswordCellItem(
 private fun LetterWheelSection(
     letters: List<Char>,
     hammerActive: Boolean,
+    isSolved: Boolean,
     onShuffle: () -> Unit,
+    onNewGame: () -> Unit,
     onHammerTap: () -> Unit,
     onHammerLongPress: () -> Unit,
     onSelectionStart: () -> Unit,
@@ -560,7 +525,9 @@ private fun LetterWheelSection(
         ) {
             LetterWheel(
                 letters = letters,
+                isSolved = isSolved,
                 onShuffle = onShuffle,
+                onNewGame = onNewGame,
                 onSelectionStart = onSelectionStart,
                 onWordSelected = onWordSelected,
                 soundEffects = soundEffects,
@@ -583,7 +550,9 @@ private fun LetterWheelSection(
 @Composable
 private fun LetterWheel(
     letters: List<Char>,
+    isSolved: Boolean,
     onShuffle: () -> Unit,
+    onNewGame: () -> Unit,
     onSelectionStart: () -> Unit,
     onWordSelected: (String) -> WordResult,
     soundEffects: SoundEffects,
@@ -594,8 +563,10 @@ private fun LetterWheel(
         val letterSize = WHEEL_LETTER_SIZE
         val density = LocalDensity.current
         val letterSizePx = with(density) { letterSize.toPx() }
-        val radiusPx = with(density) { (diameter / 2 - letterSize * 0.7f).toPx() }
-        val centerPx = with(density) { (diameter / 2).toPx() }
+        val radiusPx = with(density) {
+            (diameter / DIAMETER_TO_RADIUS_DIVISOR - letterSize * WHEEL_LETTER_RING_INSET_FACTOR).toPx()
+        }
+        val centerPx = with(density) { (diameter / DIAMETER_TO_RADIUS_DIVISOR).toPx() }
         val lineStrokePx = with(density) { 6.dp.toPx() }
         var selectedIndices by remember { mutableStateOf(listOf<Int>()) }
         var dragPosition by remember { mutableStateOf<Offset?>(null) }
@@ -606,6 +577,7 @@ private fun LetterWheel(
         val highlightColor = TileColor
         val hitRadius = letterSizePx * 0.55f
         val hitRadiusSq = hitRadius * hitRadius
+        val overlayDiameter = diameter - (letterSize * NEW_GAME_DIAMETER_REDUCTION_FACTOR)
         val centers = remember(letters, radiusPx, centerPx) {
             letters.mapIndexed { index, _ ->
                 val angle = index.toDouble() / letters.size * 2.0 * PI - PI / 2
@@ -776,19 +748,67 @@ private fun LetterWheel(
                     )
                 }
             }
-            IconButton(
-                onClick = onShuffle,
-                modifier = Modifier
-                    .size(54.dp)
-                    .align(Alignment.Center)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Shuffle,
-                    contentDescription = stringResource(R.string.shuffle_letters),
-                    tint = WheelLetter
+            if (isSolved) {
+                NewGameWheelButton(
+                    diameter = overlayDiameter,
+                    onClick = onNewGame,
+                    modifier = Modifier.align(Alignment.Center)
                 )
+            } else {
+                IconButton(
+                    onClick = onShuffle,
+                    modifier = Modifier
+                        .size(54.dp)
+                        .align(Alignment.Center)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Shuffle,
+                        contentDescription = stringResource(R.string.shuffle_letters),
+                        tint = WheelLetter
+                    )
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun NewGameWheelButton(
+    diameter: Dp,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(diameter)
+            .shadow(NEW_GAME_BUTTON_ELEVATION, CircleShape, clip = false)
+            .clip(CircleShape)
+            .drawWithCache {
+                val circleRadius = size.minDimension * NEW_GAME_CIRCLE_RADIUS_RATIO
+                val gradientRadius = size.minDimension * NEW_GAME_GRADIENT_RADIUS_RATIO
+                val highlightCenter = Offset(
+                    x = size.width * NEW_GAME_GRADIENT_CENTER_RATIO,
+                    y = size.height * NEW_GAME_GRADIENT_CENTER_RATIO
+                )
+                val brush = Brush.radialGradient(
+                    colors = listOf(GoldHighlight, GoldMid, GoldShadow),
+                    center = highlightCenter,
+                    radius = gradientRadius
+                )
+                onDrawBehind {
+                    drawCircle(brush = brush, radius = circleRadius, center = center)
+                }
+            }
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = stringResource(R.string.new_game),
+            color = WheelLetter,
+            fontWeight = FontWeight.Bold,
+            fontSize = NEW_GAME_TEXT_SIZE,
+            textAlign = TextAlign.Center
+        )
     }
 }
 

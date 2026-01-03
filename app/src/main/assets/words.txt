@@ -187,7 +187,6 @@ alcohol
 alcoholic
 alec
 alert
-alexander
 algae
 algebra
 algorithm
@@ -720,7 +719,6 @@ billboard
 billed
 billing
 billion
-billy
 binary
 bind
 binding
@@ -1055,7 +1053,6 @@ cannot
 canoe
 canon
 canopy
-cant
 canton
 canvas
 canyon
@@ -1088,10 +1085,7 @@ carefully
 careless
 cargo
 caring
-carl
-carmen
 carnival
-carol
 carpenter
 carpet
 carr
@@ -1617,7 +1611,6 @@ correctly
 corridor
 corrupt
 cortex
-cory
 cosmetic
 cosmic
 cosmos
@@ -1754,7 +1747,6 @@ culinary
 cult
 cultural
 culture
-cunt
 curator
 curb
 cure
@@ -2012,7 +2004,6 @@ devon
 devote
 devoted
 devotion
-dexter
 diabetes
 diagnosed
 diagnosis
@@ -2025,8 +2016,6 @@ diamond
 diarrhea
 diary
 dice
-dick
-dickens
 dictate
 dictator
 died
@@ -2897,8 +2886,6 @@ forbidden
 force
 forced
 forcing
-ford
-fore
 forecast
 forefront
 forehead
@@ -2997,10 +2984,6 @@ frontier
 frost
 frozen
 fruit
-fuck
-fucked
-fucker
-fucking
 fuel
 fueled
 fugitive
@@ -3816,18 +3799,13 @@ issuing
 item
 itself
 ivory
-jack
 jacket
 jackpot
-jade
 jaguar
 jail
 jailed
-jake
-jane
 japan
 jasmine
-jasper
 java
 jazz
 jealous
@@ -3835,22 +3813,12 @@ jealousy
 jean
 jeep
 jelly
-jenny
 jeopardy
-jerk
-jerry
 jersey
-jess
-jesse
 jewel
 jewellery
 jewelry
-jill
-jimmy
 jockey
-joey
-john
-johnny
 join
 joined
 joining
@@ -3861,9 +3829,6 @@ joker
 joking
 jolly
 jones
-jordan
-joseph
-josh
 journal
 journey
 judge
@@ -3900,7 +3865,6 @@ keep
 keeper
 keeping
 kelly
-kent
 kept
 kernel
 kerry
@@ -4235,7 +4199,6 @@ lung
 lure
 lurking
 lush
-lust
 luxurious
 luxury
 lying
@@ -5610,7 +5573,6 @@ pursuit
 push
 pushed
 pushing
-pussy
 putting
 puzzle
 pyramid
@@ -6208,7 +6170,6 @@ satisfied
 satisfy
 saturated
 sauce
-saul
 sausage
 savage
 savannah
@@ -6604,7 +6565,6 @@ slowed
 slower
 slowing
 slowly
-slut
 smack
 small
 smaller
@@ -8109,7 +8069,6 @@ wrong
 wrote
 yacht
 yahoo
-yang
 yard
 yarn
 yeah

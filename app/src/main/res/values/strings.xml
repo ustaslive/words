@@ -6,6 +6,7 @@
     <string name="reveal_hint">Tap a tile to reveal a letter</string>
     <string name="menu">Menu</string>
     <string name="menu_new">New</string>
+    <string name="new_game">New Game</string>
     <string name="menu_share_problems">Share problems log</string>
     <string name="menu_reset_problems">Reset problems log</string>
     <string name="menu_exit">Exit</string>
