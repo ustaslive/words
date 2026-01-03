@@ -123,6 +123,7 @@ private val WHEEL_MAX_SIZE = 320.dp
 private val WHEEL_CONTAINER_EXTRA_HEIGHT = 24.dp
 private val WHEEL_VERTICAL_OFFSET = WHEEL_LETTER_SIZE
 private val COMPLETION_BANNER_AREA_HEIGHT = 64.dp
+private val CROSSWORD_MAX_SIZE = WHEEL_MAX_SIZE
 
 private data class UserSettings(
     val muted: Boolean = false,
@@ -472,9 +473,12 @@ private fun CrosswordGrid(
         modifier = modifier,
         contentAlignment = Alignment.TopCenter
     ) {
-        val gridWidth = maxWidth.coerceAtMost(320.dp)
+        val maxGridWidth = maxWidth.coerceAtMost(CROSSWORD_MAX_SIZE)
         val cellSpacing = 4.dp
-        val cellSize = (gridWidth - cellSpacing * (columns - 1)) / columns
+        val cellSizeByWidth = (maxGridWidth - cellSpacing * (columns - 1)) / columns
+        val cellSizeByHeight = (maxHeight - cellSpacing * (rows - 1)) / rows
+        val cellSize = minOf(cellSizeByWidth, cellSizeByHeight)
+        val gridWidth = cellSize * columns + cellSpacing * (columns - 1)
 
         Column(modifier = Modifier.width(gridWidth)) {
             for (rowIndex in 0 until rows) {
