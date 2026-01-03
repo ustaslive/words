@@ -23,6 +23,17 @@ fun appendProblemLogEntry(context: Context, type: String, description: String) {
     file.appendText(line + System.lineSeparator())
 }
 
+fun appendProblemLogEntryIfMissing(context: Context, type: String, description: String) {
+    val file = ensureProblemLogFile(context)
+    val safeType = sanitizeLogPart(type)
+    val safeDescription = sanitizeLogPart(description)
+    val signature = listOf(safeType, safeDescription).joinToString(PROBLEM_LOG_ENTRY_SEPARATOR)
+    if (file.readText().contains(signature)) {
+        return
+    }
+    appendProblemLogEntry(context, type, description)
+}
+
 fun shareProblemLog(context: Context) {
     val file = ensureProblemLogFile(context)
     val shareIntent = Intent(Intent.ACTION_SEND).apply {

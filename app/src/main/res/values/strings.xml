@@ -11,4 +11,5 @@
     <string name="menu_reset_problems">Reset problems log</string>
     <string name="menu_exit">Exit</string>
     <string name="problem_log_share_title">Share problems log</string>
+    <string name="crossword_generation_failed">Unable to generate a crossword. Tap New Game to try again.</string>
 </resources>

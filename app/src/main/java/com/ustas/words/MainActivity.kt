@@ -121,6 +121,8 @@ private const val MIN_WORD_LENGTH = 5
 private const val MAX_WORD_LENGTH = 9
 private const val MIN_PROBLEM_LOG_WORD_COUNT = 5
 private const val PROBLEM_LOG_TYPE_WORD = "word"
+private const val PROBLEM_LOG_TYPE_LOGIC = "logic"
+private const val PROBLEM_LOG_ATTEMPT_LIMIT_COMMENT = "Crossword generation attempt limit exceeded."
 private const val WHEEL_SIZE_RATIO = 0.8f
 private val WHEEL_LETTER_SIZE = 48.dp
 private val WHEEL_MAX_SIZE = 320.dp
@@ -167,20 +169,46 @@ private fun GameScreen() {
     val eligibleWords = remember(dictionarySet, settings.maxWordLength) {
         dictionarySet.filter { it.length in MIN_WORD_LENGTH..settings.maxWordLength }
     }
-    var baseWord by remember { mutableStateOf(pickRandomBaseWord(eligibleWords)) }
-    var letters by remember { mutableStateOf(generateLetterWheel(baseWord).shuffled()) }
-    val initialLayout = remember { buildCrosswordLayout(baseWord, dictionary) }
-    var grid by remember { mutableStateOf(initialLayout.grid) }
-    var crosswordWords by remember { mutableStateOf(initialLayout.words) }
+    var baseWord by remember { mutableStateOf("") }
+    var letters by remember { mutableStateOf(emptyList<Char>()) }
+    var grid by remember { mutableStateOf(emptyList<List<CrosswordCell>>()) }
+    var crosswordWords by remember { mutableStateOf(emptyMap<String, CrosswordWord>()) }
     var hammerMode by remember { mutableStateOf(HammerMode.Off) }
+    var generationError by remember { mutableStateOf(false) }
 
-    fun startNewGame(newWord: String) {
-        val layout = buildCrosswordLayout(newWord, dictionary)
-        baseWord = newWord
-        letters = generateLetterWheel(newWord).shuffled()
-        grid = layout.grid
-        crosswordWords = layout.words
-        hammerMode = HammerMode.Off
+    fun startNewGame() {
+        val result = generateCrosswordWithQuality(
+            baseWords = eligibleWords,
+            dictionary = dictionary
+        )
+        val rejectedWords = when (result) {
+            is CrosswordGenerationResult.Success -> result.rejectedWords
+            is CrosswordGenerationResult.Failure -> result.rejectedWords
+        }
+        logRejectedWords(appContext, rejectedWords)
+        when (result) {
+            is CrosswordGenerationResult.Success -> {
+                baseWord = result.baseWord
+                letters = generateLetterWheel(result.baseWord).shuffled()
+                grid = result.layout.grid
+                crosswordWords = result.layout.words
+                hammerMode = HammerMode.Off
+                generationError = false
+            }
+            is CrosswordGenerationResult.Failure -> {
+                generationError = true
+                appendProblemLogEntry(
+                    appContext,
+                    PROBLEM_LOG_TYPE_LOGIC,
+                    PROBLEM_LOG_ATTEMPT_LIMIT_COMMENT
+                )
+                if (grid.isEmpty()) {
+                    baseWord = ""
+                    letters = emptyList()
+                    crosswordWords = emptyMap()
+                }
+            }
+        }
     }
 
     LaunchedEffect(baseWord) {
@@ -188,13 +216,13 @@ private fun GameScreen() {
     }
 
     LaunchedEffect(eligibleWords) {
-        if (!eligibleWords.contains(baseWord) || baseWord.length > settings.maxWordLength) {
-            val newWord = pickRandomBaseWord(eligibleWords)
-            startNewGame(newWord)
+        if (grid.isEmpty() || !eligibleWords.contains(baseWord)) {
+            startNewGame()
         }
     }
     val isSolved = grid.isNotEmpty() && grid.all { row -> row.all { cell -> !cell.isActive || cell.isRevealed } }
     val hammerActive = hammerMode != HammerMode.Off
+    val showNewGameButton = isSolved || generationError
 
     Box(modifier = Modifier.fillMaxSize()) {
         AbstractBackground(modifier = Modifier.fillMaxSize())
@@ -207,13 +235,22 @@ private fun GameScreen() {
             TopBar(
                 onSettings = { showSettings = true },
                 onNewGame = {
-                    val newWord = pickRandomBaseWord(eligibleWords)
-                    startNewGame(newWord)
+                    startNewGame()
                 },
                 onShareProblems = { shareProblemLog(context) },
                 onResetProblems = { resetProblemLog(appContext) },
                 onExit = { (context as? ComponentActivity)?.finishAffinity() }
             )
+            if (generationError) {
+                Text(
+                    text = stringResource(R.string.crossword_generation_failed),
+                    color = AccentOrange,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = NEW_GAME_TEXT_SIZE,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
             Spacer(modifier = Modifier.height(12.dp))
             CrosswordSection(
                 grid = grid,
@@ -241,11 +278,10 @@ private fun GameScreen() {
             LetterWheelSection(
                 letters = letters,
                 hammerActive = hammerActive,
-                isSolved = isSolved,
+                showNewGameButton = showNewGameButton,
                 onShuffle = { letters = letters.shuffled() },
                 onNewGame = {
-                    val newWord = pickRandomBaseWord(eligibleWords)
-                    startNewGame(newWord)
+                    startNewGame()
                 },
                 onHammerTap = {
                     hammerMode = when (hammerMode) {
@@ -502,7 +538,7 @@ private fun CrosswordCellItem(
 private fun LetterWheelSection(
     letters: List<Char>,
     hammerActive: Boolean,
-    isSolved: Boolean,
+    showNewGameButton: Boolean,
     onShuffle: () -> Unit,
     onNewGame: () -> Unit,
     onHammerTap: () -> Unit,
@@ -519,44 +555,60 @@ private fun LetterWheelSection(
         val heightBudget = maxHeight.coerceAtLeast(verticalPadding) - verticalPadding
         val wheelSize = minOf(maxWheelWidth * WHEEL_SIZE_RATIO, heightBudget)
 
-        @Suppress("DEPRECATION")
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(wheelSize + verticalPadding)
-        ) {
-            SelectedLettersPreview(
-                letters = selectedLetters,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(WHEEL_VERTICAL_OFFSET)
-            )
+        if (letters.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(wheelSize + WHEEL_CONTAINER_EXTRA_HEIGHT)
+                    .height(wheelSize + verticalPadding),
+                contentAlignment = Alignment.Center
             ) {
-                LetterWheel(
-                    letters = letters,
-                    isSolved = isSolved,
-                    onShuffle = onShuffle,
-                    onNewGame = onNewGame,
-                    onSelectionStart = onSelectionStart,
-                    onSelectionChanged = { selectedLetters = it },
-                    onWordSelected = onWordSelected,
-                    soundEffects = soundEffects,
+                if (showNewGameButton) {
+                    NewGameWheelButton(
+                        diameter = wheelSize,
+                        onClick = onNewGame
+                    )
+                }
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(wheelSize + verticalPadding)
+            ) {
+                SelectedLettersPreview(
+                    letters = selectedLetters,
                     modifier = Modifier
-                        .size(wheelSize)
-                        .align(Alignment.Center)
+                        .fillMaxWidth()
+                        .height(WHEEL_VERTICAL_OFFSET)
                 )
-                HammerButton(
-                    armed = hammerActive,
-                    onClick = onHammerTap,
-                    onLongPress = onHammerLongPress,
+                Box(
                     modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(start = 4.dp, top = 4.dp)
-                )
+                        .fillMaxWidth()
+                        .height(wheelSize + WHEEL_CONTAINER_EXTRA_HEIGHT)
+                ) {
+                    LetterWheel(
+                        letters = letters,
+                        showNewGameButton = showNewGameButton,
+                        onShuffle = onShuffle,
+                        onNewGame = onNewGame,
+                        onSelectionStart = onSelectionStart,
+                        onSelectionChanged = { selectedLetters = it },
+                        onWordSelected = onWordSelected,
+                        soundEffects = soundEffects,
+                        modifier = Modifier
+                            .size(wheelSize)
+                            .align(Alignment.Center)
+                    )
+                    HammerButton(
+                        armed = hammerActive,
+                        onClick = onHammerTap,
+                        onLongPress = onHammerLongPress,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(start = 4.dp, top = 4.dp)
+                    )
+                }
             }
         }
     }
@@ -586,7 +638,7 @@ private fun SelectedLettersPreview(
 @Composable
 private fun LetterWheel(
     letters: List<Char>,
-    isSolved: Boolean,
+    showNewGameButton: Boolean,
     onShuffle: () -> Unit,
     onNewGame: () -> Unit,
     onSelectionStart: () -> Unit,
@@ -794,7 +846,7 @@ private fun LetterWheel(
                     )
                 }
             }
-            if (isSolved) {
+            if (showNewGameButton) {
                 NewGameWheelButton(
                     diameter = overlayDiameter,
                     onClick = onNewGame,
@@ -1096,12 +1148,29 @@ private fun loadSettings(context: Context): UserSettings {
 }
 
 private fun logSmallWordListIfNeeded(context: Context, baseWord: String, dictionary: List<String>) {
+    if (baseWord.isBlank()) {
+        return
+    }
     val matchingWordCount = buildMiniDictionary(baseWord, dictionary)
         .count { it.length >= MIN_CROSSWORD_WORD_LENGTH }
     if (matchingWordCount < MIN_PROBLEM_LOG_WORD_COUNT) {
         val description = "$baseWord: could only find $matchingWordCount words for crossword."
         appendProblemLogEntry(context, PROBLEM_LOG_TYPE_WORD, description)
     }
+}
+
+private fun logRejectedWords(context: Context, rejectedWords: List<String>) {
+    for (word in rejectedWords.distinct()) {
+        if (word.isBlank()) {
+            continue
+        }
+        val description = buildRejectedWordDescription(word)
+        appendProblemLogEntryIfMissing(context, PROBLEM_LOG_TYPE_WORD, description)
+    }
+}
+
+private fun buildRejectedWordDescription(baseWord: String): String {
+    return "$baseWord: crossword word count below minimum of $MIN_CROSSWORD_WORD_COUNT."
 }
 
 private fun saveSettings(context: Context, settings: UserSettings) {

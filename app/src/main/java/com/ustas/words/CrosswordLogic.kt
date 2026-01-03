@@ -6,8 +6,10 @@ import kotlin.random.Random
 private const val ALPHABET_SIZE = 26
 internal const val CROSSWORD_EMPTY_CELL = '.'
 internal const val MIN_CROSSWORD_WORD_LENGTH = 4
+internal const val MIN_CROSSWORD_WORD_COUNT = 5
 internal const val MAX_CROSSWORD_ROWS = 14
 internal const val MAX_CROSSWORD_COLUMNS = 14
+internal const val MAX_CROSSWORD_GENERATION_ATTEMPTS = 10
 private const val ORIGIN_INDEX = 0
 private const val INDEX_STEP = 1
 private const val LAST_INDEX_OFFSET = 1
@@ -33,6 +35,20 @@ internal data class CrosswordLayout(
     val grid: List<List<CrosswordCell>>,
     val words: Map<String, CrosswordWord>
 )
+
+internal sealed interface CrosswordGenerationResult {
+    data class Success(
+        val baseWord: String,
+        val layout: CrosswordLayout,
+        val rejectedWords: List<String>,
+        val attempts: Int
+    ) : CrosswordGenerationResult
+
+    data class Failure(
+        val rejectedWords: List<String>,
+        val attempts: Int
+    ) : CrosswordGenerationResult
+}
 
 private enum class WordOrientation {
     HORIZONTAL,
@@ -170,6 +186,38 @@ internal fun buildCrosswordLayout(
     val grid = buildCrosswordGridFromRows(rows)
     val words = extractCrosswordWords(rows).associateBy { it.word }
     return CrosswordLayout(grid = grid, words = words)
+}
+
+internal fun generateCrosswordWithQuality(
+    baseWords: List<String>,
+    dictionary: List<String>,
+    minWordCount: Int = MIN_CROSSWORD_WORD_COUNT,
+    maxAttempts: Int = MAX_CROSSWORD_GENERATION_ATTEMPTS,
+    random: Random = Random.Default
+): CrosswordGenerationResult {
+    if (baseWords.isEmpty()) {
+        return CrosswordGenerationResult.Failure(emptyList(), ORIGIN_INDEX)
+    }
+    val remainingWords = baseWords.toMutableList()
+    val rejectedWords = mutableListOf<String>()
+    var attempts = ORIGIN_INDEX
+    while (attempts < maxAttempts && remainingWords.isNotEmpty()) {
+        val baseIndex = random.nextInt(remainingWords.size)
+        val baseWord = remainingWords.removeAt(baseIndex)
+        attempts += INDEX_STEP
+        val layout = buildCrosswordLayout(baseWord, dictionary, random)
+        val wordCount = layout.words.size
+        if (wordCount >= minWordCount) {
+            return CrosswordGenerationResult.Success(
+                baseWord = baseWord,
+                layout = layout,
+                rejectedWords = rejectedWords,
+                attempts = attempts
+            )
+        }
+        rejectedWords.add(baseWord)
+    }
+    return CrosswordGenerationResult.Failure(rejectedWords, attempts)
 }
 
 internal fun generateRandomCrossword(
