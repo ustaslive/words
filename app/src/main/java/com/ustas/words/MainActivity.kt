@@ -6,6 +6,7 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
+import android.media.SoundPool
 import android.content.Context
 import android.os.Handler
 import android.os.HandlerThread
@@ -162,6 +163,17 @@ private const val NEW_WORD_HIGHLIGHT_FULL = 1f
 private const val NEW_WORD_HIGHLIGHT_AURA_ALPHA = 0.9f
 private const val NEW_WORD_HIGHLIGHT_AURA_RADIUS_RATIO = 1.1f
 private const val NEW_WORD_HIGHLIGHT_CENTER_RATIO = 0.5f
+private const val SOUND_POOL_MAX_STREAMS = 4
+private const val SOUND_POOL_DEFAULT_PRIORITY = 1
+private const val SOUND_POOL_NO_LOOP = 0
+private const val SOUND_POOL_INVALID_SOUND_ID = 0
+private const val SOUND_POOL_LOAD_SUCCESS = 0
+private const val SOUND_POOL_BASE_RATE = 1.0f
+private const val SOUND_POOL_MIN_RATE = 0.5f
+private const val SOUND_POOL_MAX_RATE = 2.0f
+private const val SOUND_POOL_TAP_VOLUME = 0.6f
+private const val SOUND_POOL_BELL_VOLUME = SOUND_POOL_TAP_VOLUME
+private const val SOUND_POOL_SIDE_WORD_VOLUME = SOUND_POOL_TAP_VOLUME
 
 private data class UserSettings(
     val muted: Boolean = false,
@@ -179,11 +191,21 @@ private fun GameScreen() {
     val context = LocalContext.current
     val appContext = remember(context) { context.applicationContext }
     val tonePlayer = remember { TonePlayer() }
-    val soundEffects = remember { SoundEffects(tonePlayer) }
+    val letterTapSample = remember(appContext) { SoundPoolSample(appContext, R.raw.sfx_letter_tap, SOUND_POOL_TAP_VOLUME) }
+    val bellSample = remember(appContext) { SoundPoolSample(appContext, R.raw.sfx_bell, SOUND_POOL_BELL_VOLUME) }
+    val sideWordSample = remember(appContext) { SoundPoolSample(appContext, R.raw.sfx_side_word, SOUND_POOL_SIDE_WORD_VOLUME) }
+    val soundEffects = remember(tonePlayer, letterTapSample, bellSample, sideWordSample) {
+        SoundEffects(tonePlayer, letterTapSample, bellSample, sideWordSample)
+    }
     var settings by remember { mutableStateOf(loadSettings(appContext)) }
     var showSettings by remember { mutableStateOf(false) }
-    DisposableEffect(Unit) {
-        onDispose { tonePlayer.dispose() }
+    DisposableEffect(tonePlayer, letterTapSample, bellSample, sideWordSample) {
+        onDispose {
+            tonePlayer.dispose()
+            letterTapSample.release()
+            bellSample.release()
+            sideWordSample.release()
+        }
     }
     soundEffects.muted = settings.muted
     val dictionary = remember { loadWordList { context.assets.open("words.txt") } }
@@ -872,10 +894,10 @@ private fun LetterWheel(
                     }
                 }
                 when (onWordSelectedState(selectedWord)) {
-                    WordResult.Success -> soundEffectsState.successChord(lastToneFreq)
-                    WordResult.AlreadySolved -> soundEffectsState.shortConfirm()
-                    WordResult.MissingWordFound -> soundEffectsState.shortConfirm()
-                    WordResult.MissingWordAlreadyFound -> soundEffectsState.shortConfirm()
+                    WordResult.Success -> soundEffectsState.successBell()
+                    WordResult.AlreadySolved -> soundEffectsState.alreadySolvedConfirm()
+                    WordResult.MissingWordFound -> soundEffectsState.sideWordFound()
+                    WordResult.MissingWordAlreadyFound -> soundEffectsState.alreadySolvedConfirm()
                     WordResult.NotFound -> soundEffectsState.miss()
                 }
             } else if (selectionSize > 0) {
@@ -1258,7 +1280,58 @@ private class TonePlayer {
     }
 }
 
-private class SoundEffects(private val player: TonePlayer) {
+private class SoundPoolSample(
+    context: Context,
+    private val rawResId: Int,
+    private val volume: Float
+) {
+    private val soundPool: SoundPool
+    private var soundId: Int = SOUND_POOL_INVALID_SOUND_ID
+    @Volatile private var isLoaded: Boolean = false
+
+    init {
+        val attributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_GAME)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+        soundPool = SoundPool.Builder()
+            .setMaxStreams(SOUND_POOL_MAX_STREAMS)
+            .setAudioAttributes(attributes)
+            .build()
+        soundPool.setOnLoadCompleteListener { _, sampleId, status ->
+            if (status == SOUND_POOL_LOAD_SUCCESS && sampleId == soundId) {
+                isLoaded = true
+            }
+        }
+        soundId = soundPool.load(context, rawResId, SOUND_POOL_DEFAULT_PRIORITY)
+    }
+
+    fun play(playbackRate: Float = SOUND_POOL_BASE_RATE) {
+        if (!isLoaded) {
+            return
+        }
+        val rate = playbackRate.coerceIn(SOUND_POOL_MIN_RATE, SOUND_POOL_MAX_RATE)
+        soundPool.play(
+            soundId,
+            volume,
+            volume,
+            SOUND_POOL_DEFAULT_PRIORITY,
+            SOUND_POOL_NO_LOOP,
+            rate
+        )
+    }
+
+    fun release() {
+        soundPool.release()
+    }
+}
+
+private class SoundEffects(
+    private val player: TonePlayer,
+    private val letterTapSample: SoundPoolSample,
+    private val bellSample: SoundPoolSample,
+    private val sideWordSample: SoundPoolSample
+) {
     var muted: Boolean = false
     private val bellBaseHz = 660.0
     private val bellStepRatio = 1.08
@@ -1273,35 +1346,39 @@ private class SoundEffects(private val player: TonePlayer) {
     fun letterBell(stepIndex: Int): Double {
         val freq = bellFrequency(stepIndex)
         if (!muted) {
-            player.playTone(listOf(freq), durationMs = 80, volume = 0.6f)
+            letterTapSample.play(bellPlaybackRate(stepIndex))
         }
         return freq
+    }
+
+    private fun bellPlaybackRate(stepIndex: Int): Float {
+        val rate = SOUND_POOL_BASE_RATE * bellStepRatio.pow(stepIndex.toDouble()).toFloat()
+        return rate.coerceIn(SOUND_POOL_MIN_RATE, SOUND_POOL_MAX_RATE)
     }
 
     fun bellFrequency(stepIndex: Int): Double {
         return bellBaseHz * bellStepRatio.pow(stepIndex.toDouble())
     }
 
-    fun successChord(rootFreq: Double?) {
+    fun successBell() {
         if (muted) return
-        val root = (rootFreq ?: bellBaseHz) * 0.6
-        val partials = listOf(
-            root,
-            root * 2.0,
-            root * 3.0,
-            root * 4.0,
-            root * 5.0,
-            root * 6.0
-        )
-        val weights = listOf(1.0, 0.55, 0.45, 0.3, 0.22, 0.18)
-        player.playTone(partials, durationMs = 240, volume = 0.6f, weights = weights)
-        player.playTone(partials, durationMs = 420, volume = 0.64f, startDelayMs = 120, weights = weights)
+        bellSample.play()
+    }
+
+    fun sideWordFound() {
+        if (muted) return
+        sideWordSample.play()
     }
 
     fun miss() {
         if (muted) return
         player.playTone(listOf(200.0, 150.0), durationMs = 130, volume = 0.5f)
         player.playTone(listOf(170.0, 130.0), durationMs = 130, volume = 0.5f, startDelayMs = 100)
+    }
+
+    fun alreadySolvedConfirm() {
+        if (muted) return
+        letterTapSample.play(SOUND_POOL_BASE_RATE)
     }
 
     fun shortConfirm() {
