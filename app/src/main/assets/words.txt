@@ -4841,9 +4841,7 @@ oneself
 ongoing
 onion
 only
-onset
 onto
-oops
 open
 opened
 opener
@@ -5657,12 +5655,8 @@ ranked
 ranking
 ransom
 rant
-rape
-raped
 rapid
 rapidly
-raping
-rapist
 rapper
 rare
 rarely
@@ -7424,6 +7418,7 @@ trainer
 training
 trait
 traitor
+trance
 trans
 transfer
 transform

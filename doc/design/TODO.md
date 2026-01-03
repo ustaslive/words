@@ -31,7 +31,7 @@
         и эта видимость должна длиться не долго - ну пару секунд. потом слово бы становилось обыкновенным угаданным
         как все остальные на экране.
     [ ] add about page
-    [ ] when found word is selected second time - highlight on screen like it was first time
+    [x] when found word is selected second time - highlight on screen like it was first time
     [ ] 
 
 [ ] publish in google play

@@ -157,12 +157,14 @@ private val MISSING_WORD_COUNT_TEXT_SIZE = 20.sp
 private val MISSING_WORD_LABEL_TEXT_SIZE = 12.sp
 private val MISSING_WORD_LABEL_SPACING = 4.dp
 private const val MISSING_WORD_LABEL_ALPHA = 0.8f
+private val ABOUT_DIALOG_LINE_SPACING = 8.dp
 private const val NEW_WORD_HIGHLIGHT_DURATION_MS = 2_000
 private const val NEW_WORD_HIGHLIGHT_NONE = 0f
 private const val NEW_WORD_HIGHLIGHT_FULL = 1f
 private const val NEW_WORD_HIGHLIGHT_AURA_ALPHA = 0.9f
 private const val NEW_WORD_HIGHLIGHT_AURA_RADIUS_RATIO = 1.1f
 private const val NEW_WORD_HIGHLIGHT_CENTER_RATIO = 0.5f
+private const val HIGHLIGHT_TRIGGER_STEP = 1
 private const val SOUND_POOL_MAX_STREAMS = 4
 private const val SOUND_POOL_DEFAULT_PRIORITY = 1
 private const val SOUND_POOL_NO_LOOP = 0
@@ -199,6 +201,7 @@ private fun GameScreen() {
     }
     var settings by remember { mutableStateOf(loadSettings(appContext)) }
     var showSettings by remember { mutableStateOf(false) }
+    var showAbout by remember { mutableStateOf(false) }
     DisposableEffect(tonePlayer, letterTapSample, bellSample, sideWordSample) {
         onDispose {
             tonePlayer.dispose()
@@ -219,6 +222,7 @@ private fun GameScreen() {
     var crosswordWords by remember { mutableStateOf(emptyMap<String, CrosswordWord>()) }
     var missingWordsState by remember { mutableStateOf(emptyMissingWordsState()) }
     var highlightedPositions by remember { mutableStateOf(emptySet<GridPosition>()) }
+    var highlightTrigger by remember { mutableStateOf(0) }
     val highlightFade = remember { Animatable(NEW_WORD_HIGHLIGHT_NONE) }
     var hammerMode by remember { mutableStateOf(HammerMode.Off) }
     var generationError by remember { mutableStateOf(false) }
@@ -270,7 +274,7 @@ private fun GameScreen() {
             startNewGame()
         }
     }
-    LaunchedEffect(highlightedPositions) {
+    LaunchedEffect(highlightedPositions, highlightTrigger) {
         if (highlightedPositions.isEmpty()) {
             highlightFade.snapTo(NEW_WORD_HIGHLIGHT_NONE)
             return@LaunchedEffect
@@ -303,7 +307,8 @@ private fun GameScreen() {
                 },
                 onShareProblems = { shareProblemLog(context) },
                 onResetProblems = { resetProblemLog(appContext) },
-                onExit = { (context as? ComponentActivity)?.finishAffinity() }
+                onExit = { (context as? ComponentActivity)?.finishAffinity() },
+                onAbout = { showAbout = true }
             )
             if (generationError) {
                 Text(
@@ -369,8 +374,9 @@ private fun GameScreen() {
                     val match = crosswordWords[normalizedWord]
                     val (updatedGrid, result) = applySelectedWord(selectedWord, crosswordWords, grid)
                     grid = updatedGrid
-                    if (result == WordResult.Success && match != null) {
+                    if ((result == WordResult.Success || result == WordResult.AlreadySolved) && match != null) {
                         highlightedPositions = match.positions
+                        highlightTrigger += HIGHLIGHT_TRIGGER_STEP
                     }
                     if (result != WordResult.NotFound) {
                         result
@@ -402,6 +408,9 @@ private fun GameScreen() {
                 onDismiss = { showSettings = false }
             )
         }
+        if (showAbout) {
+            AboutDialog(onDismiss = { showAbout = false })
+        }
     }
 }
 
@@ -411,7 +420,8 @@ private fun TopBar(
     onNewGame: () -> Unit,
     onShareProblems: () -> Unit,
     onResetProblems: () -> Unit,
-    onExit: () -> Unit
+    onExit: () -> Unit,
+    onAbout: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     Row(
@@ -465,6 +475,13 @@ private fun TopBar(
                         onExit()
                     }
                 )
+                DropdownMenuItem(
+                    text = { Text(text = stringResource(R.string.menu_about)) },
+                    onClick = {
+                        menuExpanded = false
+                        onAbout()
+                    }
+                )
             }
         }
     }
@@ -508,6 +525,30 @@ private fun SettingsDialog(
                         steps = (MAX_WORD_LENGTH - MIN_WORD_LENGTH - 1).coerceAtLeast(0)
                     )
                 }
+            }
+        }
+    )
+}
+
+@Composable
+private fun AboutDialog(
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.about_close))
+            }
+        },
+        title = { Text(text = stringResource(R.string.about_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(ABOUT_DIALOG_LINE_SPACING)) {
+                Text(text = stringResource(R.string.about_version))
+                Text(text = stringResource(R.string.about_author))
+                Text(text = stringResource(R.string.about_platform))
+                Text(text = stringResource(R.string.about_stack))
+                Text(text = stringResource(R.string.about_year))
             }
         }
     )
