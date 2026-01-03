@@ -106,7 +106,6 @@ admission
 admit
 admitted
 admitting
-adobe
 adopt
 adopted
 adopting
@@ -694,7 +693,6 @@ berry
 beside
 best
 beta
-beth
 betrayal
 betrayed
 better
@@ -732,7 +730,6 @@ birch
 bird
 birth
 birthday
-bisexual
 bishop
 bitch
 bite
@@ -2365,6 +2362,8 @@ emergency
 emerging
 eminent
 emission
+emit
+emitent
 emotion
 emotional
 empathy
@@ -5296,7 +5295,6 @@ populated
 porcelain
 porch
 pork
-porn
 port
 portable
 portal
@@ -6316,7 +6314,6 @@ sentenced
 sentiment
 separate
 separated
-sept
 sequel
 sequence
 sergeant
@@ -6409,8 +6406,6 @@ shipment
 shipped
 shipping
 shirt
-shit
-shitty
 shock
 shocked
 shocking
@@ -7956,7 +7951,6 @@ wholesale
 wholesome
 wholly
 whom
-whore
 whose
 wicked
 wicket
@@ -8069,7 +8063,6 @@ written
 wrong
 wrote
 yacht
-yahoo
 yard
 yarn
 yeah

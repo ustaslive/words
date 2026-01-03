@@ -12,6 +12,9 @@ import android.os.HandlerThread
 import android.os.Process
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -67,6 +70,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -90,6 +94,9 @@ import com.ustas.words.ui.theme.GoldShadow
 import com.ustas.words.ui.theme.IconBase
 import com.ustas.words.ui.theme.LightGreen
 import com.ustas.words.ui.theme.MidGreen
+import com.ustas.words.ui.theme.NewWordHighlightAura
+import com.ustas.words.ui.theme.NewWordHighlightBackground
+import com.ustas.words.ui.theme.NewWordHighlightText
 import com.ustas.words.ui.theme.TileColor
 import com.ustas.words.ui.theme.TileHiddenColor
 import com.ustas.words.ui.theme.TileText
@@ -149,6 +156,12 @@ private val MISSING_WORD_COUNT_TEXT_SIZE = 20.sp
 private val MISSING_WORD_LABEL_TEXT_SIZE = 12.sp
 private val MISSING_WORD_LABEL_SPACING = 4.dp
 private const val MISSING_WORD_LABEL_ALPHA = 0.8f
+private const val NEW_WORD_HIGHLIGHT_DURATION_MS = 2_000
+private const val NEW_WORD_HIGHLIGHT_NONE = 0f
+private const val NEW_WORD_HIGHLIGHT_FULL = 1f
+private const val NEW_WORD_HIGHLIGHT_AURA_ALPHA = 0.9f
+private const val NEW_WORD_HIGHLIGHT_AURA_RADIUS_RATIO = 1.1f
+private const val NEW_WORD_HIGHLIGHT_CENTER_RATIO = 0.5f
 
 private data class UserSettings(
     val muted: Boolean = false,
@@ -183,10 +196,13 @@ private fun GameScreen() {
     var grid by remember { mutableStateOf(emptyList<List<CrosswordCell>>()) }
     var crosswordWords by remember { mutableStateOf(emptyMap<String, CrosswordWord>()) }
     var missingWordsState by remember { mutableStateOf(emptyMissingWordsState()) }
+    var highlightedPositions by remember { mutableStateOf(emptySet<GridPosition>()) }
+    val highlightFade = remember { Animatable(NEW_WORD_HIGHLIGHT_NONE) }
     var hammerMode by remember { mutableStateOf(HammerMode.Off) }
     var generationError by remember { mutableStateOf(false) }
 
     fun startNewGame() {
+        highlightedPositions = emptySet()
         val result = generateCrosswordWithQuality(
             baseWords = eligibleWords,
             dictionary = dictionary
@@ -232,6 +248,20 @@ private fun GameScreen() {
             startNewGame()
         }
     }
+    LaunchedEffect(highlightedPositions) {
+        if (highlightedPositions.isEmpty()) {
+            highlightFade.snapTo(NEW_WORD_HIGHLIGHT_NONE)
+            return@LaunchedEffect
+        }
+        highlightFade.snapTo(NEW_WORD_HIGHLIGHT_FULL)
+        highlightFade.animateTo(
+            targetValue = NEW_WORD_HIGHLIGHT_NONE,
+            animationSpec = tween(
+                durationMillis = NEW_WORD_HIGHLIGHT_DURATION_MS,
+                easing = LinearEasing
+            )
+        )
+    }
     val isSolved = grid.isNotEmpty() && grid.all { row -> row.all { cell -> !cell.isActive || cell.isRevealed } }
     val hammerActive = hammerMode != HammerMode.Off
     val showNewGameButton = isSolved || generationError
@@ -266,6 +296,8 @@ private fun GameScreen() {
             Spacer(modifier = Modifier.height(12.dp))
             CrosswordSection(
                 grid = grid,
+                highlightedPositions = highlightedPositions,
+                highlightStrength = highlightFade.value,
                 hammerActive = hammerActive,
                 isSolved = isSolved,
                 onCellTap = { rowIndex, colIndex ->
@@ -311,8 +343,13 @@ private fun GameScreen() {
                 },
                 onSelectionStart = { hammerMode = HammerMode.Off },
                 onWordSelected = { selectedWord ->
+                    val normalizedWord = selectedWord.uppercase()
+                    val match = crosswordWords[normalizedWord]
                     val (updatedGrid, result) = applySelectedWord(selectedWord, crosswordWords, grid)
                     grid = updatedGrid
+                    if (result == WordResult.Success && match != null) {
+                        highlightedPositions = match.positions
+                    }
                     if (result != WordResult.NotFound) {
                         result
                     } else {
@@ -457,6 +494,8 @@ private fun SettingsDialog(
 @Composable
 private fun CrosswordSection(
     grid: List<List<CrosswordCell>>,
+    highlightedPositions: Set<GridPosition>,
+    highlightStrength: Float,
     hammerActive: Boolean,
     isSolved: Boolean,
     onCellTap: (Int, Int) -> Unit,
@@ -468,6 +507,8 @@ private fun CrosswordSection(
     ) {
         CrosswordGrid(
             grid = grid,
+            highlightedPositions = highlightedPositions,
+            highlightStrength = highlightStrength,
             onCellTap = onCellTap,
             modifier = Modifier.fillMaxWidth()
         )
@@ -485,6 +526,8 @@ private fun CrosswordSection(
 @Composable
 private fun CrosswordGrid(
     grid: List<List<CrosswordCell>>,
+    highlightedPositions: Set<GridPosition>,
+    highlightStrength: Float,
     onCellTap: (Int, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -511,9 +554,15 @@ private fun CrosswordGrid(
                     for (colIndex in 0 until columns) {
                         val cell = grid[rowIndex][colIndex]
                         if (cell.isActive) {
+                            val cellHighlight = if (highlightedPositions.contains(GridPosition(rowIndex, colIndex))) {
+                                highlightStrength
+                            } else {
+                                NEW_WORD_HIGHLIGHT_NONE
+                            }
                             CrosswordCellItem(
                                 cell = cell,
                                 size = cellSize,
+                                highlightStrength = cellHighlight,
                                 onClick = { onCellTap(rowIndex, colIndex) }
                             )
                         } else {
@@ -536,22 +585,67 @@ private fun CrosswordGrid(
 private fun CrosswordCellItem(
     cell: CrosswordCell,
     size: Dp,
+    highlightStrength: Float,
     onClick: () -> Unit
 ) {
-    val background = if (cell.isRevealed) TileColor else TileHiddenColor
+    val highlight = if (cell.isRevealed) highlightStrength else NEW_WORD_HIGHLIGHT_NONE
+    val baseBackground = if (cell.isRevealed) TileColor else TileHiddenColor
+    val background = if (highlight > NEW_WORD_HIGHLIGHT_NONE) {
+        lerp(baseBackground, NewWordHighlightBackground, highlight)
+    } else {
+        baseBackground
+    }
+    val auraAlpha = highlight * NEW_WORD_HIGHLIGHT_AURA_ALPHA
+    val letterColor = if (highlight > NEW_WORD_HIGHLIGHT_NONE) {
+        lerp(TileText, NewWordHighlightText, highlight)
+    } else {
+        TileText
+    }
+    val letterWeight = if (highlight > NEW_WORD_HIGHLIGHT_NONE) {
+        FontWeight.ExtraBold
+    } else {
+        FontWeight.Bold
+    }
     val letterSize = with(LocalDensity.current) { (size * 0.55f).toSp() }
     Box(
         modifier = Modifier
             .size(size)
             .background(background, RoundedCornerShape(4.dp))
+            .drawWithCache {
+                val showAura = auraAlpha > NEW_WORD_HIGHLIGHT_NONE
+                val drawSize = this.size
+                val auraRadius = drawSize.minDimension * NEW_WORD_HIGHLIGHT_AURA_RADIUS_RATIO
+                val auraCenter = Offset(
+                    x = drawSize.width * NEW_WORD_HIGHLIGHT_CENTER_RATIO,
+                    y = drawSize.height * NEW_WORD_HIGHLIGHT_CENTER_RATIO
+                )
+                val auraBrush = if (showAura) {
+                    Brush.radialGradient(
+                        colors = listOf(
+                            NewWordHighlightAura.copy(alpha = auraAlpha),
+                            Color.Transparent
+                        ),
+                        center = auraCenter,
+                        radius = auraRadius
+                    )
+                } else {
+                    null
+                }
+                onDrawWithContent {
+                    if (showAura && auraBrush != null) {
+                        drawRect(brush = auraBrush)
+                    }
+                    drawContent()
+                }
+            }
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         if (cell.isRevealed && cell.letter != null) {
             Text(
                 text = cell.letter.toString(),
-                color = TileText,
-                fontWeight = FontWeight.Bold,
+                color = letterColor,
+                fontWeight = letterWeight,
                 fontSize = letterSize
             )
         }
