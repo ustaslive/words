@@ -143,6 +143,8 @@ private val WHEEL_SELECTION_TEXT_SIZE = 26.sp
 private val WHEEL_SELECTION_LETTER_SPACING = 4.sp
 private val WHEEL_CORNER_BUTTON_SIZE = 56.dp
 private val WHEEL_CORNER_BUTTON_PADDING = 4.dp
+private const val WHEEL_HIT_RADIUS_FACTOR = 0.55f
+private const val WHEEL_HIT_RADIUS_EXPANSION_FACTOR = 1.2f
 private val MISSING_WORD_COUNT_TEXT_SIZE = 20.sp
 private val MISSING_WORD_LABEL_TEXT_SIZE = 12.sp
 private val MISSING_WORD_LABEL_SPACING = 4.dp
@@ -696,7 +698,7 @@ private fun LetterWheel(
         val onSelectionStartState by rememberUpdatedState(onSelectionStart)
         val onSelectionChangedState by rememberUpdatedState(onSelectionChanged)
         val highlightColor = TileColor
-        val hitRadius = letterSizePx * 0.55f
+        val hitRadius = letterSizePx * WHEEL_HIT_RADIUS_FACTOR * WHEEL_HIT_RADIUS_EXPANSION_FACTOR
         val hitRadiusSq = hitRadius * hitRadius
         val overlayDiameter = diameter - (letterSize * NEW_GAME_DIAMETER_REDUCTION_FACTOR)
         val centers = remember(letters, radiusPx, centerPx) {

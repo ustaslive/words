@@ -48,7 +48,7 @@
         w: file:///words/app/src/main/java/com/ustas/words/MainActivity.kt:688:40 'consumeAllChanges(): Unit' is deprecated. Use consume() instead
         w: file:///words/app/src/main/java/com/ustas/words/MainActivity.kt:693:40 'consumeAllChanges(): Unit' is deprecated. Use consume() instead
         ```
-    [ ] при вводе букв не всегда палец цепляет букву первую. возможно нужно увеличить область которая считается "прикоснулись". для начала на 10% 
+    [x] при вводе букв не всегда палец цепляет первую букву - приходится заново касаться ее и целишься более центрально. возможно нужно увеличить область которая считается "прикоснулись". для начала на 10%
         надеюсь эта область круглая? просто если она квадратная - то это многое объясняет
     [ ] 
     [ ] 
