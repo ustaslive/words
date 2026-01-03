@@ -1939,6 +1939,7 @@ depicted
 depicting
 deploy
 deployed
+deport
 deported
 deposit
 deposited
@@ -5020,6 +5021,7 @@ parker
 parking
 parody
 parole
+parse
 part
 partial
 partially
