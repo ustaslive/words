@@ -136,6 +136,8 @@ private const val NEW_GAME_CIRCLE_RADIUS_RATIO = 0.5f
 private val NEW_GAME_BUTTON_ELEVATION = 10.dp
 private val NEW_GAME_TEXT_SIZE = 18.sp
 private val CROSSWORD_MAX_SIZE = WHEEL_MAX_SIZE
+private val WHEEL_SELECTION_TEXT_SIZE = 26.sp
+private val WHEEL_SELECTION_LETTER_SPACING = 4.sp
 
 private data class UserSettings(
     val muted: Boolean = false,
@@ -510,6 +512,7 @@ private fun LetterWheelSection(
     soundEffects: SoundEffects,
     modifier: Modifier = Modifier
 ) {
+    var selectedLetters by remember { mutableStateOf(emptyList<Char>()) }
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val verticalPadding = WHEEL_CONTAINER_EXTRA_HEIGHT + WHEEL_VERTICAL_OFFSET
         val maxWheelWidth = maxWidth.coerceAtMost(WHEEL_MAX_SIZE)
@@ -517,33 +520,66 @@ private fun LetterWheelSection(
         val wheelSize = minOf(maxWheelWidth * WHEEL_SIZE_RATIO, heightBudget)
 
         @Suppress("DEPRECATION")
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(wheelSize + verticalPadding)
-                .padding(top = WHEEL_VERTICAL_OFFSET)
         ) {
-            LetterWheel(
-                letters = letters,
-                isSolved = isSolved,
-                onShuffle = onShuffle,
-                onNewGame = onNewGame,
-                onSelectionStart = onSelectionStart,
-                onWordSelected = onWordSelected,
-                soundEffects = soundEffects,
+            SelectedLettersPreview(
+                letters = selectedLetters,
                 modifier = Modifier
-                    .size(wheelSize)
-                    .align(Alignment.Center)
+                    .fillMaxWidth()
+                    .height(WHEEL_VERTICAL_OFFSET)
             )
-            HammerButton(
-                armed = hammerActive,
-                onClick = onHammerTap,
-                onLongPress = onHammerLongPress,
+            Box(
                 modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(start = 4.dp, top = 4.dp)
-            )
+                    .fillMaxWidth()
+                    .height(wheelSize + WHEEL_CONTAINER_EXTRA_HEIGHT)
+            ) {
+                LetterWheel(
+                    letters = letters,
+                    isSolved = isSolved,
+                    onShuffle = onShuffle,
+                    onNewGame = onNewGame,
+                    onSelectionStart = onSelectionStart,
+                    onSelectionChanged = { selectedLetters = it },
+                    onWordSelected = onWordSelected,
+                    soundEffects = soundEffects,
+                    modifier = Modifier
+                        .size(wheelSize)
+                        .align(Alignment.Center)
+                )
+                HammerButton(
+                    armed = hammerActive,
+                    onClick = onHammerTap,
+                    onLongPress = onHammerLongPress,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(start = 4.dp, top = 4.dp)
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun SelectedLettersPreview(
+    letters: List<Char>,
+    modifier: Modifier = Modifier
+) {
+    val selectionText = letters.joinToString(separator = "")
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = selectionText,
+            color = TileText,
+            fontWeight = FontWeight.Bold,
+            fontSize = WHEEL_SELECTION_TEXT_SIZE,
+            letterSpacing = WHEEL_SELECTION_LETTER_SPACING,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -554,6 +590,7 @@ private fun LetterWheel(
     onShuffle: () -> Unit,
     onNewGame: () -> Unit,
     onSelectionStart: () -> Unit,
+    onSelectionChanged: (List<Char>) -> Unit,
     onWordSelected: (String) -> WordResult,
     soundEffects: SoundEffects,
     modifier: Modifier = Modifier
@@ -574,6 +611,7 @@ private fun LetterWheel(
         val onWordSelectedState by rememberUpdatedState(onWordSelected)
         val soundEffectsState by rememberUpdatedState(soundEffects)
         val onSelectionStartState by rememberUpdatedState(onSelectionStart)
+        val onSelectionChangedState by rememberUpdatedState(onSelectionChanged)
         val highlightColor = TileColor
         val hitRadius = letterSizePx * 0.55f
         val hitRadiusSq = hitRadius * hitRadius
@@ -588,8 +626,16 @@ private fun LetterWheel(
             }
         }
 
+        fun setSelection(newSelection: List<Int>) {
+            if (newSelection == selectedIndices) {
+                return
+            }
+            selectedIndices = newSelection
+            onSelectionChangedState(newSelection.map { index -> letters[index].uppercaseChar() })
+        }
+
         LaunchedEffect(letters) {
-            selectedIndices = emptyList()
+            setSelection(emptyList())
             dragPosition = null
             lastToneFreq = null
         }
@@ -612,7 +658,7 @@ private fun LetterWheel(
             val last = current.lastOrNull()
             if (last == null) {
                 val newSelection = listOf(nextIndex)
-                selectedIndices = newSelection
+                setSelection(newSelection)
                 val freq = soundEffectsState.letterBell(toneStep(newSelection.size))
                 lastToneFreq = freq
                 return
@@ -622,7 +668,7 @@ private fun LetterWheel(
             }
             if (current.size >= 2 && nextIndex == current[current.size - 2]) {
                 val newSelection = current.dropLast(1)
-                selectedIndices = newSelection
+                setSelection(newSelection)
                 lastToneFreq = if (newSelection.isNotEmpty()) {
                     soundEffectsState.bellFrequency(toneStep(newSelection.size))
                 } else {
@@ -632,7 +678,7 @@ private fun LetterWheel(
             }
             if (!current.contains(nextIndex)) {
                 val newSelection = current + nextIndex
-                selectedIndices = newSelection
+                setSelection(newSelection)
                 val freq = soundEffectsState.letterBell(toneStep(newSelection.size))
                 lastToneFreq = freq
             }
@@ -654,7 +700,7 @@ private fun LetterWheel(
             } else if (selectionSize > 0) {
                 soundEffectsState.shortConfirm()
             }
-            selectedIndices = emptyList()
+            setSelection(emptyList())
             dragPosition = null
             lastToneFreq = null
         }
@@ -670,7 +716,7 @@ private fun LetterWheel(
                         val startIndex = findHitIndex(down.position) ?: return@awaitEachGesture
                         down.consumeAllChanges()
                         onSelectionStartState()
-                        selectedIndices = emptyList()
+                        setSelection(emptyList())
                         updateSelection(startIndex)
                         dragPosition = centers[startIndex]
                         val pointerId = down.id
