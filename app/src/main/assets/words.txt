@@ -262,7 +262,6 @@ ample
 amused
 amusement
 amusing
-anal
 analog
 analogy
 analysis
@@ -1003,6 +1002,7 @@ buying
 buzz
 buzzing
 bypass
+byte
 cabbage
 cabin
 cabinet
@@ -2035,6 +2035,7 @@ dilemma
 diligence
 dime
 dimension
+dine
 ding
 dining
 dinner
@@ -2881,6 +2882,7 @@ foolish
 foot
 footage
 football
+footer
 footing
 footprint
 forbid
@@ -2888,6 +2890,7 @@ forbidden
 force
 forced
 forcing
+fore
 forecast
 forefront
 forehead
@@ -2917,6 +2920,7 @@ formerly
 forming
 formula
 fort
+forte
 forth
 fortress
 fortunate
@@ -2926,6 +2930,7 @@ forum
 forward
 fossil
 foster
+foto
 fought
 foul
 found
@@ -4074,7 +4079,6 @@ likely
 likewise
 liking
 lily
-lima
 limb
 lime
 limestone
@@ -4105,6 +4109,7 @@ listener
 listening
 listing
 lite
+liter
 literacy
 literal
 literally
@@ -4205,6 +4210,7 @@ luxurious
 luxury
 lying
 lynch
+lyre
 lyric
 machine
 machinery
@@ -4686,6 +4692,7 @@ nerve
 nervous
 ness
 nest
+netto
 network
 neural
 neutral
@@ -4901,6 +4908,7 @@ orphan
 orthodox
 other
 otherwise
+otter
 otto
 ottoman
 ouch
@@ -5025,6 +5033,7 @@ parody
 parole
 parse
 part
+parter
 partial
 partially
 particle
@@ -5704,6 +5713,7 @@ realizing
 really
 realm
 reap
+reaper
 rear
 reason
 reasoning
@@ -6003,7 +6013,6 @@ righteous
 rightly
 rigid
 rigorous
-riley
 ring
 ringing
 riot
@@ -7191,6 +7200,7 @@ tended
 tendency
 tender
 tennis
+tenor
 tense
 tension
 tent
@@ -7356,10 +7366,12 @@ tomb
 tommy
 tomorrow
 tone
+toner
 tongue
 tonight
 took
 tool
+toon
 tooth
 topic
 topped
@@ -7422,6 +7434,7 @@ trainer
 training
 trait
 traitor
+tram
 trance
 trans
 transfer
