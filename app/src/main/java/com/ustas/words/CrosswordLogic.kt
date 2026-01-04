@@ -395,7 +395,8 @@ internal fun applyMissingWordGuess(
     }
     val entry = state.entries[normalized] ?: return MissingWordGuessResult(state, MissingWordMatch.None)
     if (entry.isGuessed) {
-        return MissingWordGuessResult(state, MissingWordMatch.AlreadyGuessed)
+        val updatedState = state.copy(lastGuessedWord = normalized)
+        return MissingWordGuessResult(updatedState, MissingWordMatch.AlreadyGuessed)
     }
     val updatedEntries = state.entries.toMutableMap()
     updatedEntries[normalized] = entry.copy(isGuessed = true)

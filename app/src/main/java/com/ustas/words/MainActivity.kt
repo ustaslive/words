@@ -139,8 +139,7 @@ private val WHEEL_CONTAINER_EXTRA_HEIGHT = 24.dp
 private val WHEEL_VERTICAL_OFFSET = WHEEL_LETTER_SIZE
 private const val DIAMETER_TO_RADIUS_DIVISOR = 2f
 private const val WHEEL_LETTER_RING_INSET_FACTOR = 0.7f
-private const val NEW_GAME_DIAMETER_REDUCTION_FACTOR =
-    WHEEL_LETTER_RING_INSET_FACTOR * DIAMETER_TO_RADIUS_DIVISOR
+private const val NEW_GAME_DIAMETER_REDUCTION_FACTOR = 0f
 private const val NEW_GAME_GRADIENT_CENTER_RATIO = 0.3f
 private const val NEW_GAME_GRADIENT_RADIUS_RATIO = 0.85f
 private const val NEW_GAME_CIRCLE_RADIUS_RATIO = 0.5f
@@ -350,6 +349,7 @@ private fun GameScreen() {
                 letters = letters,
                 hammerActive = hammerActive,
                 showNewGameButton = showNewGameButton,
+                hasMissingWords = missingWordsState.entries.isNotEmpty(),
                 missingWordsCount = missingWordsState.remainingCount,
                 lastMissingWord = missingWordsState.lastGuessedWord,
                 onShuffle = { letters = letters.shuffled() },
@@ -720,6 +720,7 @@ private fun LetterWheelSection(
     letters: List<Char>,
     hammerActive: Boolean,
     showNewGameButton: Boolean,
+    hasMissingWords: Boolean,
     missingWordsCount: Int,
     lastMissingWord: String?,
     onShuffle: () -> Unit,
@@ -791,13 +792,15 @@ private fun LetterWheelSection(
                             .align(Alignment.TopStart)
                             .padding(start = WHEEL_CORNER_BUTTON_PADDING, top = WHEEL_CORNER_BUTTON_PADDING)
                     )
-                    MissingWordsIndicator(
-                        remainingCount = missingWordsCount,
-                        lastGuessedWord = lastMissingWord,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(end = WHEEL_CORNER_BUTTON_PADDING, top = WHEEL_CORNER_BUTTON_PADDING)
-                    )
+                    if (hasMissingWords) {
+                        MissingWordsIndicator(
+                            remainingCount = missingWordsCount,
+                            lastGuessedWord = lastMissingWord,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(end = WHEEL_CORNER_BUTTON_PADDING, top = WHEEL_CORNER_BUTTON_PADDING)
+                        )
+                    }
                 }
             }
         }
