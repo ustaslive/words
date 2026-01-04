@@ -29,7 +29,8 @@
         "fwcd.kotlin",
         "tamasfe.even-better-toml",
         "openai.chatgpt",
-        "ms-vscode.live-server"
+        "ms-vscode.live-server",
+        "eamodio.gitlens"
       ]
     }
   },

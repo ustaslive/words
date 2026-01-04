@@ -4254,6 +4254,7 @@ mandarin
 mandate
 mandated
 mandatory
+mane
 maneuver
 mango
 manhattan
@@ -4989,6 +4990,7 @@ palmer
 panama
 panda
 pandemic
+pane
 panel
 panic
 panther
