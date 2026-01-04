@@ -1084,6 +1084,7 @@ careless
 cargo
 caring
 carnival
+carp
 carpenter
 carpet
 carr
@@ -3320,10 +3321,10 @@ harmful
 harmless
 harmony
 harness
+harp
 harper
 harry
 harsh
-hart
 harvest
 harvested
 hash
@@ -3331,6 +3332,7 @@ hassle
 hatch
 hate
 hated
+hater
 hateful
 hath
 hating
@@ -5077,6 +5079,7 @@ peach
 peak
 peaked
 peanut
+pear
 pearl
 peasant
 peculiar
@@ -5791,6 +5794,7 @@ regulator
 rehab
 rehearsal
 reign
+rein
 reinforce
 reject
 rejected
@@ -7137,7 +7141,6 @@ taste
 tasted
 tasting
 tasty
-tate
 tattoo
 taught
 tavern
@@ -7353,7 +7356,6 @@ tomorrow
 tone
 tongue
 tonight
-tony
 took
 tool
 tooth
@@ -8009,7 +8011,6 @@ wonder
 wondered
 wonderful
 wondering
-wont
 wood
 wooden
 woodland
