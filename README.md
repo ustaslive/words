@@ -25,3 +25,7 @@ Connect a device or start an emulator, then:
 ```bash
 ./gradlew installDebug
 ```
+
+## License
+
+Released into the public domain under The Unlicense. See `LICENSE`.
