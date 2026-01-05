@@ -11,6 +11,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Process
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.Animatable
@@ -60,6 +61,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -109,6 +111,9 @@ import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.pow
 import kotlin.math.sin
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -198,6 +203,7 @@ private fun GameScreen() {
     val soundEffects = remember(tonePlayer, letterTapSample, bellSample, sideWordSample) {
         SoundEffects(tonePlayer, letterTapSample, bellSample, sideWordSample)
     }
+    val coroutineScope = rememberCoroutineScope()
     var settings by remember { mutableStateOf(loadSettings(appContext)) }
     var showSettings by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
@@ -210,11 +216,12 @@ private fun GameScreen() {
         }
     }
     soundEffects.muted = settings.muted
-    val dictionary = remember { loadWordList { context.assets.open("words.txt") } }
+    var dictionary by remember { mutableStateOf(loadDictionaryWords(appContext)) }
     val dictionarySet = remember(dictionary) { dictionary.toHashSet() }
     val eligibleWords = remember(dictionarySet, settings.maxWordLength) {
         dictionarySet.filter { it.length in MIN_WORD_LENGTH..settings.maxWordLength }
     }
+    var dictionaryUpdateInProgress by remember { mutableStateOf(false) }
     var baseWord by remember { mutableStateOf("") }
     var letters by remember { mutableStateOf(emptyList<Char>()) }
     var grid by remember { mutableStateOf(emptyList<List<CrosswordCell>>()) }
@@ -225,6 +232,40 @@ private fun GameScreen() {
     val highlightFade = remember { Animatable(NEW_WORD_HIGHLIGHT_NONE) }
     var hammerMode by remember { mutableStateOf(HammerMode.Off) }
     var generationError by remember { mutableStateOf(false) }
+
+    fun showDictionaryUpdateToast(result: DictionaryUpdateResult) {
+        val messageRes = when (result) {
+            is DictionaryUpdateResult.Updated -> R.string.dictionary_update_success
+            DictionaryUpdateResult.NotModified -> R.string.dictionary_update_up_to_date
+            is DictionaryUpdateResult.Failed -> R.string.dictionary_update_failed
+            DictionaryUpdateResult.Skipped -> null
+        }
+        if (messageRes != null) {
+            Toast.makeText(appContext, appContext.getString(messageRes), Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun launchDictionaryUpdate(reason: DictionaryUpdateReason, showToast: Boolean) {
+        if (dictionaryUpdateInProgress) {
+            return
+        }
+        dictionaryUpdateInProgress = true
+        coroutineScope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    updateDictionaryIfNeeded(appContext, reason)
+                }
+                if (result is DictionaryUpdateResult.Updated) {
+                    dictionary = result.words
+                }
+                if (showToast) {
+                    showDictionaryUpdateToast(result)
+                }
+            } finally {
+                dictionaryUpdateInProgress = false
+            }
+        }
+    }
 
     fun startNewGame() {
         highlightedPositions = emptySet()
@@ -262,6 +303,10 @@ private fun GameScreen() {
                 }
             }
         }
+    }
+
+    LaunchedEffect(Unit) {
+        launchDictionaryUpdate(DictionaryUpdateReason.Scheduled, showToast = false)
     }
 
     LaunchedEffect(baseWord) {
@@ -304,6 +349,10 @@ private fun GameScreen() {
                 onNewGame = {
                     startNewGame()
                 },
+                onUpdateDictionary = {
+                    launchDictionaryUpdate(DictionaryUpdateReason.Manual, showToast = true)
+                },
+                dictionaryUpdateInProgress = dictionaryUpdateInProgress,
                 onShareProblems = { shareProblemLog(context) },
                 onResetProblems = { resetProblemLog(appContext) },
                 onExit = { (context as? ComponentActivity)?.finishAffinity() },
@@ -418,6 +467,8 @@ private fun GameScreen() {
 private fun TopBar(
     onSettings: () -> Unit,
     onNewGame: () -> Unit,
+    onUpdateDictionary: () -> Unit,
+    dictionaryUpdateInProgress: Boolean,
     onShareProblems: () -> Unit,
     onResetProblems: () -> Unit,
     onExit: () -> Unit,
@@ -452,6 +503,14 @@ private fun TopBar(
                     onClick = {
                         menuExpanded = false
                         onNewGame()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text(text = stringResource(R.string.menu_update_dictionary)) },
+                    enabled = !dictionaryUpdateInProgress,
+                    onClick = {
+                        menuExpanded = false
+                        onUpdateDictionary()
                     }
                 )
                 DropdownMenuItem(
