@@ -389,7 +389,6 @@ arriving
 arrogance
 arrogant
 arrow
-arse
 arsenal
 artery
 arthritis
@@ -763,11 +762,13 @@ blink
 bliss
 blitz
 blizzard
+bloat
 bloc
 block
 blockade
 blocked
 blocking
+blog
 bloke
 blond
 blonde
@@ -796,6 +797,7 @@ boiled
 boiler
 boiling
 bold
+bolid
 bolivia
 bolt
 bomb
@@ -1835,6 +1837,7 @@ death
 debate
 debated
 debating
+debet
 debit
 debris
 debt
@@ -1900,6 +1903,7 @@ delegate
 delete
 deleted
 deleting
+deli
 delicate
 delicious
 delight
@@ -2027,6 +2031,7 @@ different
 differing
 difficult
 digest
+digger
 digging
 digit
 digital
@@ -2663,7 +2668,6 @@ farewell
 farm
 farmer
 farming
-fart
 farther
 fascism
 fascist
@@ -3112,8 +3116,10 @@ gladly
 glamorous
 glamour
 glance
+glare
 glass
 glen
+glide
 glimpse
 glitter
 global
@@ -3932,6 +3938,7 @@ lacking
 ladder
 laden
 lady
+lager
 laid
 lake
 lamb
@@ -4020,6 +4027,7 @@ legendary
 legged
 legion
 legit
+lego
 leisure
 lemon
 lend
@@ -4131,6 +4139,7 @@ loading
 loan
 lobby
 lobbying
+lobe
 lobster
 local
 locality
@@ -4798,6 +4807,7 @@ objected
 objection
 objective
 obligated
+oblige
 obliged
 obscure
 observe
@@ -6786,6 +6796,8 @@ staging
 stain
 stained
 stainless
+stair
+stairs
 staircase
 stake
 stalking
@@ -6909,6 +6921,7 @@ stretched
 stricken
 strict
 strictly
+stride
 strike
 striker
 striking
@@ -7143,9 +7156,11 @@ tape
 taped
 tapped
 tapping
+tare
 target
 targeted
 targeting
+tart
 task
 tasked
 taste
@@ -7322,6 +7337,8 @@ tight
 tighten
 tighter
 tightly
+tilda
+tilde
 tile
 till
 tilt
@@ -7346,6 +7363,7 @@ titanic
 titanium
 title
 titled
+toad
 toast
 tobacco
 toby
