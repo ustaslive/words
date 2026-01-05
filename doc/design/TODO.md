@@ -57,7 +57,7 @@
         [ ] имена собственные 
         [ ] ругательные: slut lust
         [ ] непотятные: 
-    [ ]
+    [ ] glare, fart, gale, lager tare tart arest/arrest? arse
     [ ] 
     [ ] 
 
