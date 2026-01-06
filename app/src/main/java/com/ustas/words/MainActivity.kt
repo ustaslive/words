@@ -181,6 +181,7 @@ private const val SOUND_POOL_MAX_RATE = 2.0f
 private const val SOUND_POOL_TAP_VOLUME = 0.6f
 private const val SOUND_POOL_BELL_VOLUME = SOUND_POOL_TAP_VOLUME
 private const val SOUND_POOL_SIDE_WORD_VOLUME = SOUND_POOL_TAP_VOLUME
+private const val SOUND_POOL_COMPLETED_VOLUME = SOUND_POOL_TAP_VOLUME
 private const val ALREADY_SOLVED_CONFIRM_REPEAT_DELAY_MS = 90L
 
 private data class UserSettings(
@@ -202,19 +203,21 @@ private fun GameScreen() {
     val letterTapSample = remember(appContext) { SoundPoolSample(appContext, R.raw.sfx_letter_tap, SOUND_POOL_TAP_VOLUME) }
     val bellSample = remember(appContext) { SoundPoolSample(appContext, R.raw.sfx_bell, SOUND_POOL_BELL_VOLUME) }
     val sideWordSample = remember(appContext) { SoundPoolSample(appContext, R.raw.sfx_side_word, SOUND_POOL_SIDE_WORD_VOLUME) }
-    val soundEffects = remember(tonePlayer, letterTapSample, bellSample, sideWordSample) {
-        SoundEffects(tonePlayer, letterTapSample, bellSample, sideWordSample)
+    val completedSample = remember(appContext) { SoundPoolSample(appContext, R.raw.sfx_completed, SOUND_POOL_COMPLETED_VOLUME) }
+    val soundEffects = remember(tonePlayer, letterTapSample, bellSample, sideWordSample, completedSample) {
+        SoundEffects(tonePlayer, letterTapSample, bellSample, sideWordSample, completedSample)
     }
     val coroutineScope = rememberCoroutineScope()
     var settings by remember { mutableStateOf(loadSettings(appContext)) }
     var showSettings by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
-    DisposableEffect(tonePlayer, letterTapSample, bellSample, sideWordSample) {
+    DisposableEffect(tonePlayer, letterTapSample, bellSample, sideWordSample, completedSample) {
         onDispose {
             tonePlayer.dispose()
             letterTapSample.release()
             bellSample.release()
             sideWordSample.release()
+            completedSample.release()
         }
     }
     soundEffects.muted = settings.muted
@@ -337,6 +340,12 @@ private fun GameScreen() {
     val isSolved = grid.isNotEmpty() && grid.all { row -> row.all { cell -> !cell.isActive || cell.isRevealed } }
     val hammerActive = hammerMode != HammerMode.Off
     val showNewGameButton = isSolved || generationError
+
+    LaunchedEffect(isSolved) {
+        if (isSolved) {
+            soundEffects.crosswordCompleted()
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         AbstractBackground(modifier = Modifier.fillMaxSize())
@@ -1435,7 +1444,8 @@ private class SoundEffects(
     private val player: TonePlayer,
     private val letterTapSample: SoundPoolSample,
     private val bellSample: SoundPoolSample,
-    private val sideWordSample: SoundPoolSample
+    private val sideWordSample: SoundPoolSample,
+    private val completedSample: SoundPoolSample
 ) {
     var muted: Boolean = false
     private val bellBaseHz = 660.0
@@ -1474,6 +1484,11 @@ private class SoundEffects(
     fun sideWordFound() {
         if (muted) return
         sideWordSample.play()
+    }
+
+    fun crosswordCompleted() {
+        if (muted) return
+        completedSample.play()
     }
 
     fun miss() {
