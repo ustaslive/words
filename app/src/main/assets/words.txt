@@ -52,6 +52,7 @@ accurate
 accuse
 accused
 accusing
+ache
 achieve
 achieved
 achieving
@@ -210,7 +211,6 @@ allowed
 allowing
 alloy
 ally
-alma
 almighty
 almond
 almost
@@ -1010,6 +1010,7 @@ cabin
 cabinet
 cable
 cache
+cadet
 caesar
 cafe
 caffeine
@@ -1674,6 +1675,7 @@ crappy
 crash
 crashed
 crashing
+crate
 crater
 craving
 crawl
@@ -1845,6 +1847,7 @@ debut
 debuted
 decade
 decay
+decease
 deceased
 decency
 decent
@@ -2294,6 +2297,7 @@ easter
 eastern
 easy
 eaten
+eater
 eating
 eccentric
 echo
@@ -3884,7 +3888,6 @@ kernel
 kerry
 kettle
 keyboard
-khan
 kick
 kicked
 kicking
@@ -4318,6 +4321,7 @@ married
 marrow
 marry
 marrying
+mars
 marsh
 marshal
 marshall
@@ -4737,7 +4741,6 @@ nitrogen
 noble
 nobody
 node
-noel
 noise
 noisy
 nominal
@@ -5117,7 +5120,6 @@ pending
 penetrate
 penguin
 peninsula
-penis
 penny
 pension
 pentagon
@@ -6183,7 +6185,9 @@ sank
 sans
 sarcasm
 sarcastic
+satan
 satellite
+satin
 satire
 satisfied
 satisfy
@@ -6278,7 +6282,6 @@ secrecy
 secret
 secretary
 secretly
-sect
 section
 sector
 secular
@@ -6954,6 +6957,7 @@ studying
 stuff
 stuffed
 stumbled
+stung
 stunned
 stunning
 stunt
@@ -7352,6 +7356,7 @@ timer
 timing
 timothy
 tinder
+tint
 tiny
 tipped
 tipping
