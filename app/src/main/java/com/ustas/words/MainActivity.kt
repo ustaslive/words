@@ -10,6 +10,7 @@ import android.media.SoundPool
 import android.content.Context
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.Looper
 import android.os.Process
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -180,6 +181,7 @@ private const val SOUND_POOL_MAX_RATE = 2.0f
 private const val SOUND_POOL_TAP_VOLUME = 0.6f
 private const val SOUND_POOL_BELL_VOLUME = SOUND_POOL_TAP_VOLUME
 private const val SOUND_POOL_SIDE_WORD_VOLUME = SOUND_POOL_TAP_VOLUME
+private const val ALREADY_SOLVED_CONFIRM_REPEAT_DELAY_MS = 90L
 
 private data class UserSettings(
     val muted: Boolean = false,
@@ -1439,6 +1441,7 @@ private class SoundEffects(
     private val bellBaseHz = 660.0
     private val bellStepRatio = 1.08
     private val initialTapHz = 220.0
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     fun initialTap() {
         if (!muted) {
@@ -1482,6 +1485,14 @@ private class SoundEffects(
     fun alreadySolvedConfirm() {
         if (muted) return
         letterTapSample.play(SOUND_POOL_BASE_RATE)
+        mainHandler.postDelayed(
+            {
+                if (!muted) {
+                    letterTapSample.play(SOUND_POOL_BASE_RATE)
+                }
+            },
+            ALREADY_SOLVED_CONFIRM_REPEAT_DELAY_MS
+        )
     }
 
     fun shortConfirm() {
