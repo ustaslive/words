@@ -164,8 +164,6 @@ agreed
 agreeing
 agreement
 ahead
-aide
-aided
 aimed
 aiming
 airborne
@@ -625,6 +623,7 @@ bear
 beard
 bearing
 beast
+beastie
 beat
 beaten
 beating
@@ -642,6 +641,7 @@ bedtime
 beef
 been
 beer
+beet
 beetle
 before
 began
@@ -690,6 +690,7 @@ berlin
 berry
 beside
 best
+bestie
 beta
 betrayal
 betrayed
@@ -1015,7 +1016,6 @@ caesar
 cafe
 caffeine
 cage
-cain
 cake
 calcium
 calculate
@@ -1110,7 +1110,6 @@ cash
 cashier
 casino
 cast
-caste
 casting
 castle
 casual
@@ -1618,7 +1617,6 @@ cosmetic
 cosmic
 cosmos
 cost
-costa
 costing
 costly
 costume
@@ -6761,6 +6759,7 @@ sponsor
 sponsored
 spooky
 spoon
+spore
 sport
 sporting
 spot
@@ -6844,6 +6843,7 @@ statutory
 stay
 stayed
 staying
+stead
 steadily
 steady
 steak
@@ -7371,6 +7371,7 @@ title
 titled
 toad
 toast
+toaster
 tobacco
 toby
 today
