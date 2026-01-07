@@ -1388,6 +1388,7 @@ cocoa
 coconut
 code
 coded
+coder
 coding
 coffee
 coffin
@@ -5109,7 +5110,6 @@ peasant
 peculiar
 pedal
 pediatric
-pedro
 peek
 peel
 peer
@@ -5320,6 +5320,7 @@ popular
 populated
 porcelain
 porch
+pore
 pork
 port
 portable
