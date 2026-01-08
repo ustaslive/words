@@ -8,6 +8,7 @@
     <string name="menu_new">New</string>
     <string name="menu_update_dictionary">Update dictionary</string>
     <string name="new_game">New Game</string>
+    <string name="menu_send_words_review">Send words to review</string>
     <string name="menu_share_problems">Share problems log</string>
     <string name="menu_reset_problems">Reset problems log</string>
     <string name="menu_exit">Exit</string>

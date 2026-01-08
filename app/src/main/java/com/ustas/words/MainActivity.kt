@@ -8,6 +8,7 @@ import android.media.AudioManager
 import android.media.AudioTrack
 import android.media.SoundPool
 import android.content.Context
+import android.content.Intent
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
@@ -60,6 +61,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -115,6 +117,9 @@ import kotlin.math.sin
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -170,6 +175,13 @@ private const val NEW_WORD_HIGHLIGHT_AURA_ALPHA = 0.9f
 private const val NEW_WORD_HIGHLIGHT_AURA_RADIUS_RATIO = 1.1f
 private const val NEW_WORD_HIGHLIGHT_CENTER_RATIO = 0.5f
 private const val HIGHLIGHT_TRIGGER_STEP = 1
+private const val SELECTION_FADE_DURATION_MS = 200
+private const val SELECTION_FADE_START = 0f
+private const val SELECTION_FADE_END = 1f
+private const val SELECTION_FADE_TARGET_RATIO = 0.5f
+private const val REVIEW_WORDS_MIME_TYPE = "text/plain"
+private const val REVIEW_WORDS_SUBJECT_DATE_PATTERN = "yyyy-MM-dd"
+private const val REVIEW_WORDS_SUBJECT_SUFFIX = " words to review"
 private const val SOUND_POOL_MAX_STREAMS = 4
 private const val SOUND_POOL_DEFAULT_PRIORITY = 1
 private const val SOUND_POOL_NO_LOOP = 0
@@ -183,6 +195,9 @@ private const val SOUND_POOL_BELL_VOLUME = SOUND_POOL_TAP_VOLUME
 private const val SOUND_POOL_SIDE_WORD_VOLUME = SOUND_POOL_TAP_VOLUME
 private const val SOUND_POOL_COMPLETED_VOLUME = SOUND_POOL_TAP_VOLUME
 private const val ALREADY_SOLVED_CONFIRM_REPEAT_DELAY_MS = 90L
+private const val REVIEW_WORD_CONFIRM_TONE_HZ = 320.0
+private const val REVIEW_WORD_CONFIRM_DURATION_MS = 60
+private const val REVIEW_WORD_CONFIRM_VOLUME = 0.45f
 
 private data class UserSettings(
     val muted: Boolean = false,
@@ -232,6 +247,7 @@ private fun GameScreen() {
     var grid by remember { mutableStateOf(emptyList<List<CrosswordCell>>()) }
     var crosswordWords by remember { mutableStateOf(emptyMap<String, CrosswordWord>()) }
     var missingWordsState by remember { mutableStateOf(emptyMissingWordsState()) }
+    val reviewWords = remember { mutableStateListOf<String>() }
     var highlightedPositions by remember { mutableStateOf(emptySet<GridPosition>()) }
     var highlightTrigger by remember { mutableStateOf(0) }
     val highlightFade = remember { Animatable(NEW_WORD_HIGHLIGHT_NONE) }
@@ -270,6 +286,12 @@ private fun GameScreen() {
                 dictionaryUpdateInProgress = false
             }
         }
+    }
+
+    fun sendWordsToReview() {
+        val snapshot = reviewWords.toList()
+        shareWordsToReview(context, snapshot)
+        reviewWords.clear()
     }
 
     fun startNewGame() {
@@ -364,6 +386,7 @@ private fun GameScreen() {
                     launchDictionaryUpdate(DictionaryUpdateReason.Manual, showToast = true)
                 },
                 dictionaryUpdateInProgress = dictionaryUpdateInProgress,
+                onSendWordsToReview = { sendWordsToReview() },
                 onShareProblems = { shareProblemLog(context) },
                 onResetProblems = { resetProblemLog(appContext) },
                 onExit = { (context as? ComponentActivity)?.finishAffinity() },
@@ -429,6 +452,10 @@ private fun GameScreen() {
                     }
                 },
                 onSelectionStart = { hammerMode = HammerMode.Off },
+                onWordTapped = { tappedWord ->
+                    reviewWords.add(tappedWord.lowercase(Locale.US))
+                    soundEffects.reviewWordConfirm()
+                },
                 onWordSelected = { selectedWord ->
                     val normalizedWord = selectedWord.uppercase()
                     val match = crosswordWords[normalizedWord]
@@ -480,6 +507,7 @@ private fun TopBar(
     onNewGame: () -> Unit,
     onUpdateDictionary: () -> Unit,
     dictionaryUpdateInProgress: Boolean,
+    onSendWordsToReview: () -> Unit,
     onShareProblems: () -> Unit,
     onResetProblems: () -> Unit,
     onExit: () -> Unit,
@@ -522,6 +550,13 @@ private fun TopBar(
                     onClick = {
                         menuExpanded = false
                         onUpdateDictionary()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text(text = stringResource(R.string.menu_send_words_review)) },
+                    onClick = {
+                        menuExpanded = false
+                        onSendWordsToReview()
                     }
                 )
                 DropdownMenuItem(
@@ -798,11 +833,36 @@ private fun LetterWheelSection(
     onHammerTap: () -> Unit,
     onHammerLongPress: () -> Unit,
     onSelectionStart: () -> Unit,
+    onWordTapped: (String) -> Unit,
     onWordSelected: (String) -> WordResult,
     soundEffects: SoundEffects,
     modifier: Modifier = Modifier
 ) {
     var selectedLetters by remember { mutableStateOf(emptyList<Char>()) }
+    var settledLetters by remember { mutableStateOf(emptyList<Char>()) }
+    var selectionActive by remember { mutableStateOf(false) }
+    val selectionFade = remember { Animatable(SELECTION_FADE_START) }
+
+    LaunchedEffect(letters) {
+        selectedLetters = emptyList()
+        settledLetters = emptyList()
+        selectionActive = false
+    }
+
+    LaunchedEffect(settledLetters) {
+        if (settledLetters.isEmpty()) {
+            selectionFade.snapTo(SELECTION_FADE_START)
+            return@LaunchedEffect
+        }
+        selectionFade.snapTo(SELECTION_FADE_START)
+        selectionFade.animateTo(
+            targetValue = SELECTION_FADE_END,
+            animationSpec = tween(
+                durationMillis = SELECTION_FADE_DURATION_MS,
+                easing = LinearEasing
+            )
+        )
+    }
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val verticalPadding = WHEEL_CONTAINER_EXTRA_HEIGHT + WHEEL_VERTICAL_OFFSET
         val maxWheelWidth = maxWidth.coerceAtMost(WHEEL_MAX_SIZE)
@@ -831,7 +891,11 @@ private fun LetterWheelSection(
                     .height(wheelSize + verticalPadding)
             ) {
                 SelectedLettersPreview(
-                    letters = selectedLetters,
+                    activeLetters = selectedLetters,
+                    settledLetters = settledLetters,
+                    selectionActive = selectionActive,
+                    fadeProgress = selectionFade.value,
+                    onWordTapped = onWordTapped,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(WHEEL_VERTICAL_OFFSET)
@@ -846,8 +910,16 @@ private fun LetterWheelSection(
                         showNewGameButton = showNewGameButton,
                         onShuffle = onShuffle,
                         onNewGame = onNewGame,
-                        onSelectionStart = onSelectionStart,
+                        onSelectionStart = {
+                            onSelectionStart()
+                            selectionActive = true
+                            settledLetters = emptyList()
+                        },
                         onSelectionChanged = { selectedLetters = it },
+                        onSelectionEnd = { finalLetters ->
+                            selectionActive = false
+                            settledLetters = finalLetters
+                        },
                         onWordSelected = onWordSelected,
                         soundEffects = soundEffects,
                         modifier = Modifier
@@ -879,17 +951,35 @@ private fun LetterWheelSection(
 
 @Composable
 private fun SelectedLettersPreview(
-    letters: List<Char>,
+    activeLetters: List<Char>,
+    settledLetters: List<Char>,
+    selectionActive: Boolean,
+    fadeProgress: Float,
+    onWordTapped: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val selectionText = letters.joinToString(separator = "")
+    val activeText = activeLetters.joinToString(separator = "")
+    val settledText = settledLetters.joinToString(separator = "")
+    val showActive = selectionActive && activeText.isNotBlank()
+    val selectionText = if (showActive) activeText else settledText
+    val fadeStep = (fadeProgress * SELECTION_FADE_TARGET_RATIO).coerceIn(SELECTION_FADE_START, SELECTION_FADE_END)
+    val textColor = if (showActive) {
+        TileText
+    } else {
+        lerp(TileText, Color.Black, fadeStep)
+    }
+    val clickableModifier = if (!selectionActive && settledText.isNotBlank()) {
+        modifier.clickable { onWordTapped(settledText) }
+    } else {
+        modifier
+    }
     Box(
-        modifier = modifier,
+        modifier = clickableModifier,
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = selectionText,
-            color = TileText,
+            color = textColor,
             fontWeight = FontWeight.Bold,
             fontSize = WHEEL_SELECTION_TEXT_SIZE,
             letterSpacing = WHEEL_SELECTION_LETTER_SPACING,
@@ -906,6 +996,7 @@ private fun LetterWheel(
     onNewGame: () -> Unit,
     onSelectionStart: () -> Unit,
     onSelectionChanged: (List<Char>) -> Unit,
+    onSelectionEnd: (List<Char>) -> Unit,
     onWordSelected: (String) -> WordResult,
     soundEffects: SoundEffects,
     modifier: Modifier = Modifier
@@ -927,6 +1018,7 @@ private fun LetterWheel(
         val soundEffectsState by rememberUpdatedState(soundEffects)
         val onSelectionStartState by rememberUpdatedState(onSelectionStart)
         val onSelectionChangedState by rememberUpdatedState(onSelectionChanged)
+        val onSelectionEndState by rememberUpdatedState(onSelectionEnd)
         val highlightColor = TileColor
         val hitRadius = letterSizePx * WHEEL_HIT_RADIUS_FACTOR * WHEEL_HIT_RADIUS_EXPANSION_FACTOR
         val hitRadiusSq = hitRadius * hitRadius
@@ -1001,6 +1093,9 @@ private fun LetterWheel(
 
         fun finishSelection() {
             val selectionSize = selectedIndices.size
+            if (selectionSize > 0) {
+                onSelectionEndState(selectedIndices.map { index -> letters[index].uppercaseChar() })
+            }
             if (selectionSize >= MIN_CROSSWORD_WORD_LENGTH) {
                 val selectedWord = buildString {
                     selectedIndices.forEach { index ->
@@ -1514,6 +1609,15 @@ private class SoundEffects(
         if (muted) return
         player.playTone(listOf(220.0), durationMs = 100, volume = 0.25f)
     }
+
+    fun reviewWordConfirm() {
+        if (muted) return
+        player.playTone(
+            listOf(REVIEW_WORD_CONFIRM_TONE_HZ),
+            durationMs = REVIEW_WORD_CONFIRM_DURATION_MS,
+            volume = REVIEW_WORD_CONFIRM_VOLUME
+        )
+    }
 }
 
 private fun loadSettings(context: Context): UserSettings {
@@ -1556,4 +1660,21 @@ private fun saveSettings(context: Context, settings: UserSettings) {
         .putBoolean(KEY_MUTE, settings.muted)
         .putInt(KEY_MAX_WORD_LENGTH, settings.maxWordLength.coerceIn(MIN_WORD_LENGTH, MAX_WORD_LENGTH))
         .apply()
+}
+
+private fun shareWordsToReview(context: Context, words: List<String>) {
+    val shareText = words.joinToString(System.lineSeparator())
+    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+        type = REVIEW_WORDS_MIME_TYPE
+        putExtra(Intent.EXTRA_TEXT, shareText)
+        putExtra(Intent.EXTRA_SUBJECT, buildReviewWordsSubject(Date()))
+    }
+    val chooser = Intent.createChooser(shareIntent, context.getString(R.string.menu_send_words_review))
+    chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    context.startActivity(chooser)
+}
+
+private fun buildReviewWordsSubject(date: Date): String {
+    val formatter = SimpleDateFormat(REVIEW_WORDS_SUBJECT_DATE_PATTERN, Locale.US)
+    return formatter.format(date) + REVIEW_WORDS_SUBJECT_SUFFIX
 }
