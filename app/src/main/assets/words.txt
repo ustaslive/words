@@ -244,7 +244,6 @@ ambition
 ambitious
 ambulance
 ambush
-amen
 amend
 amended
 amendment
@@ -283,7 +282,6 @@ animated
 animation
 anime
 ankle
-anna
 annex
 annexed
 announce
@@ -679,7 +677,6 @@ benchmark
 bend
 bending
 beneath
-benedict
 benefit
 benefited
 benign
@@ -2310,6 +2307,7 @@ economy
 ecosystem
 edge
 edged
+edger
 edible
 edit
 edited
@@ -3873,7 +3871,6 @@ justified
 justify
 juvenile
 kaiser
-kane
 kangaroo
 karate
 karma
@@ -4654,9 +4651,9 @@ name
 named
 namely
 naming
-nana
 nancy
 nanny
+nano
 napoleon
 narrative
 narrator
@@ -5150,7 +5147,6 @@ personnel
 persuade
 persuaded
 pest
-peter
 petition
 petrol
 petroleum
@@ -7230,6 +7226,7 @@ term
 termed
 terminal
 terminate
+terse
 terrace
 terrain
 terrible
