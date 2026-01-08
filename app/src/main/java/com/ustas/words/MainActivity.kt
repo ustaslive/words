@@ -136,6 +136,7 @@ class MainActivity : ComponentActivity() {
 private const val PREFS_NAME = "words_settings"
 private const val KEY_MUTE = "mute"
 private const val KEY_MAX_WORD_LENGTH = "max_word_length"
+private const val KEY_REVIEW_WORDS = "review_words"
 private const val DEFAULT_MAX_WORD_LENGTH = 9
 private const val MIN_WORD_LENGTH = 5
 private const val MAX_WORD_LENGTH = 9
@@ -182,6 +183,7 @@ private const val SELECTION_FADE_TARGET_RATIO = 0.5f
 private const val REVIEW_WORDS_MIME_TYPE = "text/plain"
 private const val REVIEW_WORDS_SUBJECT_DATE_PATTERN = "yyyy-MM-dd"
 private const val REVIEW_WORDS_SUBJECT_SUFFIX = " words to review"
+private const val REVIEW_WORDS_SEPARATOR = "\n"
 private const val SOUND_POOL_MAX_STREAMS = 4
 private const val SOUND_POOL_DEFAULT_PRIORITY = 1
 private const val SOUND_POOL_NO_LOOP = 0
@@ -247,7 +249,9 @@ private fun GameScreen() {
     var grid by remember { mutableStateOf(emptyList<List<CrosswordCell>>()) }
     var crosswordWords by remember { mutableStateOf(emptyMap<String, CrosswordWord>()) }
     var missingWordsState by remember { mutableStateOf(emptyMissingWordsState()) }
-    val reviewWords = remember { mutableStateListOf<String>() }
+    val reviewWords = remember(appContext) {
+        mutableStateListOf<String>().apply { addAll(loadReviewWords(appContext)) }
+    }
     var highlightedPositions by remember { mutableStateOf(emptySet<GridPosition>()) }
     var highlightTrigger by remember { mutableStateOf(0) }
     val highlightFade = remember { Animatable(NEW_WORD_HIGHLIGHT_NONE) }
@@ -292,6 +296,7 @@ private fun GameScreen() {
         val snapshot = reviewWords.toList()
         shareWordsToReview(context, snapshot)
         reviewWords.clear()
+        saveReviewWords(appContext, reviewWords)
     }
 
     fun startNewGame() {
@@ -454,6 +459,7 @@ private fun GameScreen() {
                 onSelectionStart = { hammerMode = HammerMode.Off },
                 onWordTapped = { tappedWord ->
                     reviewWords.add(tappedWord.lowercase(Locale.US))
+                    saveReviewWords(appContext, reviewWords)
                     soundEffects.reviewWordConfirm()
                 },
                 onWordSelected = { selectedWord ->
@@ -1628,6 +1634,18 @@ private fun loadSettings(context: Context): UserSettings {
     return UserSettings(muted = muted, maxWordLength = maxLength)
 }
 
+private fun loadReviewWords(context: Context): List<String> {
+    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    val stored = prefs.getString(KEY_REVIEW_WORDS, "") ?: ""
+    if (stored.isBlank()) {
+        return emptyList()
+    }
+    return stored.split(REVIEW_WORDS_SEPARATOR)
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+        .map { it.lowercase(Locale.US) }
+}
+
 private fun logSmallWordListIfNeeded(context: Context, baseWord: String, dictionary: List<String>) {
     if (baseWord.isBlank()) {
         return
@@ -1659,6 +1677,14 @@ private fun saveSettings(context: Context, settings: UserSettings) {
         .edit()
         .putBoolean(KEY_MUTE, settings.muted)
         .putInt(KEY_MAX_WORD_LENGTH, settings.maxWordLength.coerceIn(MIN_WORD_LENGTH, MAX_WORD_LENGTH))
+        .apply()
+}
+
+private fun saveReviewWords(context: Context, words: List<String>) {
+    val serialized = words.joinToString(REVIEW_WORDS_SEPARATOR)
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .edit()
+        .putString(KEY_REVIEW_WORDS, serialized)
         .apply()
 }
 
