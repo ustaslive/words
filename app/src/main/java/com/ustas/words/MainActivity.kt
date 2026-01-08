@@ -42,9 +42,9 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
@@ -491,11 +491,11 @@ private fun TopBar(
         horizontalArrangement = Arrangement.End
     ) {
         CircleIconButton(
-            icon = Icons.Filled.Settings,
-            contentDescription = stringResource(R.string.settings),
+            icon = Icons.Filled.Autorenew,
+            contentDescription = stringResource(R.string.new_game),
             onClick = {
                 menuExpanded = false
-                onSettings()
+                onNewGame()
             }
         )
         Spacer(modifier = Modifier.width(8.dp))
@@ -510,10 +510,10 @@ private fun TopBar(
                 onDismissRequest = { menuExpanded = false }
             ) {
                 DropdownMenuItem(
-                    text = { Text(text = stringResource(R.string.menu_new)) },
+                    text = { Text(text = stringResource(R.string.settings)) },
                     onClick = {
                         menuExpanded = false
-                        onNewGame()
+                        onSettings()
                     }
                 )
                 DropdownMenuItem(
