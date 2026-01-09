@@ -31,7 +31,7 @@ private const val HEADER_IF_MODIFIED_SINCE = "If-Modified-Since"
 private const val HEADER_USER_AGENT = "User-Agent"
 private const val USER_AGENT_VALUE = "WordsApp"
 // Replace with your repo raw URL.
-private const val DICTIONARY_URL = "https://raw.githubusercontent.com/ustaslive/words/master/app/src/main/assets/words.txt"
+private const val DICTIONARY_URL = "https://raw.githubusercontent.com/ustaslive/words/develop/app/src/main/assets/words.txt"
 
 internal enum class DictionaryUpdateReason {
     Scheduled,
