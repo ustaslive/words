@@ -655,11 +655,10 @@ private fun AboutDialog(
         title = { Text(text = stringResource(R.string.about_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(ABOUT_DIALOG_LINE_SPACING)) {
-                Text(text = stringResource(R.string.about_version))
-                Text(text = stringResource(R.string.about_author))
-                Text(text = stringResource(R.string.about_platform))
-                Text(text = stringResource(R.string.about_stack))
-                Text(text = stringResource(R.string.about_year))
+                Text(text = stringResource(R.string.about_version, BuildConfig.VERSION_NAME))
+                Text(text = stringResource(R.string.about_date, BuildConfig.BUILD_TIME_UTC))
+                Text(text = stringResource(R.string.about_open_source))
+                Text(text = stringResource(R.string.about_copyright))
             }
         }
     )

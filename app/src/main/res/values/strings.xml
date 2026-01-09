@@ -19,10 +19,9 @@
     <string name="dictionary_update_up_to_date">Dictionary is up to date.</string>
     <string name="dictionary_update_failed">Dictionary update failed.</string>
     <string name="about_title">About Words</string>
-    <string name="about_version">Version: 0.0.0 beta</string>
-    <string name="about_author">Author: ustaslive@gmail.com</string>
-    <string name="about_platform">Platform: Android</string>
-    <string name="about_stack">Built with Kotlin and Jetpack Compose</string>
-    <string name="about_year">Copyright 2026</string>
+    <string name="about_version">Version: %1$s</string>
+    <string name="about_date">Date: %1$s</string>
+    <string name="about_open_source">Open Source: github.com/ustaslive/words</string>
+    <string name="about_copyright">Copyright: © 2026 Familiar Apps</string>
     <string name="about_close">Close</string>
 </resources>

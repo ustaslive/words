@@ -1,3 +1,7 @@
+import java.time.ZoneOffset
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -7,12 +11,17 @@ android {
     namespace = "com.ustas.words"
     compileSdk = 34
 
+    val buildTimePattern = "yyyy-MM-dd HH:mm:ss 'UTC'"
+    val buildTimeUtc = ZonedDateTime.now(ZoneOffset.UTC)
+        .format(DateTimeFormatter.ofPattern(buildTimePattern))
+
     defaultConfig {
         applicationId = "com.familiarapps.words"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
         versionName = "1.0.1"
+        buildConfigField("String", "BUILD_TIME_UTC", "\"$buildTimeUtc\"")
     }
 
     buildTypes {
@@ -31,6 +40,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     composeOptions {
