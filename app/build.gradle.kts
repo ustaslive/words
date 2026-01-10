@@ -24,13 +24,24 @@ android {
         buildConfigField("String", "BUILD_TIME_UTC", "\"$buildTimeUtc\"")
     }
 
+    signingConfigs {
+        create("release") {
+            keyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: "words-key"
+            keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            storePassword = System.getenv("ANDROID_STORE_PASSWORD")
+
+            storeFile = rootProject.file("secrets/familiar-apps.jks")
+        }
+    }
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
         }
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

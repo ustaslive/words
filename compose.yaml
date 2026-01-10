@@ -6,11 +6,11 @@ services:
       dockerfile: .devcontainer/Dockerfile
     volumes:
       - ./:/words:cached
+      - ~/.android/secrets/words:/words/secrets:ro
     working_dir: /words
     privileged: true
     devices:
       - /dev/bus/usb:/dev/bus/usb
-      - ~/.android/secrets/words:/words/secrets:ro
     environment:
       ANDROID_HOME: /opt/android/sdk
       ANDROID_SDK_ROOT: /opt/android/sdk

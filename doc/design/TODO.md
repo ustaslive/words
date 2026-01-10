@@ -36,6 +36,17 @@
     [ ] how it is possible that 'send words for review' does not use share feature but sends email in background to particular email?
     [ ] every next ramdom word shall differ from previous two significantly. lets say 100% other words. not good as some vovels a,e - are quite often
         lets say - 80% new letters in new
+    [ ] this must be added to README.md file: container expects 
+        - keystore for android app in ~/.android/secrets/words
+        - env vars with passwords for the keystore ANDROID_APP_WORDS_PASS & ANDROID_STORE_PASS
+
+        [ ] make sure that the container will start even if mentioned above setting are not set
+            this is a must!!!
+    [ ] remember now and add this command to build-readme or whatever doc I will have for the release
+        jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab
+    [ ] add to makefile new target `release`
+        ./gradlew assembleRelease
+    [ ] 
     [ ] 
     [ ] 
     [ ] 
