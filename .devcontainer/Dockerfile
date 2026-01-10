@@ -22,6 +22,7 @@ RUN apt-get update && \
     iputils-ping \
     netcat-openbsd \
     git \
+    gh \
     zip \
     ripgrep \
     build-essential \
