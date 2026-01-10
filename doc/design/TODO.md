@@ -46,7 +46,9 @@
         jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab
     [ ] add to makefile new target `release`
         ./gradlew assembleRelease
-    [ ] 
+    [ ] release files shall be stored soomewhere - like screenshots etc
+        maybe more
+        where they are usually stored in repo?
     [ ] 
     [ ] 
     [ ] 

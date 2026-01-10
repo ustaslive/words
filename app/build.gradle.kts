@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "com.ustas.words"
-    compileSdk = 34
+    compileSdk = 35
 
     val buildTimePattern = "yyyy-MM-dd HH:mm:ss 'UTC'"
     val buildTimeUtc = ZonedDateTime.now(ZoneOffset.UTC)
@@ -18,9 +18,9 @@ android {
     defaultConfig {
         applicationId = "com.familiarapps.words"
         minSdk = 24
-        targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.1"
+        targetSdk = 35
+        versionCode = 2
+        versionName = "1.0.2"
         buildConfigField("String", "BUILD_TIME_UTC", "\"$buildTimeUtc\"")
     }
 
