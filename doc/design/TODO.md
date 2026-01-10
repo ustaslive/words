@@ -33,15 +33,35 @@
         words.txt - this may be automated, with AI
     [ ] можно ли сделать так чтобы у debug версии иконка отличалась бы от той что у прилжения установленного через play console?
     [ ] кликабельная ссылка в about
-    [ ] 
-    [ ] 
+    [ ] how it is possible that 'send words for review' does not use share feature but sends email in background to particular email?
     [ ] 
     [ ] 
     [ ] 
     [ ] 
 
 [2] publish in google play
-    [ ] 
+    [ ] Подтоговка, шаги от гемини
+        [ ] Создание ключа подписи (Upload Key)
+        [ ] Настройка подписи в Gradle
+            Добавьте параметры подписи в app/build.gradle.kts, чтобы автоматизировать процесс:
+        [ ] Сборка App Bundle
+        [ ] Google Play Console
+            Create app (Создать приложение):
+        [ ] загрузка приложения
+        [ ] 
+        [ ] 
+        [ ] 
+
+    [ ] нужен процесс-документ - файл где описано бы было что делать при новом релизе. я так вижу
+        новый бранч ustas/release_v1.2.3
+        в нем меняю версию в tks файле
+        commit
+        merge to develop
+        merge develp to master
+        tag master with v1.2.3
+
+        build new release file for play store
+        upload somehow
     [ ] 
     [ ] 
 

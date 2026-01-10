@@ -354,6 +354,7 @@ arctic
 area
 arena
 argentine
+argon
 arguably
 argue
 argued
@@ -1086,7 +1087,6 @@ carnival
 carp
 carpenter
 carpet
-carr
 carriage
 carried
 carrier
@@ -1095,7 +1095,6 @@ carry
 carrying
 cart
 cartel
-carter
 cartoon
 cartridge
 carved
@@ -1867,6 +1866,7 @@ decree
 dedicate
 dedicated
 deed
+deem
 deemed
 deep
 deeper
@@ -2469,7 +2469,6 @@ erase
 erect
 erected
 erection
-erica
 erosion
 erotic
 error
@@ -3421,8 +3420,6 @@ herein
 heritage
 hero
 heroic
-heroin
-heroine
 herself
 hesitate
 hidden
@@ -4098,7 +4095,6 @@ lined
 linen
 liner
 lineup
-ling
 lingerie
 lining
 link
@@ -5632,6 +5628,7 @@ rabbi
 rabbit
 race
 raced
+racer
 racial
 racing
 racism
@@ -6021,6 +6018,7 @@ rightly
 rigid
 rigorous
 ring
+ringer
 ringing
 riot
 ripe
@@ -6057,7 +6055,6 @@ rocket
 rocking
 rocky
 rode
-roger
 rogue
 role
 roll
@@ -6116,6 +6113,7 @@ ruler
 ruling
 rumor
 runaway
+rung
 runner
 running
 runoff
@@ -7149,7 +7147,6 @@ tallest
 tally
 tame
 tandem
-tang
 tangible
 tango
 tank
@@ -7680,7 +7677,6 @@ urged
 urgency
 urgent
 urging
-urine
 usable
 usage
 used

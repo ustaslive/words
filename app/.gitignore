@@ -1,0 +1,4 @@
+# Keystore and passwords
+app/*.jks
+app/*.properties
+
