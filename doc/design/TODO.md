@@ -36,42 +36,13 @@
     [ ] how it is possible that 'send words for review' does not use share feature but sends email in background to particular email?
     [ ] every next ramdom word shall differ from previous two significantly. lets say 100% other words. not good as some vovels a,e - are quite often
         lets say - 80% new letters in new
-    [x] this must be added to README.md file: container expects 
-        - keystore for android app in ~/.android/secrets/words
-        - env vars with passwords for the keystore ANDROID_APP_WORDS_PASS & ANDROID_STORE_PASS
-        [x] make sure that the container will start even if mentioned above setting are not set
-            this is a must!!!
-    [x] remember now and add this command to build-readme or whatever doc I will have for the release
-        jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab
-    [x] add to makefile new target `release`
-        ./gradlew assembleRelease
-    [x] release files shall be stored soomewhere - like screenshots etc
-        maybe more
-        where they are usually stored in repo?
     [ ] 
     [ ] 
 
 [2] publish in google play
     [ ] Подтоговка, шаги от гемини
-        [x] Создание ключа подписи (Upload Key)
-        [x] Настройка подписи в Gradle
-            Добавьте параметры подписи в app/build.gradle.kts, чтобы автоматизировать процесс:
-        [x] Сборка App Bundle
-        [x] Google Play Console
-            Create app (Создать приложение):
-        [x] загрузка приложения
-        [x] save key
         [ ] автоматизация - чего возможно
         [ ] 
-    [x] нужен процесс-документ - файл где описано бы было что делать при новом релизе. я так вижу
-        новый бранч ustas/release_v1.2.3
-        в нем меняю версию в tks файле
-        commit
-        merge to develop
-        merge develp to master
-        tag master with v1.2.3
-        build new release file for play store
-        upload somehow
     [ ] оформить иконку приложения в google play - need preparation with different
     [ ] 
     [ ] 
@@ -167,6 +138,18 @@
     [x] как бы сделать обновление словаря без компиляции и без перезагрузки всего приложения?
     [x] убрать кнопку-иконку-акцию настройки в меню "триточки"
     [x] добавить иконку "новую игру" - может быть дожна быть - две стрелки по кругу, типа ресет/ребут
+    [x] this must be added to README.md file: container expects 
+        - keystore for android app in ~/.android/secrets/words
+        - env vars with passwords for the keystore ANDROID_APP_WORDS_PASS & ANDROID_STORE_PASS
+        [x] make sure that the container will start even if mentioned above setting are not set
+            this is a must!!!
+    [x] remember now and add this command to build-readme or whatever doc I will have for the release
+        jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab
+    [x] add to makefile new target `release`
+        ./gradlew assembleRelease
+    [x] release files shall be stored soomewhere - like screenshots etc
+        maybe more
+        where they are usually stored in repo?
 [x] bugs
     [x] иногда. не ясно при каких обстоятельстовах, но на экране кроссворд показывается обреанным. аж по середине клетки.
     [x] при вводе букв не всегда палец цепляет первую букву - приходится заново касаться ее и целишься более центрально. возможно нужно увеличить область которая считается "прикоснулись". для начала на 10%
@@ -188,3 +171,23 @@
     [x] предпочтительные форматы для клико-подобных звуков wav & ogg
     [x] нужен звук для случая - когда собран кроссворд. - см - анимация финала
 
+[2] publish in google play
+    [ ] Подтоговка, шаги от гемини
+        [x] Создание ключа подписи (Upload Key)
+        [x] Настройка подписи в Gradle
+            Добавьте параметры подписи в app/build.gradle.kts, чтобы автоматизировать процесс:
+        [x] Сборка App Bundle
+        [x] Google Play Console
+            Create app (Создать приложение):
+        [x] загрузка приложения
+        [x] save key
+    [x] нужен процесс-документ - файл где описано бы было что делать при новом релизе. я так вижу
+        новый бранч ustas/release_v1.2.3
+        в нем меняю версию в tks файле
+        commit
+        merge to develop
+        merge develp to master
+        tag master with v1.2.3
+        build new release file for play store
+        upload somehow
+    
