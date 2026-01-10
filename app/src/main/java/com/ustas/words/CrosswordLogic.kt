@@ -221,7 +221,8 @@ internal fun generateCrosswordWithQuality(
     dictionary: List<String>,
     minWordCount: Int = MIN_CROSSWORD_WORD_COUNT,
     maxAttempts: Int = MAX_CROSSWORD_GENERATION_ATTEMPTS,
-    random: Random = Random.Default
+    random: Random = Random.Default,
+    isValidLayout: (String, CrosswordLayout) -> Boolean = { _, _ -> true }
 ): CrosswordGenerationResult {
     if (baseWords.isEmpty()) {
         return CrosswordGenerationResult.Failure(emptyList(), ORIGIN_INDEX)
@@ -235,7 +236,7 @@ internal fun generateCrosswordWithQuality(
         attempts += INDEX_STEP
         val layout = buildCrosswordLayout(baseWord, dictionary, random)
         val wordCount = layout.words.size
-        if (wordCount >= minWordCount) {
+        if (wordCount >= minWordCount && isValidLayout(baseWord, layout)) {
             return CrosswordGenerationResult.Success(
                 baseWord = baseWord,
                 layout = layout,
@@ -246,6 +247,27 @@ internal fun generateCrosswordWithQuality(
         rejectedWords.add(baseWord)
     }
     return CrosswordGenerationResult.Failure(rejectedWords, attempts)
+}
+
+internal fun areAllBaseLettersUsed(baseWord: String, layout: CrosswordLayout): Boolean {
+    val usedLetters = BooleanArray(ALPHABET_SIZE)
+    for (word in layout.words.keys) {
+        for (char in word) {
+            if (char !in 'A'..'Z') {
+                continue
+            }
+            usedLetters[char - 'A'] = true
+        }
+    }
+    for (char in baseWord.uppercase()) {
+        if (char !in 'A'..'Z') {
+            return false
+        }
+        if (!usedLetters[char - 'A']) {
+            return false
+        }
+    }
+    return true
 }
 
 internal fun generateRandomCrossword(

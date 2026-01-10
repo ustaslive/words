@@ -12,7 +12,7 @@ all: build
 	./gradlew installDebug
 
 uninstall:
-	adb uninstall com.ustas.words
+	adb uninstall com.familiarapps.words.debug
 
 test:
 	./gradlew :app:testDebugUnitTest --rerun-tasks

@@ -44,6 +44,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Autorenew
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Shuffle
@@ -109,11 +110,14 @@ import com.ustas.words.ui.theme.TileText
 import com.ustas.words.ui.theme.WheelBackground
 import com.ustas.words.ui.theme.WheelLetter
 import com.ustas.words.ui.theme.WordsTheme
+import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.pow
 import kotlin.math.sin
+import kotlin.random.Random
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -136,6 +140,7 @@ class MainActivity : ComponentActivity() {
 private const val PREFS_NAME = "words_settings"
 private const val KEY_MUTE = "mute"
 private const val KEY_MAX_WORD_LENGTH = "max_word_length"
+private const val KEY_CROSSWORD_SELECTION_MODE = "crossword_selection_mode"
 private const val KEY_REVIEW_WORDS = "review_words"
 private const val DEFAULT_MAX_WORD_LENGTH = 9
 private const val MIN_WORD_LENGTH = 5
@@ -196,6 +201,18 @@ private const val SOUND_POOL_TAP_VOLUME = 0.6f
 private const val SOUND_POOL_BELL_VOLUME = SOUND_POOL_TAP_VOLUME
 private const val SOUND_POOL_SIDE_WORD_VOLUME = SOUND_POOL_TAP_VOLUME
 private const val SOUND_POOL_COMPLETED_VOLUME = SOUND_POOL_TAP_VOLUME
+private const val CROSSWORD_MODE_RANDOM_WORD = "random_word"
+private const val CROSSWORD_MODE_LOW_OVERLAP = "low_overlap"
+private const val CROSSWORD_MODE_VOWEL_RICH_LETTERS = "vowel_rich_letters"
+private const val DEFAULT_CROSSWORD_SELECTION_MODE_ID = CROSSWORD_MODE_RANDOM_WORD
+private const val LOW_OVERLAP_MAX_SHARED_RATIO = 0.2f
+private const val VOWEL_MIN_RATIO = 0.2f
+private const val FULL_WEIGHT = 1f
+private val SETTINGS_DIALOG_SPACING = 12.dp
+private val SETTINGS_CONTROL_SPACING = 8.dp
+private const val VOWELS = "AEIOU"
+private const val CONSONANTS = "BCDFGHJKLMNPQRSTVWXYZ"
+private const val COUNT_STEP = 1
 private const val ALREADY_SOLVED_CONFIRM_REPEAT_DELAY_MS = 90L
 private const val REVIEW_WORD_CONFIRM_TONE_HZ = 320.0
 private const val REVIEW_WORD_CONFIRM_DURATION_MS = 60
@@ -203,8 +220,26 @@ private const val REVIEW_WORD_CONFIRM_VOLUME = 0.45f
 
 private data class UserSettings(
     val muted: Boolean = false,
-    val maxWordLength: Int = DEFAULT_MAX_WORD_LENGTH
+    val maxWordLength: Int = DEFAULT_MAX_WORD_LENGTH,
+    val selectionMode: CrosswordSelectionMode = DEFAULT_CROSSWORD_SELECTION_MODE
 )
+
+private enum class CrosswordSelectionMode(
+    val id: String,
+    val labelResId: Int
+) {
+    RandomWord(CROSSWORD_MODE_RANDOM_WORD, R.string.crossword_mode_random_word),
+    LowOverlapWord(CROSSWORD_MODE_LOW_OVERLAP, R.string.crossword_mode_low_overlap),
+    VowelRichLetters(CROSSWORD_MODE_VOWEL_RICH_LETTERS, R.string.crossword_mode_vowel_rich_letters);
+
+    companion object {
+        fun fromId(id: String): CrosswordSelectionMode {
+            return values().firstOrNull { it.id == id } ?: DEFAULT_CROSSWORD_SELECTION_MODE
+        }
+    }
+}
+
+private val DEFAULT_CROSSWORD_SELECTION_MODE = CrosswordSelectionMode.RandomWord
 
 private enum class HammerMode {
     Off,
@@ -300,10 +335,23 @@ private fun GameScreen() {
     }
 
     fun startNewGame() {
+        val previousBaseWord = baseWord
         highlightedPositions = emptySet()
+        val baseWords = buildBaseWordCandidates(
+            eligibleWords = eligibleWords,
+            previousBaseWord = previousBaseWord,
+            selectionMode = settings.selectionMode,
+            maxWordLength = settings.maxWordLength
+        )
         val result = generateCrosswordWithQuality(
-            baseWords = eligibleWords,
-            dictionary = dictionary
+            baseWords = baseWords,
+            dictionary = dictionary,
+            isValidLayout = { base, layout ->
+                if (settings.selectionMode != CrosswordSelectionMode.VowelRichLetters) {
+                    return@generateCrosswordWithQuality true
+                }
+                areAllBaseLettersUsed(base, layout)
+            }
         )
         val rejectedWords = when (result) {
             is CrosswordGenerationResult.Success -> result.rejectedWords
@@ -606,11 +654,23 @@ private fun SettingsDialog(
 ) {
     var muted by remember(current.muted) { mutableStateOf(current.muted) }
     var maxLength by remember(current.maxWordLength) { mutableStateOf(current.maxWordLength.toFloat()) }
+    var selectionMode by remember(current.selectionMode) { mutableStateOf(current.selectionMode) }
+    var selectionExpanded by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = { onSave(UserSettings(muted = muted, maxWordLength = maxLength.roundToInt())) }) {
+            TextButton(
+                onClick = {
+                    onSave(
+                        UserSettings(
+                            muted = muted,
+                            maxWordLength = maxLength.roundToInt(),
+                            selectionMode = selectionMode
+                        )
+                    )
+                }
+            ) {
                 Text(text = "Save")
             }
         },
@@ -621,10 +681,49 @@ private fun SettingsDialog(
         },
         title = { Text(text = stringResource(R.string.settings)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(SETTINGS_DIALOG_SPACING)) {
+                Column {
+                    Text(text = stringResource(R.string.settings_next_crossword))
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        TextButton(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = { selectionExpanded = true }
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(selectionMode.labelResId),
+                                    modifier = Modifier.weight(FULL_WEIGHT),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Icon(
+                                    imageVector = Icons.Filled.ArrowDropDown,
+                                    contentDescription = stringResource(R.string.dropdown_open)
+                                )
+                            }
+                        }
+                        DropdownMenu(
+                            expanded = selectionExpanded,
+                            onDismissRequest = { selectionExpanded = false }
+                        ) {
+                            for (mode in CrosswordSelectionMode.values()) {
+                                DropdownMenuItem(
+                                    text = { Text(text = stringResource(mode.labelResId)) },
+                                    onClick = {
+                                        selectionMode = mode
+                                        selectionExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = muted, onCheckedChange = { muted = it })
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(SETTINGS_CONTROL_SPACING))
                     Text(text = "Mute sounds")
                 }
                 Column {
@@ -1630,7 +1729,88 @@ private fun loadSettings(context: Context): UserSettings {
     val maxLength = prefs.getInt(KEY_MAX_WORD_LENGTH, DEFAULT_MAX_WORD_LENGTH)
         .coerceIn(MIN_WORD_LENGTH, MAX_WORD_LENGTH)
     val muted = prefs.getBoolean(KEY_MUTE, false)
-    return UserSettings(muted = muted, maxWordLength = maxLength)
+    val selectionModeId = prefs.getString(KEY_CROSSWORD_SELECTION_MODE, DEFAULT_CROSSWORD_SELECTION_MODE_ID)
+        ?: DEFAULT_CROSSWORD_SELECTION_MODE_ID
+    val selectionMode = CrosswordSelectionMode.fromId(selectionModeId)
+    return UserSettings(muted = muted, maxWordLength = maxLength, selectionMode = selectionMode)
+}
+
+private fun buildBaseWordCandidates(
+    eligibleWords: List<String>,
+    previousBaseWord: String,
+    selectionMode: CrosswordSelectionMode,
+    maxWordLength: Int,
+    random: Random = Random.Default
+): List<String> {
+    return when (selectionMode) {
+        CrosswordSelectionMode.RandomWord -> eligibleWords
+        CrosswordSelectionMode.LowOverlapWord -> {
+            val filtered = eligibleWords.filter { hasLowLetterOverlap(it, previousBaseWord) }
+            if (filtered.isEmpty()) eligibleWords else filtered
+        }
+        CrosswordSelectionMode.VowelRichLetters -> {
+            buildVowelRichCandidates(
+                minLength = MIN_WORD_LENGTH,
+                maxLength = maxWordLength,
+                candidateCount = MAX_CROSSWORD_GENERATION_ATTEMPTS,
+                random = random
+            )
+        }
+    }
+}
+
+private fun hasLowLetterOverlap(candidate: String, previousBaseWord: String): Boolean {
+    if (previousBaseWord.isBlank()) {
+        return true
+    }
+    val normalizedCandidate = candidate.uppercase()
+    val normalizedPrevious = previousBaseWord.uppercase()
+    val candidateCounts = countLetterMatches(normalizedCandidate) ?: return true
+    val previousCounts = countLetterMatches(normalizedPrevious) ?: return true
+    val sharedCount = candidateCounts.indices.sumOf { index ->
+        minOf(candidateCounts[index], previousCounts[index])
+    }
+    val maxShared = floor(normalizedCandidate.length * LOW_OVERLAP_MAX_SHARED_RATIO).toInt()
+    return sharedCount <= maxShared
+}
+
+private fun countLetterMatches(word: String): IntArray? {
+    val counts = IntArray(CONSONANTS.length + VOWELS.length)
+    for (char in word) {
+        if (char !in 'A'..'Z') {
+            return null
+        }
+        counts[char - 'A']++
+    }
+    return counts
+}
+
+private fun buildVowelRichCandidates(
+    minLength: Int,
+    maxLength: Int,
+    candidateCount: Int,
+    random: Random = Random.Default
+): List<String> {
+    if (maxLength < minLength) {
+        return emptyList()
+    }
+    val lengthRange = maxLength - minLength + COUNT_STEP
+    return List(candidateCount.coerceAtLeast(COUNT_STEP)) {
+        val length = minLength + random.nextInt(lengthRange)
+        buildVowelRichWord(length, random)
+    }
+}
+
+private fun buildVowelRichWord(length: Int, random: Random): String {
+    val minVowels = ceil(length * VOWEL_MIN_RATIO).toInt().coerceAtLeast(COUNT_STEP)
+    val letters = mutableListOf<Char>()
+    repeat(minVowels) {
+        letters.add(VOWELS[random.nextInt(VOWELS.length)])
+    }
+    repeat(length - minVowels) {
+        letters.add(CONSONANTS[random.nextInt(CONSONANTS.length)])
+    }
+    return letters.shuffled(random).joinToString(separator = "")
 }
 
 private fun loadReviewWords(context: Context): List<String> {
@@ -1676,6 +1856,7 @@ private fun saveSettings(context: Context, settings: UserSettings) {
         .edit()
         .putBoolean(KEY_MUTE, settings.muted)
         .putInt(KEY_MAX_WORD_LENGTH, settings.maxWordLength.coerceIn(MIN_WORD_LENGTH, MAX_WORD_LENGTH))
+        .putString(KEY_CROSSWORD_SELECTION_MODE, settings.selectionMode.id)
         .apply()
 }
 
