@@ -45,6 +45,8 @@
 - No .vscode/settings.json; keep editor/devcontainer config in .devcontainer/devcontainer.json.
 - Keep devcontainer service/container name as "words" unless explicitly asked to change.
 - Do not force-push or amend without user request.
+- For every new task, create a feature branch from `develop` and make all changes there.
+- Do not merge the feature branch anywhere; merges are done manually by the user.
 - Ask before changing devcontainer or build tooling.
 
 ## Filesystem boundaries
