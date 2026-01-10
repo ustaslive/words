@@ -85,7 +85,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.input.pointer.changedToUp
-import androidx.compose.ui.input.pointer.consumeAllChanges
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.unit.Dp
@@ -1230,7 +1229,7 @@ private fun LetterWheel(
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         val startIndex = findHitIndex(down.position) ?: return@awaitEachGesture
-                        down.consumeAllChanges()
+                        down.consume()
                         onSelectionStartState()
                         setSelection(emptyList())
                         updateSelection(startIndex)
@@ -1247,12 +1246,12 @@ private fun LetterWheel(
                                 dragPosition = change.position
                             }
                             if (change.changedToUp() || !change.pressed) {
-                                change.consumeAllChanges()
+                                change.consume()
                                 finishSelection()
                                 break
                             }
                             if (change.positionChanged()) {
-                                change.consumeAllChanges()
+                                change.consume()
                             }
                         }
                     }
