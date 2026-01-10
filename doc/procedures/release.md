@@ -77,6 +77,7 @@ jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.a
 Run on the host:
 
 ```
+cd ~/Download
 docker cp words:/words/app/build/outputs/bundle/release/app-release.aab ./app-release-v<version>.aab
 ```
 
