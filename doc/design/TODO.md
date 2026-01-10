@@ -34,7 +34,8 @@
     [ ] можно ли сделать так чтобы у debug версии иконка отличалась бы от той что у прилжения установленного через play console?
     [ ] кликабельная ссылка в about
     [ ] how it is possible that 'send words for review' does not use share feature but sends email in background to particular email?
-    [ ] 
+    [ ] every next ramdom word shall differ from previous two significantly. lets say 100% other words. not good as some vovels a,e - are quite often
+        lets say - 80% new letters in new
     [ ] 
     [ ] 
     [ ] 

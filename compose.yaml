@@ -10,9 +10,13 @@ services:
     privileged: true
     devices:
       - /dev/bus/usb:/dev/bus/usb
+      - ~/.android/secrets/words:/words/secrets:ro
     environment:
       ANDROID_HOME: /opt/android/sdk
       ANDROID_SDK_ROOT: /opt/android/sdk
       JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
       GRADLE_USER_HOME: /words/.gradle
+      ANDROID_KEY_ALIAS: words-key
+      ANDROID_KEY_PASSWORD: ${ANDROID_APP_WORDS_PASS}
+      ANDROID_STORE_PASSWORD: ${ANDROID_STORE_PASS}
     command: sleep infinity
