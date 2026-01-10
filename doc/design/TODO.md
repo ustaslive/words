@@ -36,46 +36,43 @@
     [ ] how it is possible that 'send words for review' does not use share feature but sends email in background to particular email?
     [ ] every next ramdom word shall differ from previous two significantly. lets say 100% other words. not good as some vovels a,e - are quite often
         lets say - 80% new letters in new
-    [ ] this must be added to README.md file: container expects 
+    [x] this must be added to README.md file: container expects 
         - keystore for android app in ~/.android/secrets/words
         - env vars with passwords for the keystore ANDROID_APP_WORDS_PASS & ANDROID_STORE_PASS
-
-        [ ] make sure that the container will start even if mentioned above setting are not set
+        [x] make sure that the container will start even if mentioned above setting are not set
             this is a must!!!
-    [ ] remember now and add this command to build-readme or whatever doc I will have for the release
+    [x] remember now and add this command to build-readme or whatever doc I will have for the release
         jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab
-    [ ] add to makefile new target `release`
+    [x] add to makefile new target `release`
         ./gradlew assembleRelease
-    [ ] release files shall be stored soomewhere - like screenshots etc
+    [x] release files shall be stored soomewhere - like screenshots etc
         maybe more
         where they are usually stored in repo?
-    [ ] 
     [ ] 
     [ ] 
 
 [2] publish in google play
     [ ] Подтоговка, шаги от гемини
-        [ ] Создание ключа подписи (Upload Key)
-        [ ] Настройка подписи в Gradle
+        [x] Создание ключа подписи (Upload Key)
+        [x] Настройка подписи в Gradle
             Добавьте параметры подписи в app/build.gradle.kts, чтобы автоматизировать процесс:
-        [ ] Сборка App Bundle
-        [ ] Google Play Console
+        [x] Сборка App Bundle
+        [x] Google Play Console
             Create app (Создать приложение):
-        [ ] загрузка приложения
+        [x] загрузка приложения
+        [x] save key
+        [ ] автоматизация - чего возможно
         [ ] 
-        [ ] 
-        [ ] 
-
-    [ ] нужен процесс-документ - файл где описано бы было что делать при новом релизе. я так вижу
+    [x] нужен процесс-документ - файл где описано бы было что делать при новом релизе. я так вижу
         новый бранч ustas/release_v1.2.3
         в нем меняю версию в tks файле
         commit
         merge to develop
         merge develp to master
         tag master with v1.2.3
-
         build new release file for play store
         upload somehow
+    [ ] оформить иконку приложения в google play - need preparation with different
     [ ] 
     [ ] 
 
@@ -98,7 +95,7 @@
     [ ] 
 
 [ ] много пользовательский режим
-    [ ] имя пользователя в настройках
+    [ ] имя пользователя в настройках - а может попробовать google account сразу?
     [ ] подключение
     [ ] по окончании показ статистики - сколько каждый игрок угадал слов и сколько всего букв и длину длиннейшего угаданного слова
     [ ] во время игры пусть цвет круга набора подсказывает каждому игроку - впередил и он (зеленоватый) и позади (красноватый) соперника
@@ -110,14 +107,6 @@
     [ ] 
     [ ] 
 
-[ ] убираем слова
-    [ ] по списку
-        [ ] имена собственные 
-        [ ] ругательные: slut lust
-        [ ] непотятные: 
-    [ ] 
-    [ ] 
-    [ ] 
 
 [x] DONE
 

@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := all
 
-.PHONY: build install all uninstall test
+.PHONY: build install all uninstall test release
 
 build:
 	./gradlew assembleDebug
@@ -16,6 +16,9 @@ uninstall:
 
 test:
 	./gradlew :app:testDebugUnitTest --rerun-tasks
+
+release:
+	./gradlew bundleRelease
 
 # All unit tests (debug + release)
 # ./gradlew :app:test
