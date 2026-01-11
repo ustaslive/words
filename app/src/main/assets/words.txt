@@ -1628,6 +1628,7 @@ creature
 credible
 credit
 credited
+credo
 creed
 creek
 creep
@@ -1931,7 +1932,9 @@ detection
 detective
 detector
 detention
+deter
 determine
+deuce
 develop
 developed
 developer
@@ -2069,6 +2072,7 @@ doctoral
 doctrine
 document
 dodge
+doer
 doing
 doll
 dollar
@@ -2977,6 +2981,7 @@ garment
 garner
 garrison
 gasoline
+gasp
 gate
 gateway
 gather
@@ -3857,6 +3862,7 @@ lasting
 lastly
 late
 lately
+latent
 later
 lateral
 latest
@@ -4380,6 +4386,7 @@ mixed
 mixer
 mixing
 mixture
+moan
 mobile
 mobility
 mock
@@ -5162,6 +5169,7 @@ pork
 port
 portable
 portal
+ported
 porter
 portfolio
 portion
@@ -5504,7 +5512,6 @@ rally
 ramp
 rampant
 ranch
-rand
 random
 randomly
 randy
@@ -6016,7 +6023,6 @@ sandy
 sane
 sang
 sank
-sans
 sarcasm
 sarcastic
 satan
@@ -6627,6 +6633,7 @@ stair
 stairs
 staircase
 stake
+stale
 stalking
 stall
 stamp
@@ -7627,7 +7634,6 @@ visitor
 vista
 visual
 visually
-vita
 vital
 vitamin
 vivid

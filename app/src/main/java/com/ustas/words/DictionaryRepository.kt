@@ -7,6 +7,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 private const val DICTIONARY_ASSET_NAME = "words.txt"
+private const val FORBIDDEN_WORDS_ASSET_NAME = "forbidden_words.txt"
 private const val DICTIONARY_OVERRIDE_FILE_NAME = "words_override.txt"
 private const val DICTIONARY_TEMP_FILE_NAME = "words_override.tmp"
 private const val DICTIONARY_PREFS_NAME = "words_settings"
@@ -48,10 +49,13 @@ internal sealed interface DictionaryUpdateResult {
 internal fun loadDictionaryWords(context: Context): List<String> {
     val overrideFile = dictionaryOverrideFile(context)
     val overrideWords = readDictionaryFile(overrideFile)
-    if (overrideWords.isNotEmpty()) {
-        return overrideWords
+    val forbiddenWords = loadForbiddenWords(context)
+    val dictionaryWords = if (overrideWords.isNotEmpty()) {
+        overrideWords
+    } else {
+        loadWordList { context.assets.open(DICTIONARY_ASSET_NAME) }
     }
-    return loadWordList { context.assets.open(DICTIONARY_ASSET_NAME) }
+    return filterForbiddenWords(dictionaryWords, forbiddenWords)
 }
 
 internal fun updateDictionaryIfNeeded(
@@ -84,6 +88,12 @@ private fun readDictionaryFile(file: File): List<String> {
     }
     return runCatching { loadWordList { file.inputStream() } }
         .getOrDefault(emptyList())
+}
+
+private fun loadForbiddenWords(context: Context): Set<String> {
+    return runCatching { loadWordList { context.assets.open(FORBIDDEN_WORDS_ASSET_NAME) } }
+        .getOrDefault(emptyList())
+        .toSet()
 }
 
 private fun downloadDictionary(
@@ -127,14 +137,16 @@ private fun handleDictionaryDownload(
     val words = connection.inputStream.bufferedReader().useLines { lines ->
         loadWordListFromLines(lines)
     }
-    if (words.isEmpty()) {
+    val forbiddenWords = loadForbiddenWords(context)
+    val filteredWords = filterForbiddenWords(words, forbiddenWords)
+    if (filteredWords.isEmpty()) {
         return DictionaryUpdateResult.Failed("Downloaded dictionary is empty.")
     }
-    if (!persistDictionary(context, words)) {
+    if (!persistDictionary(context, filteredWords)) {
         return DictionaryUpdateResult.Failed("Failed to save dictionary.")
     }
     saveCacheHeaders(prefs, connection)
-    return DictionaryUpdateResult.Updated(words)
+    return DictionaryUpdateResult.Updated(filteredWords)
 }
 
 private fun persistDictionary(context: Context, words: List<String>): Boolean {

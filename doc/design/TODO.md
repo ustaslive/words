@@ -28,7 +28,7 @@
     [ ] в настройках ввести "сложность" чтобы не было коротких и маленьких кроссвордов
         а то даже прис настройке в длину 9, могут случаться короткие слова
         то есть длина наибольшего слова не обеспечивает сложность игры
-    [ ] add list of forbidden words - so that no incidently using these words in game. even if accidently added to words.txt
+    [x] add list of forbidden words - so that no incidently using these words in game. even if accidently added to words.txt
         forbidden words shall only be edited manually
         words.txt - this may be automated, with AI
     [ ] можно ли сделать так чтобы у debug версии иконка отличалась бы от той что у прилжения установленного через play console?
