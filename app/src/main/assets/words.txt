@@ -480,6 +480,7 @@ avenue
 average
 averaged
 averaging
+avert
 avia
 aviation
 avid
@@ -600,6 +601,7 @@ battle
 battling
 beach
 beacon
+beak
 beam
 bean
 bear
@@ -1735,7 +1737,6 @@ dance
 danced
 dancer
 dancing
-dang
 danger
 dangerous
 danish
@@ -2066,6 +2067,7 @@ diving
 division
 divorce
 divorced
+doable
 dock
 doctor
 doctoral
@@ -2183,6 +2185,7 @@ duck
 duct
 dude
 duel
+duet
 duke
 dull
 dumb
@@ -2427,6 +2430,7 @@ ethical
 ethics
 ethnic
 ethnicity
+etude
 euro
 evacuate
 evacuated
@@ -3061,6 +3065,7 @@ glucose
 glue
 gluten
 goal
+goalie
 goat
 goddamn
 goddess
@@ -3262,6 +3267,7 @@ harvested
 hash
 hassle
 hatch
+hatched
 hate
 hated
 hater
@@ -3404,6 +3410,7 @@ hood
 hook
 hooked
 hooker
+hoot
 hope
 hoped
 hopeful
@@ -3761,6 +3768,7 @@ jumped
 jumper
 jumping
 junction
+june
 jungle
 junior
 junk
@@ -4299,7 +4307,6 @@ merged
 merger
 merit
 merry
-mesa
 mesh
 mess
 message
@@ -4498,6 +4505,7 @@ mustard
 mutant
 mutation
 mute
+muted
 mutual
 mutually
 myself
@@ -4593,6 +4601,7 @@ nineteen
 ninety
 ninja
 ninth
+nitro
 nitrogen
 noble
 nobody
@@ -4820,6 +4829,7 @@ overnight
 overrated
 oversee
 oversight
+overt
 overthrow
 overtime
 overview
@@ -4944,6 +4954,7 @@ pawn
 payable
 paycheck
 payday
+payer
 paying
 payment
 payroll
@@ -5007,6 +5018,7 @@ petty
 phantom
 pharmacy
 phase
+phaser
 phenomena
 phoenix
 phone
@@ -5537,6 +5549,7 @@ rated
 rather
 rating
 ratio
+ration
 rational
 rationale
 rave
@@ -5975,6 +5988,7 @@ rusty
 ruth
 ruthless
 sabbath
+sable
 sabotage
 sack
 sacked
@@ -6523,6 +6537,7 @@ sovereign
 soviet
 space
 spaghetti
+spam
 span
 spanning
 spare
@@ -7018,6 +7033,7 @@ tear
 tearing
 tease
 teasing
+tech
 technical
 technique
 teddy
@@ -7115,6 +7131,7 @@ thickness
 thief
 thigh
 thin
+thiner
 thing
 think
 thinking
@@ -7524,6 +7541,7 @@ vacuum
 vague
 vain
 vale
+valet
 valid
 validity
 valley
@@ -7904,7 +7922,6 @@ wrote
 yacht
 yard
 yarn
-yeah
 year
 yearly
 yeast
