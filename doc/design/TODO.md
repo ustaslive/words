@@ -24,18 +24,21 @@
 [ ] улучшения
     [ ] анимация финала
     [ ] переводы слов - чтобы по желанию можно было посмотреть
-    [ ] новые режим - выбирать не самое длинное слово, а случайный набор букв
+    [x] новые режим - выбирать не самое длинное слово, а случайный набор букв
     [ ] в настройках ввести "сложность" чтобы не было коротких и маленьких кроссвордов
         а то даже прис настройке в длину 9, могут случаться короткие слова
         то есть длина наибольшего слова не обеспечивает сложность игры
     [x] add list of forbidden words - so that no incidently using these words in game. even if accidently added to words.txt
         forbidden words shall only be edited manually
         words.txt - this may be automated, with AI
-    [ ] можно ли сделать так чтобы у debug версии иконка отличалась бы от той что у прилжения установленного через play console?
+    [x] можно ли сделать так чтобы у debug версии иконка отличалась бы от той что у прилжения установленного через play console?
     [ ] кликабельная ссылка в about
     [ ] how it is possible that 'send words for review' does not use share feature but sends email in background to particular email?
-    [ ] every next ramdom word shall differ from previous two significantly. lets say 100% other words. not good as some vovels a,e - are quite often
+    [x] every next ramdom word shall differ from previous two significantly. lets say 100% other words. not good as some vovels a,e - are quite often
         lets say - 80% new letters in new
+    [ ] change the name of seed selection mode - to random letters
+    [ ] samsung s22 - word circle is too small unibersal solution?
+    [ ] try to get rid of the words that are past formed with adding -ed
     [ ] 
     [ ] 
 
