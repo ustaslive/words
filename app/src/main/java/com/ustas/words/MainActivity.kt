@@ -150,6 +150,7 @@ private const val PROBLEM_LOG_TYPE_LOGIC = "logic"
 private const val PROBLEM_LOG_ATTEMPT_LIMIT_COMMENT = "Crossword generation attempt limit exceeded."
 private const val WHEEL_SIZE_RATIO = 0.8f
 private val WHEEL_LETTER_SIZE = 48.dp
+private const val WHEEL_LETTER_SIZE_RATIO = 0.1875f
 private val WHEEL_MAX_SIZE = 320.dp
 private val WHEEL_CONTAINER_EXTRA_HEIGHT = 24.dp
 private val WHEEL_VERTICAL_OFFSET = WHEEL_LETTER_SIZE
@@ -164,6 +165,7 @@ private val NEW_GAME_TEXT_SIZE = 18.sp
 private val CROSSWORD_MAX_SIZE = WHEEL_MAX_SIZE
 private val WHEEL_SELECTION_TEXT_SIZE = 26.sp
 private val WHEEL_SELECTION_LETTER_SPACING = 4.sp
+private const val WHEEL_LETTER_TEXT_RATIO = 0.8333333f
 private val WHEEL_CORNER_BUTTON_SIZE = 56.dp
 private val WHEEL_CORNER_BUTTON_PADDING = 4.dp
 private const val WHEEL_HIT_RADIUS_FACTOR = 0.55f
@@ -1106,9 +1108,10 @@ private fun LetterWheel(
 ) {
     BoxWithConstraints(modifier = modifier) {
         val diameter = maxWidth.coerceAtMost(maxHeight)
-        val letterSize = WHEEL_LETTER_SIZE
         val density = LocalDensity.current
+        val letterSize = diameter * WHEEL_LETTER_SIZE_RATIO
         val letterSizePx = with(density) { letterSize.toPx() }
+        val letterTextSize = with(density) { (letterSize * WHEEL_LETTER_TEXT_RATIO).toSp() }
         val radiusPx = with(density) {
             (diameter / DIAMETER_TO_RADIUS_DIVISOR - letterSize * WHEEL_LETTER_RING_INSET_FACTOR).toPx()
         }
@@ -1303,7 +1306,7 @@ private fun LetterWheel(
                     Text(
                         text = letter.uppercaseChar().toString(),
                         color = if (isSelected) Color.White else WheelLetter,
-                        fontSize = 40.sp,
+                        fontSize = letterTextSize,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center
                     )
