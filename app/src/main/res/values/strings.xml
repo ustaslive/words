@@ -24,9 +24,9 @@
     <string name="about_open_source">Open Source: github.com/ustaslive/words</string>
     <string name="about_copyright">Copyright: © 2026 Familiar Apps</string>
     <string name="about_close">Close</string>
-    <string name="settings_next_crossword">Next crossword</string>
+    <string name="settings_next_crossword">Crossword generation mode</string>
     <string name="dropdown_open">Open options</string>
     <string name="crossword_mode_random_word">Random word</string>
-    <string name="crossword_mode_low_overlap">Low-overlap word</string>
-    <string name="crossword_mode_vowel_rich_letters">Vowel-rich letters</string>
+    <string name="crossword_mode_low_overlap">Least similar word</string>
+    <string name="crossword_mode_vowel_rich_letters">Random letters</string>
 </resources>
