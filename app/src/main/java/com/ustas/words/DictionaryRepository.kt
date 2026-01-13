@@ -2,6 +2,8 @@ package com.ustas.words
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
+import android.os.Build
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -16,6 +18,8 @@ private const val KEY_DICTIONARY_LAST_MODIFIED = "dictionary_last_modified"
 private const val KEY_DICTIONARY_LAST_CHECK = "dictionary_last_check"
 private const val KEY_DICTIONARY_LAST_SUCCESS = "dictionary_last_success"
 private const val DEFAULT_LAST_CHECK_MS = 0L
+private const val UNKNOWN_UPDATE_TIME_MS = 0L
+private const val PACKAGE_INFO_FLAGS = 0L
 private const val MILLISECONDS_PER_SECOND = 1_000L
 private const val SECONDS_PER_MINUTE = 60L
 private const val MINUTES_PER_HOUR = 60L
@@ -48,6 +52,9 @@ internal sealed interface DictionaryUpdateResult {
 
 internal fun loadDictionaryWords(context: Context): List<String> {
     val overrideFile = dictionaryOverrideFile(context)
+    if (shouldDiscardOverride(context, overrideFile)) {
+        overrideFile.delete()
+    }
     val overrideWords = readDictionaryFile(overrideFile)
     val forbiddenWords = loadForbiddenWords(context)
     val dictionaryWords = if (overrideWords.isNotEmpty()) {
@@ -88,6 +95,34 @@ private fun readDictionaryFile(file: File): List<String> {
     }
     return runCatching { loadWordList { file.inputStream() } }
         .getOrDefault(emptyList())
+}
+
+private fun shouldDiscardOverride(context: Context, overrideFile: File): Boolean {
+    if (!overrideFile.exists()) {
+        return false
+    }
+    val lastUpdateTimeMs = getAppLastUpdateTime(context)
+    if (lastUpdateTimeMs == UNKNOWN_UPDATE_TIME_MS) {
+        return false
+    }
+    return overrideFile.lastModified() < lastUpdateTimeMs
+}
+
+private fun getAppLastUpdateTime(context: Context): Long {
+    return runCatching {
+        val packageManager = context.packageManager
+        val packageName = context.packageName
+        val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.getPackageInfo(
+                packageName,
+                PackageManager.PackageInfoFlags.of(PACKAGE_INFO_FLAGS)
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.getPackageInfo(packageName, PACKAGE_INFO_FLAGS.toInt())
+        }
+        packageInfo.lastUpdateTime
+    }.getOrDefault(UNKNOWN_UPDATE_TIME_MS)
 }
 
 private fun loadForbiddenWords(context: Context): Set<String> {

@@ -8,3 +8,5 @@ In this release v1.0.4:
 
 4. Samsung S22: word entering circle visuals improved
 
+5. Dictionary update strategy improved: new release resets all manual updates.
+
