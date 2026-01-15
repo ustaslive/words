@@ -7,14 +7,14 @@ import org.junit.Test
 class MissingWordsStateTest {
     @Test
     fun buildsMissingWordsStateFromMiniDictionary() {
-        val baseWord = "STONE"
+        val seedLetters = "STONE"
         val dictionary = listOf("STONE", "NOTE", "TONE", "ONES", "TON")
         val crosswordWords = mapOf(
             "STONE" to CrosswordWord("STONE", setOf(GridPosition(ORIGIN_INDEX, ORIGIN_INDEX))),
             "NOTE" to CrosswordWord("NOTE", setOf(GridPosition(ORIGIN_INDEX, ORIGIN_INDEX)))
         )
 
-        val state = buildMissingWordsState(baseWord, dictionary, crosswordWords)
+        val state = buildMissingWordsState(seedLetters, dictionary, crosswordWords)
 
         val expectedMissing = setOf("TONE", "ONES")
         assertEquals(expectedMissing, state.entries.keys)
@@ -25,12 +25,12 @@ class MissingWordsStateTest {
 
     @Test
     fun marksMissingWordAsGuessed() {
-        val baseWord = "STONE"
+        val seedLetters = "STONE"
         val dictionary = listOf("STONE", "NOTE", "TONE", "ONES")
         val crosswordWords = mapOf(
             "STONE" to CrosswordWord("STONE", setOf(GridPosition(ORIGIN_INDEX, ORIGIN_INDEX)))
         )
-        val initial = buildMissingWordsState(baseWord, dictionary, crosswordWords)
+        val initial = buildMissingWordsState(seedLetters, dictionary, crosswordWords)
 
         val result = applyMissingWordGuess("tone", initial)
 

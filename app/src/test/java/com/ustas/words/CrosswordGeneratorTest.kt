@@ -7,7 +7,7 @@ import kotlin.random.Random
 class CrosswordGeneratorTest {
     @Test
     fun generatesCrosswordContainingLongestWord() {
-        val words = buildMiniDictionary(BASE_WORD, SAMPLE_DICTIONARY)
+        val words = buildMiniDictionary(SEED_LETTERS, SAMPLE_DICTIONARY)
         val grid = generateRandomCrossword(words, Random(RANDOM_SEED))
 
         assertTrue(grid.isNotEmpty())
@@ -19,7 +19,7 @@ class CrosswordGeneratorTest {
 
     @Test
     fun printsRandomCrossword() {
-        val words = buildMiniDictionary(BASE_WORD, SAMPLE_DICTIONARY)
+        val words = buildMiniDictionary(SEED_LETTERS, SAMPLE_DICTIONARY)
         val grid = generateRandomCrossword(words, Random.Default)
 
         println("Random crossword:")
@@ -30,7 +30,7 @@ class CrosswordGeneratorTest {
 
     @Test
     fun avoidsAdjacentInvalidWords() {
-        val words = buildMiniDictionary(BASE_WORD, SAMPLE_DICTIONARY)
+        val words = buildMiniDictionary(SEED_LETTERS, SAMPLE_DICTIONARY)
         val grid = generateRandomCrossword(words, Random(RANDOM_SEED))
         val wordSet = words.map { it.lowercase() }.toSet()
 
@@ -108,7 +108,7 @@ class CrosswordGeneratorTest {
     }
 
     companion object {
-        private const val BASE_WORD = "ACCURATE"
+        private const val SEED_LETTERS = "ACCURATE"
         private const val RANDOM_SEED = 42L
         private const val ORIGIN_INDEX = 0
         private const val MIN_SEQUENCE_LENGTH = 2

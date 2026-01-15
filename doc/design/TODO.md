@@ -24,25 +24,15 @@
 [ ] улучшения
     [ ] анимация финала
     [ ] переводы слов - чтобы по желанию можно было посмотреть
-    [x] новые режим - выбирать не самое длинное слово, а случайный набор букв
     [ ] в настройках ввести "сложность" чтобы не было коротких и маленьких кроссвордов
         а то даже прис настройке в длину 9, могут случаться короткие слова
         то есть длина наибольшего слова не обеспечивает сложность игры
-    [x] add list of forbidden words - so that no incidently using these words in game. even if accidently added to words.txt
-        forbidden words shall only be edited manually
-        words.txt - this may be automated, with AI
-    [x] можно ли сделать так чтобы у debug версии иконка отличалась бы от той что у прилжения установленного через play console?
     [ ] кликабельная ссылка в about
     [ ] how it is possible that 'send words for review' does not use share feature but sends email in background to particular email?
-    [x] every next ramdom word shall differ from previous two significantly. lets say 100% other words. not good as some vovels a,e - are quite often
-        lets say - 80% new letters in new
-    [ ] change the name of seed selection mode - to random letters
-    [ ] samsung s22 - word circle is too small unibersal solution?
-    [ ] try to get rid of the words that are past formed with adding -ed
     [ ] 
     [ ] 
 
-[2] publish in google play
+[ ] publish in google play
     [ ] Подтоговка, шаги от гемини
         [ ] автоматизация - чего возможно
         [ ] 
@@ -57,13 +47,6 @@
         еще предположение - что я уже выставил там буквы на экране - и  это при сбросе порядка букв как то 
     [ ] при наклоне телефона. если ориентация не фиксирована и меняется - то весь кроссворд сбрасывается
         надо чтобы этого не происходило
-    [ ] предупреждение во время компиляции
-        ```
-        > Task :app:compileDebugKotlin
-        w: file:///words/app/src/main/java/com/ustas/words/MainActivity.kt:671:30 'consumeAllChanges(): Unit' is deprecated. Use consume() instead
-        w: file:///words/app/src/main/java/com/ustas/words/MainActivity.kt:688:40 'consumeAllChanges(): Unit' is deprecated. Use consume() instead
-        w: file:///words/app/src/main/java/com/ustas/words/MainActivity.kt:693:40 'consumeAllChanges(): Unit' is deprecated. Use consume() instead
-        ```
     [ ] 
     [ ] 
     [ ] 
@@ -85,6 +68,16 @@
 [x] DONE
 
 [x] улучшения
+    [x] add list of forbidden words - so that no incidently using these words in game. even if accidently added to words.txt
+        forbidden words shall only be edited manually
+        words.txt - this may be automated, with AI
+    [x] можно ли сделать так чтобы у debug версии иконка отличалась бы от той что у прилжения установленного через play console?
+    [x] новые режим - выбирать не самое длинное слово, а случайный набор букв
+    [x] every next ramdom word shall differ from previous two significantly. lets say 100% other words. not good as some vovels a,e - are quite often
+        lets say - 80% new letters in new
+    [x] change the name of seed selection mode - to random letters
+    [x] samsung s22 - word circle is too small unibersal solution?
+    [x] try to get rid of the words that are past formed with adding -ed
     [x] сбор слов для анализа
         [x] после того как слово было набрано, не важно - правильное или не из словаря
             оно дожно оставаться на экране, в том же месте где оно появлялось по мере набора
@@ -154,6 +147,13 @@
         maybe more
         where they are usually stored in repo?
 [x] bugs
+    [x] предупреждение во время компиляции
+        ```
+        > Task :app:compileDebugKotlin
+        w: file:///words/app/src/main/java/com/ustas/words/MainActivity.kt:671:30 'consumeAllChanges(): Unit' is deprecated. Use consume() instead
+        w: file:///words/app/src/main/java/com/ustas/words/MainActivity.kt:688:40 'consumeAllChanges(): Unit' is deprecated. Use consume() instead
+        w: file:///words/app/src/main/java/com/ustas/words/MainActivity.kt:693:40 'consumeAllChanges(): Unit' is deprecated. Use consume() instead
+        ```
     [x] иногда. не ясно при каких обстоятельстовах, но на экране кроссворд показывается обреанным. аж по середине клетки.
     [x] при вводе букв не всегда палец цепляет первую букву - приходится заново касаться ее и целишься более центрально. возможно нужно увеличить область которая считается "прикоснулись". для начала на 10%
         надеюсь эта область круглая? просто если она квадратная - то это многое объясняет

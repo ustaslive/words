@@ -10,7 +10,7 @@ class MiniDictionaryFullDictionaryTest {
     @Test
     fun buildsMiniDictionaryFromFullDictionary() {
         val startNanos = System.nanoTime()
-        val selectedWords = buildMiniDictionary(BASE_WORD, dictionary)
+        val selectedWords = buildMiniDictionary(SEED_LETTERS, dictionary)
         val elapsedNanos = System.nanoTime() - startNanos
 
         val elapsedMillis = elapsedNanos / NANOS_PER_MILLI
@@ -18,7 +18,7 @@ class MiniDictionaryFullDictionaryTest {
         val seconds = (elapsedMillis % MILLIS_PER_MINUTE) / MILLIS_PER_SECOND
         val millis = elapsedMillis % MILLIS_PER_SECOND
 
-        println("Base word: $BASE_WORD")
+        println("Seed letters: $SEED_LETTERS")
         println("Selected words count: ${selectedWords.size}")
         println("Selected words: ${selectedWords.joinToString()}")
         println("Full dictionary scan took ${minutes}m ${seconds}s ${millis}ms.")
@@ -28,7 +28,7 @@ class MiniDictionaryFullDictionaryTest {
     }
 
     companion object {
-        private const val BASE_WORD = "ACCURATE"
+        private const val SEED_LETTERS = "ACCURATE"
         private const val NOT_BUILDABLE_WORD = "CREATE"
         private const val NANOS_PER_MILLI = 1_000_000L
         private const val MILLIS_PER_SECOND = 1_000L

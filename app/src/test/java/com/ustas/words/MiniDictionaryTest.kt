@@ -55,7 +55,7 @@ class MiniDictionaryTest {
         val selectedWords = buildMiniDictionary("ACCURATE", dictionary)
 
         println("Dictionary: ${dictionary.joinToString()}")
-        println("Base word: ACCURATE")
+        println("Seed letters: ACCURATE")
         println("Selected words count: ${selectedWords.size}")
         println("Selected words: ${selectedWords.joinToString()}")
 
