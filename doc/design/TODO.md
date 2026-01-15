@@ -24,9 +24,6 @@
 [ ] улучшения
     [ ] анимация финала
     [ ] переводы слов - чтобы по желанию можно было посмотреть
-    [ ] в настройках ввести "сложность" чтобы не было коротких и маленьких кроссвордов
-        а то даже прис настройке в длину 9, могут случаться короткие слова
-        то есть длина наибольшего слова не обеспечивает сложность игры
     [ ] кликабельная ссылка в about
     [ ] how it is possible that 'send words for review' does not use share feature but sends email in background to particular email?
     [ ] 
@@ -68,6 +65,9 @@
 [x] DONE
 
 [x] улучшения
+    [x] в настройках ввести "сложность" чтобы не было коротких и маленьких кроссвордов
+        а то даже прис настройке в длину 9, могут случаться короткие слова
+        то есть длина наибольшего слова не обеспечивает сложность игры
     [x] add list of forbidden words - so that no incidently using these words in game. even if accidently added to words.txt
         forbidden words shall only be edited manually
         words.txt - this may be automated, with AI
