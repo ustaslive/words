@@ -85,6 +85,7 @@ adjacent
 adjoining
 adjust
 adjusting
+admin
 admiral
 admire
 admission
@@ -544,7 +545,6 @@ beauty
 beaver
 became
 because
-beck
 become
 becoming
 bedroom
@@ -956,7 +956,6 @@ cartel
 cartoon
 cartridge
 carving
-casa
 case
 cash
 cashier
@@ -1126,7 +1125,6 @@ city
 civic
 civil
 civilian
-clad
 claim
 claiming
 clan
@@ -2363,6 +2361,7 @@ fighting
 figure
 figuring
 file
+filer
 filing
 fill
 filling
@@ -2410,6 +2409,7 @@ fixture
 flag
 flagship
 flair
+flake
 flame
 flank
 flare
@@ -3004,6 +3004,7 @@ hometown
 homework
 homicide
 homo
+hone
 honest
 honestly
 honesty
@@ -3854,7 +3855,6 @@ might
 mighty
 migrant
 migration
-mike
 mild
 mile
 mileage
@@ -3971,6 +3971,7 @@ mother
 motion
 motivate
 motive
+moto
 motor
 motto
 mound
@@ -4065,7 +4066,6 @@ nephew
 nerd
 nerve
 nervous
-ness
 nest
 netto
 network
@@ -4136,6 +4136,7 @@ notify
 noting
 notion
 notorious
+nought
 noun
 nova
 novel
@@ -4184,6 +4185,7 @@ occupying
 occur
 occurring
 ocean
+octet
 oddly
 odyssey
 offence
@@ -4324,6 +4326,7 @@ paddy
 pagan
 page
 pageant
+pager
 paid
 pain
 painful
@@ -5549,7 +5552,6 @@ sharply
 shattered
 shave
 shaving
-shaw
 sheep
 sheer
 sheet
@@ -5647,6 +5649,7 @@ singular
 sinister
 sink
 sinking
+siren
 sister
 sitcom
 site
@@ -5700,6 +5703,7 @@ slip
 slippery
 slipping
 slogan
+slop
 slope
 sloppy
 slot
@@ -5952,6 +5956,7 @@ stepping
 stereo
 sterling
 stern
+stew
 stick
 sticker
 sticking
@@ -6182,6 +6187,7 @@ tablet
 tackle
 tackling
 taco
+tact
 tactic
 tactical
 tail
@@ -6633,7 +6639,6 @@ unseen
 unstable
 unsure
 until
-unto
 unusual
 unusually
 unwilling
@@ -6697,6 +6702,7 @@ vanguard
 vanilla
 vanish
 vanity
+vape
 vapor
 variable
 variant
@@ -6887,7 +6893,6 @@ weekly
 weigh
 weighing
 weight
-weir
 weird
 welcome
 welcoming
