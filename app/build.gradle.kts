@@ -19,7 +19,7 @@ android {
         applicationId = "com.familiarapps.words"
         minSdk = 24
         targetSdk = 35
-        versionCode = 4
+        versionCode = 5
         versionName = "1.0.5"
         buildConfigField("String", "BUILD_TIME_UTC", "\"$buildTimeUtc\"")
     }
@@ -40,8 +40,8 @@ android {
         }
         release {
             signingConfig = signingConfigs.getByName("release")
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
