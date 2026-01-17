@@ -14,8 +14,9 @@ network mode is optional and does not replace offline single-player.
 ## Roles and Identity
 - Host: the player who starts a session and generates the crossword.
 - Guest: any other player joining the session.
-- PlayerId: a locally generated UUID stored on device (stable per install).
+- PlayerId: a locally generated UUID assigned on each app launch and shown for debugging.
 - PlayerName: optional UI label, sent with join for display.
+- PlayerColor: chosen by the player from a small fixed palette; used for UI indicators.
 
 ## Server Runtime
 - Ubuntu host inside the LAN.
@@ -62,7 +63,7 @@ Lock flow:
 ## Message Types
 All messages are JSON. Message names are stable identifiers.
 
-- join: client joins a room with playerId and playerName.
+- join: client joins a room with playerId, playerName, and playerColor.
 - snapshot: server sends the current snapshot.
 - lockRequest: client requests the room lock.
 - lockGranted: server grants lock with lockId and expiresAt.
@@ -94,6 +95,36 @@ Same as Word Submission, but the update is a single cell reveal.
 - Offline mode remains the default.
 - Network mode connects to a configured server address (manual IP:port).
 - A connection status indicator is shown.
+
+### Net Play Toggle and Status
+- Top-left horizontal toggle controls network mode.
+- Off state: gray toggle, knob on the left.
+- On state: light green toggle, knob on the right.
+- A round status lamp sits next to the toggle:
+  - Red blinking: not connected, retrying connection.
+  - Green steady: connected to the server.
+- Connection retries happen every five seconds while the toggle is on.
+
+### Live Stats Indicator
+- When connected, a pill-shaped stats field appears to the right of the toggle.
+- The field shows a number for each connected player.
+- Each number is colored with that player's selected color.
+- The number represents how many crossword words the player solved first.
+- Counts do not include repeated solves or missing-words guesses.
+
+## Settings UI (Net Play Tab)
+A dedicated Net Play tab is added to Settings.
+
+Fields:
+- Player name (editable).
+- Player id (read-only display for debugging, regenerated each app launch).
+- Player color (select one: white, yellow, red, light green). Colors may be shared.
+- Game server:
+  - IP (editable, default provided).
+  - Port (editable, default provided).
+
+The selected player color is used for the player stats indicator near the
+network mode toggle.
 
 ## Implementation Notes
 ### Server
