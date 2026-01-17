@@ -1164,6 +1164,7 @@ clinical
 clip
 cloak
 clock
+clog
 clone
 close
 closely
@@ -1228,6 +1229,7 @@ color
 colorful
 coloring
 colour
+colt
 column
 columnist
 coma
@@ -1743,8 +1745,10 @@ dilemma
 diligence
 dime
 dimension
+dinar
 dine
 ding
+dingo
 dining
 dinner
 dinosaur
@@ -2855,6 +2859,7 @@ handy
 hang
 hanging
 hangover
+hank
 happen
 happening
 happier
@@ -2934,6 +2939,7 @@ hedge
 heel
 height
 heir
+heist
 held
 hell
 hello
@@ -3329,6 +3335,7 @@ judging
 judgment
 judicial
 judiciary
+judo
 juice
 juicy
 jump
@@ -3591,6 +3598,7 @@ loft
 logging
 logic
 logical
+login
 logo
 lone
 lonely
@@ -4207,7 +4215,9 @@ older
 oldest
 olive
 omega
+omen
 omit
+omni
 onboard
 once
 oneself
@@ -5602,9 +5612,7 @@ showcase
 shower
 showing
 shown
-shri
 shrimp
-shrine
 shrink
 shut
 shutdown
@@ -5735,6 +5743,7 @@ snap
 snatch
 sneak
 sneaky
+snipe
 sniper
 snow
 soak
@@ -6835,6 +6844,7 @@ wall
 wallet
 wallpaper
 walnut
+wand
 wander
 wandering
 want
