@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,8 +41,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -52,7 +57,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -76,12 +84,14 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.input.pointer.changedToUp
@@ -122,6 +132,7 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -141,6 +152,19 @@ private const val KEY_MAX_LETTER_SET_SIZE = "max_letter_set_size"
 private const val LEGACY_KEY_MAX_WORD_LENGTH = "max_word_length"
 private const val KEY_CROSSWORD_SELECTION_MODE = "crossword_selection_mode"
 private const val KEY_REVIEW_WORDS = "review_words"
+private const val KEY_NET_PLAYER_NAME = "net_player_name"
+private const val KEY_NET_PLAYER_COLOR = "net_player_color"
+private const val KEY_NET_SERVER_IP = "net_server_ip"
+private const val KEY_NET_SERVER_PORT = "net_server_port"
+private const val DEFAULT_NET_PLAYER_NAME = ""
+private const val NET_PLAYER_COLOR_WHITE = "white"
+private const val NET_PLAYER_COLOR_YELLOW = "yellow"
+private const val NET_PLAYER_COLOR_RED = "red"
+private const val NET_PLAYER_COLOR_LIGHT_GREEN = "light_green"
+private const val DEFAULT_NET_SERVER_IP = "199.99.9.9"
+private const val DEFAULT_NET_SERVER_PORT = 9999
+private const val MIN_NET_SERVER_PORT = 1
+private const val MAX_NET_SERVER_PORT = 65535
 private const val MIN_SEED_LETTER_SET_SIZE = 6
 private const val MAX_SEED_LETTER_SET_SIZE = 9
 private const val DEFAULT_MAX_LETTER_SET_SIZE = MAX_SEED_LETTER_SET_SIZE
@@ -210,6 +234,10 @@ private const val LOW_OVERLAP_MAX_SHARED_RATIO = 0.2f
 private const val FULL_WEIGHT = 1f
 private val SETTINGS_DIALOG_SPACING = 12.dp
 private val SETTINGS_CONTROL_SPACING = 8.dp
+private val PLAYER_COLOR_SWATCH_SIZE = 16.dp
+private val NET_PLAY_FIELD_HORIZONTAL_PADDING = 12.dp
+private val NET_PLAY_FIELD_VERTICAL_PADDING = 8.dp
+private const val PLAYER_ID_TEXT_SIZE_DIVISOR = 1.5f
 private const val VOWELS = "AEIOU"
 private const val CONSONANTS = "BCDFGHJKLMNPQRSTVWXYZ"
 private const val MIN_RANDOM_VOWEL_COUNT = 2
@@ -223,8 +251,35 @@ private const val REVIEW_WORD_CONFIRM_VOLUME = 0.45f
 private data class UserSettings(
     val muted: Boolean = false,
     val maxLetterSetSize: Int = DEFAULT_MAX_LETTER_SET_SIZE,
-    val selectionMode: CrosswordSelectionMode = DEFAULT_CROSSWORD_SELECTION_MODE
+    val selectionMode: CrosswordSelectionMode = DEFAULT_CROSSWORD_SELECTION_MODE,
+    val playerId: String = "",
+    val playerName: String = DEFAULT_NET_PLAYER_NAME,
+    val playerColor: NetPlayerColor = NetPlayerColor.White,
+    val serverIp: String = DEFAULT_NET_SERVER_IP,
+    val serverPort: Int = DEFAULT_NET_SERVER_PORT
 )
+
+private enum class SettingsTab(val labelResId: Int) {
+    General(R.string.settings_tab_general),
+    NetPlay(R.string.settings_tab_net_play)
+}
+
+private enum class NetPlayerColor(
+    val id: String,
+    val labelResId: Int,
+    val swatch: Color
+) {
+    White(NET_PLAYER_COLOR_WHITE, R.string.settings_net_play_color_white, NewWordHighlightText),
+    Yellow(NET_PLAYER_COLOR_YELLOW, R.string.settings_net_play_color_yellow, GoldMid),
+    Red(NET_PLAYER_COLOR_RED, R.string.settings_net_play_color_red, NewWordHighlightBackground),
+    LightGreenColor(NET_PLAYER_COLOR_LIGHT_GREEN, R.string.settings_net_play_color_light_green, LightGreen);
+
+    companion object {
+        fun fromId(id: String): NetPlayerColor {
+            return values().firstOrNull { it.id == id } ?: White
+        }
+    }
+}
 
 private enum class CrosswordSelectionMode(
     val id: String,
@@ -662,17 +717,36 @@ private fun SettingsDialog(
     }
     var selectionMode by remember(current.selectionMode) { mutableStateOf(current.selectionMode) }
     var selectionExpanded by remember { mutableStateOf(false) }
+    var selectedTab by remember { mutableStateOf(SettingsTab.General) }
+    var playerName by remember(current.playerName) { mutableStateOf(current.playerName) }
+    var playerColor by remember(current.playerColor) { mutableStateOf(current.playerColor) }
+    var serverIp by remember(current.serverIp) { mutableStateOf(current.serverIp) }
+    var serverPortText by remember(current.serverPort) { mutableStateOf(current.serverPort.toString()) }
+    var colorExpanded by remember { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
 
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(
                 onClick = {
+                    val trimmedPlayerName = playerName.trim()
+                    val trimmedServerIp = serverIp.trim()
+                    val fallbackServerIp = if (current.serverIp.isBlank()) DEFAULT_NET_SERVER_IP else current.serverIp
+                    val normalizedServerIp = if (trimmedServerIp.isBlank()) fallbackServerIp else trimmedServerIp
+                    val parsedPort = serverPortText.trim().toIntOrNull()
+                    val normalizedPort = (parsedPort ?: current.serverPort)
+                        .coerceIn(MIN_NET_SERVER_PORT, MAX_NET_SERVER_PORT)
                     onSave(
                         UserSettings(
                             muted = muted,
                             maxLetterSetSize = maxLetterSetSize.roundToInt(),
-                            selectionMode = selectionMode
+                            selectionMode = selectionMode,
+                            playerId = current.playerId,
+                            playerName = trimmedPlayerName,
+                            playerColor = playerColor,
+                            serverIp = normalizedServerIp,
+                            serverPort = normalizedPort
                         )
                     )
                 }
@@ -687,63 +761,254 @@ private fun SettingsDialog(
         },
         title = { Text(text = stringResource(R.string.settings)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(SETTINGS_DIALOG_SPACING)) {
-                Column {
-                    Text(text = stringResource(R.string.settings_next_crossword))
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        TextButton(
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = { selectionExpanded = true }
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = stringResource(selectionMode.labelResId),
-                                    modifier = Modifier.weight(FULL_WEIGHT),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Icon(
-                                    imageVector = Icons.Filled.ArrowDropDown,
-                                    contentDescription = stringResource(R.string.dropdown_open)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(scrollState),
+                verticalArrangement = Arrangement.spacedBy(SETTINGS_DIALOG_SPACING)
+            ) {
+                TabRow(selectedTabIndex = selectedTab.ordinal) {
+                    for (tab in SettingsTab.values()) {
+                        Tab(
+                            selected = selectedTab == tab,
+                            onClick = { selectedTab = tab },
+                            text = { Text(text = stringResource(tab.labelResId)) }
+                        )
+                    }
+                }
+                when (selectedTab) {
+                    SettingsTab.General -> {
+                        Column(verticalArrangement = Arrangement.spacedBy(SETTINGS_DIALOG_SPACING)) {
+                            Column {
+                                Text(text = stringResource(R.string.settings_next_crossword))
+                                Box(modifier = Modifier.fillMaxWidth()) {
+                                    TextButton(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        onClick = { selectionExpanded = true }
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = stringResource(selectionMode.labelResId),
+                                                modifier = Modifier.weight(FULL_WEIGHT),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Icon(
+                                                imageVector = Icons.Filled.ArrowDropDown,
+                                                contentDescription = stringResource(R.string.dropdown_open)
+                                            )
+                                        }
+                                    }
+                                    DropdownMenu(
+                                        expanded = selectionExpanded,
+                                        onDismissRequest = { selectionExpanded = false }
+                                    ) {
+                                        for (mode in CrosswordSelectionMode.values()) {
+                                            DropdownMenuItem(
+                                                text = { Text(text = stringResource(mode.labelResId)) },
+                                                onClick = {
+                                                    selectionMode = mode
+                                                    selectionExpanded = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = muted, onCheckedChange = { muted = it })
+                                Spacer(modifier = Modifier.width(SETTINGS_CONTROL_SPACING))
+                                Text(text = "Mute sounds")
+                            }
+                            Column {
+                                Text(text = "Max letter set size: ${maxLetterSetSize.roundToInt()}")
+                                Slider(
+                                    value = maxLetterSetSize,
+                                    onValueChange = { maxLetterSetSize = it.roundToInt().toFloat() },
+                                    valueRange = MIN_SEED_LETTER_SET_SIZE.toFloat()..MAX_SEED_LETTER_SET_SIZE.toFloat(),
+                                    steps = (MAX_SEED_LETTER_SET_SIZE - MIN_SEED_LETTER_SET_SIZE - COUNT_STEP)
+                                        .coerceAtLeast(0)
                                 )
                             }
                         }
-                        DropdownMenu(
-                            expanded = selectionExpanded,
-                            onDismissRequest = { selectionExpanded = false }
-                        ) {
-                            for (mode in CrosswordSelectionMode.values()) {
-                                DropdownMenuItem(
-                                    text = { Text(text = stringResource(mode.labelResId)) },
-                                    onClick = {
-                                        selectionMode = mode
-                                        selectionExpanded = false
+                    }
+                    SettingsTab.NetPlay -> {
+                        Column(verticalArrangement = Arrangement.spacedBy(SETTINGS_DIALOG_SPACING)) {
+                            Text(
+                                text = stringResource(R.string.settings_net_play_player),
+                                fontWeight = FontWeight.Bold
+                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(SETTINGS_CONTROL_SPACING)) {
+                                NetPlayLabeledTextField(
+                                    labelResId = R.string.settings_net_play_player_name,
+                                    value = playerName,
+                                    onValueChange = { playerName = it }
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "${stringResource(R.string.settings_net_play_player_color)}:",
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Spacer(modifier = Modifier.width(SETTINGS_CONTROL_SPACING))
+                                    Box(modifier = Modifier.weight(FULL_WEIGHT)) {
+                                        NetPlayFieldSurface(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(MaterialTheme.shapes.small)
+                                                .clickable { colorExpanded = true }
+                                        ) {
+                                            NetPlayColorSwatch(color = playerColor.swatch)
+                                            Spacer(modifier = Modifier.width(SETTINGS_CONTROL_SPACING))
+                                            Text(
+                                                text = stringResource(playerColor.labelResId),
+                                                modifier = Modifier.weight(FULL_WEIGHT),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Icon(
+                                                imageVector = Icons.Filled.ArrowDropDown,
+                                                contentDescription = stringResource(R.string.dropdown_open)
+                                            )
+                                        }
+                                        DropdownMenu(
+                                            expanded = colorExpanded,
+                                            onDismissRequest = { colorExpanded = false }
+                                        ) {
+                                            for (color in NetPlayerColor.values()) {
+                                                DropdownMenuItem(
+                                                    text = { NetPlayColorRow(color = color) },
+                                                    onClick = {
+                                                        playerColor = color
+                                                        colorExpanded = false
+                                                    }
+                                                )
+                                            }
+                                        }
                                     }
+                                }
+                            }
+                            Column(verticalArrangement = Arrangement.spacedBy(SETTINGS_CONTROL_SPACING)) {
+                                Text(
+                                    text = stringResource(R.string.settings_net_play_server),
+                                    fontWeight = FontWeight.Bold
+                                )
+                                NetPlayLabeledTextField(
+                                    labelResId = R.string.settings_net_play_server_ip,
+                                    value = serverIp,
+                                    onValueChange = { serverIp = it }
+                                )
+                                NetPlayLabeledTextField(
+                                    labelResId = R.string.settings_net_play_server_port,
+                                    value = serverPortText,
+                                    onValueChange = { serverPortText = it },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                )
+                            }
+                            Column(verticalArrangement = Arrangement.spacedBy(SETTINGS_CONTROL_SPACING)) {
+                                Text(text = stringResource(R.string.settings_net_play_player_id))
+                                val baseStyle = MaterialTheme.typography.bodyMedium
+                                Text(
+                                    text = current.playerId,
+                                    style = baseStyle.copy(
+                                        fontSize = baseStyle.fontSize / PLAYER_ID_TEXT_SIZE_DIVISOR
+                                    )
                                 )
                             }
                         }
                     }
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = muted, onCheckedChange = { muted = it })
-                    Spacer(modifier = Modifier.width(SETTINGS_CONTROL_SPACING))
-                    Text(text = "Mute sounds")
-                }
-                Column {
-                    Text(text = "Max letter set size: ${maxLetterSetSize.roundToInt()}")
-                    Slider(
-                        value = maxLetterSetSize,
-                        onValueChange = { maxLetterSetSize = it.roundToInt().toFloat() },
-                        valueRange = MIN_SEED_LETTER_SET_SIZE.toFloat()..MAX_SEED_LETTER_SET_SIZE.toFloat(),
-                        steps = (MAX_SEED_LETTER_SET_SIZE - MIN_SEED_LETTER_SET_SIZE - COUNT_STEP)
-                            .coerceAtLeast(0)
-                    )
-                }
             }
         }
+    )
+}
+
+@Composable
+private fun NetPlayLabeledTextField(
+    labelResId: Int,
+    value: String,
+    onValueChange: (String) -> Unit,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    modifier: Modifier = Modifier
+) {
+    val colors = MaterialTheme.colorScheme
+    val textStyle = MaterialTheme.typography.bodyMedium
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "${stringResource(labelResId)}:",
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(modifier = Modifier.width(SETTINGS_CONTROL_SPACING))
+        NetPlayFieldSurface(modifier = Modifier.weight(FULL_WEIGHT)) {
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                singleLine = true,
+                keyboardOptions = keyboardOptions,
+                textStyle = textStyle.copy(color = colors.onSurface),
+                cursorBrush = SolidColor(colors.primary),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+private fun NetPlayFieldSurface(
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit
+) {
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.shapes.small
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = NET_PLAY_FIELD_HORIZONTAL_PADDING,
+                vertical = NET_PLAY_FIELD_VERTICAL_PADDING
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+            content = content
+        )
+    }
+}
+
+@Composable
+private fun NetPlayColorRow(
+    color: NetPlayerColor,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        NetPlayColorSwatch(color = color.swatch)
+        Spacer(modifier = Modifier.width(SETTINGS_CONTROL_SPACING))
+        Text(text = stringResource(color.labelResId))
+    }
+}
+
+@Composable
+private fun NetPlayColorSwatch(
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(PLAYER_COLOR_SWATCH_SIZE)
+            .clip(CircleShape)
+            .background(color)
     )
 }
 
@@ -1732,6 +1997,10 @@ private class SoundEffects(
     }
 }
 
+private fun generatePlayerId(): String {
+    return UUID.randomUUID().toString()
+}
+
 private fun loadSettings(context: Context): UserSettings {
     val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     val storedMax = if (prefs.contains(KEY_MAX_LETTER_SET_SIZE)) {
@@ -1747,7 +2016,23 @@ private fun loadSettings(context: Context): UserSettings {
     val selectionModeId = prefs.getString(KEY_CROSSWORD_SELECTION_MODE, DEFAULT_CROSSWORD_SELECTION_MODE_ID)
         ?: DEFAULT_CROSSWORD_SELECTION_MODE_ID
     val selectionMode = CrosswordSelectionMode.fromId(selectionModeId)
-    return UserSettings(muted = muted, maxLetterSetSize = maxLetterSetSize, selectionMode = selectionMode)
+    val playerName = prefs.getString(KEY_NET_PLAYER_NAME, DEFAULT_NET_PLAYER_NAME) ?: DEFAULT_NET_PLAYER_NAME
+    val playerColorId = prefs.getString(KEY_NET_PLAYER_COLOR, NET_PLAYER_COLOR_WHITE) ?: NET_PLAYER_COLOR_WHITE
+    val playerColor = NetPlayerColor.fromId(playerColorId)
+    val serverIp = prefs.getString(KEY_NET_SERVER_IP, DEFAULT_NET_SERVER_IP) ?: DEFAULT_NET_SERVER_IP
+    val normalizedServerIp = serverIp.ifBlank { DEFAULT_NET_SERVER_IP }
+    val serverPort = prefs.getInt(KEY_NET_SERVER_PORT, DEFAULT_NET_SERVER_PORT)
+        .coerceIn(MIN_NET_SERVER_PORT, MAX_NET_SERVER_PORT)
+    return UserSettings(
+        muted = muted,
+        maxLetterSetSize = maxLetterSetSize,
+        selectionMode = selectionMode,
+        playerId = generatePlayerId(),
+        playerName = playerName,
+        playerColor = playerColor,
+        serverIp = normalizedServerIp,
+        serverPort = serverPort
+    )
 }
 
 private fun seedLetterLengthRange(maxLetterSetSize: Int): IntRange {
@@ -1920,6 +2205,7 @@ private fun buildRejectedSeedLettersDescription(seedLetters: String): String {
 }
 
 private fun saveSettings(context: Context, settings: UserSettings) {
+    val normalizedServerIp = settings.serverIp.trim().ifBlank { DEFAULT_NET_SERVER_IP }
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         .edit()
         .putBoolean(KEY_MUTE, settings.muted)
@@ -1928,6 +2214,13 @@ private fun saveSettings(context: Context, settings: UserSettings) {
             settings.maxLetterSetSize.coerceIn(MIN_SEED_LETTER_SET_SIZE, MAX_SEED_LETTER_SET_SIZE)
         )
         .putString(KEY_CROSSWORD_SELECTION_MODE, settings.selectionMode.id)
+        .putString(KEY_NET_PLAYER_NAME, settings.playerName.trim())
+        .putString(KEY_NET_PLAYER_COLOR, settings.playerColor.id)
+        .putString(KEY_NET_SERVER_IP, normalizedServerIp)
+        .putInt(
+            KEY_NET_SERVER_PORT,
+            settings.serverPort.coerceIn(MIN_NET_SERVER_PORT, MAX_NET_SERVER_PORT)
+        )
         .apply()
 }
 

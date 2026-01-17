@@ -2,14 +2,21 @@
 
 .PHONY: build install all uninstall test release
 
+DEBUG_APK := app/build/outputs/apk/debug/app-debug.apk
+
 build:
 	./gradlew assembleDebug
 
-install: build
-	./gradlew installDebug
+install:
+	@if [ ! -f "$(DEBUG_APK)" ]; then \
+		echo "Missing $(DEBUG_APK). Run 'make' to build before install."; \
+		exit 1; \
+	fi
+	adb install -r "$(DEBUG_APK)"
 
-all: build
-	./gradlew installDebug
+all:
+	$(MAKE) build
+	$(MAKE) install
 
 uninstall:
 	adb uninstall com.familiarapps.words.debug
