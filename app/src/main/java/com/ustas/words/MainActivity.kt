@@ -18,6 +18,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -90,6 +95,9 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -110,6 +118,8 @@ import com.ustas.words.ui.theme.GoldShadow
 import com.ustas.words.ui.theme.IconBase
 import com.ustas.words.ui.theme.LightGreen
 import com.ustas.words.ui.theme.MidGreen
+import com.ustas.words.ui.theme.NetPlayLampOn
+import com.ustas.words.ui.theme.NetPlayToggleOff
 import com.ustas.words.ui.theme.NewWordHighlightAura
 import com.ustas.words.ui.theme.NewWordHighlightBackground
 import com.ustas.words.ui.theme.NewWordHighlightText
@@ -127,12 +137,19 @@ import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.random.Random
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -165,6 +182,20 @@ private const val DEFAULT_NET_SERVER_IP = "199.99.9.9"
 private const val DEFAULT_NET_SERVER_PORT = 9999
 private const val MIN_NET_SERVER_PORT = 1
 private const val MAX_NET_SERVER_PORT = 65535
+private const val NET_PLAY_WEBSOCKET_SCHEME = "ws://"
+private const val NET_PLAY_WEBSOCKET_PATH = "/ws"
+private const val NET_PLAY_RETRY_DELAY_MS = 5_000L
+private const val NET_PLAY_PING_INTERVAL_SECONDS = 20L
+private const val NET_PLAY_NORMAL_CLOSE_CODE = 1000
+private const val NET_PLAY_CLOSE_REASON = "client_disconnect"
+private const val NET_PLAY_STATUS_BLINK_DURATION_MS = 650
+private const val NET_PLAY_STATUS_ALPHA_DIM = 0.3f
+private const val NET_PLAY_STATUS_ALPHA_FULL = 1f
+private const val NET_PLAY_STATUS_OFF_ALPHA = 0.4f
+private const val NET_PLAY_TOGGLE_ANIMATION_MS = 160
+private const val NET_PLAY_CORNER_DIVISOR = 2f
+private const val NET_PLAY_PADDING_MULTIPLIER = 2f
+private const val NET_PLAY_DEFAULT_SCORE = 0
 private const val MIN_SEED_LETTER_SET_SIZE = 6
 private const val MAX_SEED_LETTER_SET_SIZE = 9
 private const val DEFAULT_MAX_LETTER_SET_SIZE = MAX_SEED_LETTER_SET_SIZE
@@ -237,6 +268,20 @@ private val SETTINGS_CONTROL_SPACING = 8.dp
 private val PLAYER_COLOR_SWATCH_SIZE = 16.dp
 private val NET_PLAY_FIELD_HORIZONTAL_PADDING = 12.dp
 private val NET_PLAY_FIELD_VERTICAL_PADDING = 8.dp
+private val NET_PLAY_TOGGLE_WIDTH = 38.dp
+private val NET_PLAY_TOGGLE_HEIGHT = 26.dp
+private val NET_PLAY_TOGGLE_PADDING = 3.dp
+private val NET_PLAY_LAMP_SIZE = 10.dp
+private val NET_PLAY_HEADER_SPACING = 6.dp
+private val NET_PLAY_STATS_SPACING = 6.dp
+private val NET_PLAY_STATS_HEIGHT = 22.dp
+private val NET_PLAY_STATS_HORIZONTAL_PADDING = 10.dp
+private val NET_PLAY_STATS_ITEM_SPACING = 6.dp
+private val NET_PLAY_STATS_TEXT_SIZE = 14.sp
+private val NET_PLAY_TOGGLE_ELEVATION = 6.dp
+private val NET_PLAY_STATS_ELEVATION = 6.dp
+private val NET_PLAY_TOGGLE_KNOB_SIZE = NET_PLAY_TOGGLE_HEIGHT -
+    (NET_PLAY_TOGGLE_PADDING * NET_PLAY_PADDING_MULTIPLIER)
 private const val PLAYER_ID_TEXT_SIZE_DIVISOR = 1.5f
 private const val VOWELS = "AEIOU"
 private const val CONSONANTS = "BCDFGHJKLMNPQRSTVWXYZ"
@@ -304,6 +349,18 @@ private enum class HammerMode {
     Caps
 }
 
+private enum class NetConnectionStatus {
+    Off,
+    Connecting,
+    Connected,
+    Disconnected
+}
+
+private data class NetPlayerStat(
+    val color: Color,
+    val count: Int
+)
+
 @Composable
 private fun GameScreen() {
     val context = LocalContext.current
@@ -350,6 +407,36 @@ private fun GameScreen() {
     val highlightFade = remember { Animatable(NEW_WORD_HIGHLIGHT_NONE) }
     var hammerMode by remember { mutableStateOf(HammerMode.Off) }
     var generationError by remember { mutableStateOf(false) }
+    var netPlayEnabled by remember { mutableStateOf(false) }
+    var netConnectionStatus by remember { mutableStateOf(NetConnectionStatus.Off) }
+    val netPlayEnabledState = rememberUpdatedState(netPlayEnabled)
+    val netClient = remember {
+        OkHttpClient.Builder()
+            .pingInterval(NET_PLAY_PING_INTERVAL_SECONDS, TimeUnit.SECONDS)
+            .build()
+    }
+    val netConnection = remember(netClient) {
+        NetPlayConnection(netClient) { status ->
+            if (netPlayEnabledState.value) {
+                netConnectionStatus = status
+            }
+        }
+    }
+    DisposableEffect(netConnection) {
+        onDispose {
+            netConnection.shutdown()
+        }
+    }
+    val netServerUrl = remember(settings.serverIp, settings.serverPort) {
+        buildNetServerUrl(settings.serverIp, settings.serverPort)
+    }
+    val netStats = remember(netConnectionStatus, settings.playerColor) {
+        if (netConnectionStatus == NetConnectionStatus.Connected) {
+            listOf(NetPlayerStat(color = settings.playerColor.swatch, count = NET_PLAY_DEFAULT_SCORE))
+        } else {
+            emptyList()
+        }
+    }
 
     fun showDictionaryUpdateToast(result: DictionaryUpdateResult) {
         val messageRes = when (result) {
@@ -443,6 +530,26 @@ private fun GameScreen() {
         }
     }
 
+    LaunchedEffect(netPlayEnabled, netServerUrl) {
+        if (netPlayEnabled) {
+            netConnectionStatus = NetConnectionStatus.Connecting
+            netConnection.connect(netServerUrl)
+        } else {
+            netConnection.disconnect()
+            netConnectionStatus = NetConnectionStatus.Off
+        }
+    }
+
+    LaunchedEffect(netPlayEnabled, netConnectionStatus, netServerUrl) {
+        if (netPlayEnabled && netConnectionStatus == NetConnectionStatus.Disconnected) {
+            delay(NET_PLAY_RETRY_DELAY_MS)
+            if (netPlayEnabled && netConnectionStatus == NetConnectionStatus.Disconnected) {
+                netConnectionStatus = NetConnectionStatus.Connecting
+                netConnection.connect(netServerUrl)
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
         launchDictionaryUpdate(DictionaryUpdateReason.Scheduled, showToast = false)
     }
@@ -489,6 +596,12 @@ private fun GameScreen() {
                 .padding(horizontal = 18.dp, vertical = 16.dp)
         ) {
             TopBar(
+                netPlayEnabled = netPlayEnabled,
+                netConnectionStatus = netConnectionStatus,
+                netStats = netStats,
+                onNetPlayToggle = { enabled ->
+                    netPlayEnabled = enabled
+                },
                 onSettings = { showSettings = true },
                 onNewGame = {
                     startNewGame()
@@ -616,6 +729,10 @@ private fun GameScreen() {
 
 @Composable
 private fun TopBar(
+    netPlayEnabled: Boolean,
+    netConnectionStatus: NetConnectionStatus,
+    netStats: List<NetPlayerStat>,
+    onNetPlayToggle: (Boolean) -> Unit,
     onSettings: () -> Unit,
     onNewGame: () -> Unit,
     onUpdateDictionary: () -> Unit,
@@ -629,8 +746,15 @@ private fun TopBar(
     var menuExpanded by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.End
+        verticalAlignment = Alignment.CenterVertically
     ) {
+        NetPlayHeader(
+            enabled = netPlayEnabled,
+            status = netConnectionStatus,
+            stats = netStats,
+            onToggle = onNetPlayToggle
+        )
+        Spacer(modifier = Modifier.weight(FULL_WEIGHT))
         CircleIconButton(
             icon = Icons.Filled.Autorenew,
             contentDescription = stringResource(R.string.new_game),
@@ -702,6 +826,153 @@ private fun TopBar(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun NetPlayHeader(
+    enabled: Boolean,
+    status: NetConnectionStatus,
+    stats: List<NetPlayerStat>,
+    onToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        NetPlayToggle(enabled = enabled, onToggle = onToggle)
+        Spacer(modifier = Modifier.width(NET_PLAY_HEADER_SPACING))
+        NetPlayStatusLamp(enabled = enabled, status = status)
+        if (enabled && status == NetConnectionStatus.Connected && stats.isNotEmpty()) {
+            Spacer(modifier = Modifier.width(NET_PLAY_STATS_SPACING))
+            NetPlayStatsPill(stats = stats)
+        }
+    }
+}
+
+@Composable
+private fun NetPlayToggle(
+    enabled: Boolean,
+    onToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val knobOffset by animateDpAsState(
+        targetValue = if (enabled) {
+            NET_PLAY_TOGGLE_WIDTH - NET_PLAY_TOGGLE_KNOB_SIZE -
+                (NET_PLAY_TOGGLE_PADDING * NET_PLAY_PADDING_MULTIPLIER)
+        } else {
+            0.dp
+        },
+        animationSpec = tween(durationMillis = NET_PLAY_TOGGLE_ANIMATION_MS, easing = LinearEasing),
+        label = "netPlayToggleOffset"
+    )
+    val trackColor = if (enabled) LightGreen else NetPlayToggleOff
+    val toggleDescription = stringResource(
+        if (enabled) R.string.net_play_toggle_on else R.string.net_play_toggle_off
+    )
+    Surface(
+        color = trackColor,
+        shape = RoundedCornerShape(NET_PLAY_TOGGLE_HEIGHT / NET_PLAY_CORNER_DIVISOR),
+        shadowElevation = NET_PLAY_TOGGLE_ELEVATION,
+        modifier = modifier
+            .width(NET_PLAY_TOGGLE_WIDTH)
+            .height(NET_PLAY_TOGGLE_HEIGHT)
+            .semantics { contentDescription = toggleDescription }
+            .clickable(role = Role.Switch) { onToggle(!enabled) }
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(NET_PLAY_TOGGLE_PADDING)
+        ) {
+            Box(
+                modifier = Modifier
+                    .offset(x = knobOffset)
+                    .size(NET_PLAY_TOGGLE_KNOB_SIZE)
+                    .clip(CircleShape)
+                    .background(Color.White)
+            )
+        }
+    }
+}
+
+@Composable
+private fun NetPlayStatusLamp(
+    enabled: Boolean,
+    status: NetConnectionStatus,
+    modifier: Modifier = Modifier
+) {
+    val transition = rememberInfiniteTransition(label = "netPlayStatusBlink")
+    val blinkAlpha by transition.animateFloat(
+        initialValue = NET_PLAY_STATUS_ALPHA_DIM,
+        targetValue = NET_PLAY_STATUS_ALPHA_FULL,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = NET_PLAY_STATUS_BLINK_DURATION_MS,
+                easing = LinearEasing
+            ),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "netPlayStatusAlpha"
+    )
+    val lampColor = when {
+        !enabled -> WheelBackground.copy(alpha = NET_PLAY_STATUS_OFF_ALPHA)
+        status == NetConnectionStatus.Connected -> NetPlayLampOn
+        else -> NewWordHighlightBackground.copy(alpha = blinkAlpha)
+    }
+    val statusDescription = stringResource(netPlayStatusLabelResId(enabled, status))
+    Box(
+        modifier = modifier
+            .size(NET_PLAY_LAMP_SIZE)
+            .clip(CircleShape)
+            .background(lampColor)
+            .semantics { contentDescription = statusDescription }
+    )
+}
+
+@Composable
+private fun NetPlayStatsPill(
+    stats: List<NetPlayerStat>,
+    modifier: Modifier = Modifier
+) {
+    if (stats.isEmpty()) {
+        return
+    }
+    Surface(
+        color = IconBase,
+        shape = RoundedCornerShape(NET_PLAY_STATS_HEIGHT / NET_PLAY_CORNER_DIVISOR),
+        shadowElevation = NET_PLAY_STATS_ELEVATION,
+        modifier = modifier.height(NET_PLAY_STATS_HEIGHT)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = NET_PLAY_STATS_HORIZONTAL_PADDING),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            stats.forEachIndexed { index, stat ->
+                if (index >= COUNT_STEP) {
+                    Spacer(modifier = Modifier.width(NET_PLAY_STATS_ITEM_SPACING))
+                }
+                Text(
+                    text = stat.count.toString(),
+                    color = stat.color,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = NET_PLAY_STATS_TEXT_SIZE
+                )
+            }
+        }
+    }
+}
+
+private fun netPlayStatusLabelResId(
+    enabled: Boolean,
+    status: NetConnectionStatus
+): Int {
+    return when {
+        !enabled -> R.string.net_play_status_off
+        status == NetConnectionStatus.Connected -> R.string.net_play_status_connected
+        status == NetConnectionStatus.Connecting -> R.string.net_play_status_connecting
+        else -> R.string.net_play_status_disconnected
     }
 }
 
@@ -1781,6 +2052,69 @@ private fun AbstractBackground(modifier: Modifier = Modifier) {
     }
 }
 
+private class NetPlayConnection(
+    private val client: OkHttpClient,
+    private val onStatusChange: (NetConnectionStatus) -> Unit
+) {
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var webSocket: WebSocket? = null
+
+    fun connect(url: String) {
+        webSocket?.cancel()
+        val request = try {
+            Request.Builder().url(url).build()
+        } catch (exception: IllegalArgumentException) {
+            postStatus(NetConnectionStatus.Disconnected)
+            return
+        }
+        webSocket = client.newWebSocket(
+            request,
+            object : WebSocketListener() {
+                override fun onOpen(webSocket: WebSocket, response: Response) {
+                    if (isCurrentSocket(webSocket)) {
+                        postStatus(NetConnectionStatus.Connected)
+                    }
+                }
+
+                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    if (isCurrentSocket(webSocket)) {
+                        postStatus(NetConnectionStatus.Disconnected)
+                    }
+                }
+
+                override fun onFailure(
+                    webSocket: WebSocket,
+                    t: Throwable,
+                    response: Response?
+                ) {
+                    if (isCurrentSocket(webSocket)) {
+                        postStatus(NetConnectionStatus.Disconnected)
+                    }
+                }
+            }
+        )
+    }
+
+    fun disconnect() {
+        webSocket?.close(NET_PLAY_NORMAL_CLOSE_CODE, NET_PLAY_CLOSE_REASON)
+        webSocket = null
+    }
+
+    fun shutdown() {
+        disconnect()
+    }
+
+    private fun isCurrentSocket(socket: WebSocket): Boolean {
+        return socket == webSocket
+    }
+
+    private fun postStatus(status: NetConnectionStatus) {
+        mainHandler.post {
+            onStatusChange(status)
+        }
+    }
+}
+
 private class TonePlayer {
     private val sampleRate = 44_100
     private val handlerThread = HandlerThread("tone-player", Process.THREAD_PRIORITY_URGENT_AUDIO).apply { start() }
@@ -1995,6 +2329,11 @@ private class SoundEffects(
             volume = REVIEW_WORD_CONFIRM_VOLUME
         )
     }
+}
+
+private fun buildNetServerUrl(serverIp: String, serverPort: Int): String {
+    val trimmedIp = serverIp.trim().ifBlank { DEFAULT_NET_SERVER_IP }
+    return "$NET_PLAY_WEBSOCKET_SCHEME$trimmedIp:$serverPort$NET_PLAY_WEBSOCKET_PATH"
 }
 
 private fun generatePlayerId(): String {

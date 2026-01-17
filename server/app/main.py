@@ -9,6 +9,7 @@ DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 9999
 DEFAULT_WS_PING_INTERVAL_SECONDS = 20
 DEFAULT_WS_PING_TIMEOUT_SECONDS = 20
+DISCONNECT_MESSAGE_TYPE = "websocket.disconnect"
 
 ENV_HOST = "HOST"
 ENV_PORT = "PORT"
@@ -67,16 +68,46 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         }
     )
 
+    disconnect_reason = "client_disconnect"
+    close_code = None
+    close_reason = None
     try:
         while True:
-            await websocket.receive()
-    except WebSocketDisconnect:
-        active_count = REGISTRY.remove(client_id)
-        LOGGER.info("client_disconnected id=%s active=%s", client_id, active_count)
-    except Exception:
-        LOGGER.exception("client_error id=%s", client_id)
-        active_count = REGISTRY.remove(client_id)
-        LOGGER.info("client_disconnected id=%s active=%s", client_id, active_count)
+            message = await websocket.receive()
+            if message.get("type") == DISCONNECT_MESSAGE_TYPE:
+                close_code = message.get("code")
+                close_reason = message.get("reason")
+                break
+    except WebSocketDisconnect as error:
+        close_code = error.code
+        close_reason = error.reason
+    except RuntimeError as error:
+        if "disconnect message has been received" not in str(error):
+            disconnect_reason = "error"
+            LOGGER.error(
+                "client_error id=%s error=%s message=%s",
+                client_id,
+                type(error).__name__,
+                str(error),
+            )
+    except Exception as error:
+        disconnect_reason = "error"
+        LOGGER.error(
+            "client_error id=%s error=%s message=%s",
+            client_id,
+            type(error).__name__,
+            str(error),
+        )
+
+    active_count = REGISTRY.remove(client_id)
+    LOGGER.info(
+        "client_disconnected id=%s active=%s reason=%s code=%s detail=%s",
+        client_id,
+        active_count,
+        disconnect_reason,
+        close_code,
+        close_reason,
+    )
 
 
 if __name__ == "__main__":

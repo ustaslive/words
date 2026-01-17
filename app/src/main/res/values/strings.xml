@@ -42,4 +42,10 @@
     <string name="settings_net_play_color_yellow">Yellow</string>
     <string name="settings_net_play_color_red">Red</string>
     <string name="settings_net_play_color_light_green">Light green</string>
+    <string name="net_play_toggle_on">Net play on</string>
+    <string name="net_play_toggle_off">Net play off</string>
+    <string name="net_play_status_off">Off</string>
+    <string name="net_play_status_connecting">Connecting</string>
+    <string name="net_play_status_connected">Connected</string>
+    <string name="net_play_status_disconnected">Disconnected</string>
 </resources>
