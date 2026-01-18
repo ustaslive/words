@@ -17,6 +17,7 @@ MESSAGE_TYPE_JOIN = "join"
 MESSAGE_TYPE_SNAPSHOT = "snapshot"
 MESSAGE_TYPE_STATE_UPDATE = "stateUpdate"
 MESSAGE_TYPE_NEW_GAME = "newGame"
+MESSAGE_TYPE_SUBMIT_WORD = "submitWord"
 MESSAGE_TYPE_ERROR = "error"
 
 ROLE_HOST = "host"
@@ -37,9 +38,13 @@ JSON_KEY_GRID_ROWS = "gridRows"
 JSON_KEY_REVEALED = "revealed"
 JSON_KEY_WORDS = "words"
 JSON_KEY_SETTINGS = "settings"
+JSON_KEY_ROW = "row"
+JSON_KEY_COL = "col"
+CROSSWORD_EMPTY_CELL = "."
 SHORT_ID_PREFIX = 5
 SHORT_ID_SUFFIX = 5
 SERVER_INSTANCE_ID = str(uuid.uuid4())
+GRID_ROW_INDEX_PAD = 2
 
 ENV_HOST = "HOST"
 ENV_PORT = "PORT"
@@ -203,6 +208,62 @@ def summarize_snapshot(snapshot: dict | None) -> str:
     )
 
 
+def build_grid_rows_for_log(snapshot: dict) -> list[str]:
+    grid_rows = snapshot.get(JSON_KEY_GRID_ROWS)
+    if not isinstance(grid_rows, list) or not grid_rows:
+        return []
+    rows: list[list[str]] = []
+    for row in grid_rows:
+        if not isinstance(row, str):
+            return []
+        rows.append(list(row))
+
+    revealed = snapshot.get(JSON_KEY_REVEALED)
+    if isinstance(revealed, list):
+        for item in revealed:
+            if not isinstance(item, dict):
+                continue
+            row_index = item.get(JSON_KEY_ROW)
+            col_index = item.get(JSON_KEY_COL)
+            if not isinstance(row_index, int) or not isinstance(col_index, int):
+                continue
+            if row_index < 0 or row_index >= len(rows):
+                continue
+            row_chars = rows[row_index]
+            if col_index < 0 or col_index >= len(row_chars):
+                continue
+            char = row_chars[col_index]
+            if char != CROSSWORD_EMPTY_CELL:
+                row_chars[col_index] = char.upper()
+
+    return ["".join(row) for row in rows]
+
+
+def log_snapshot_grid(actor: str, action: str, target: str, snapshot: dict) -> None:
+    rows = build_grid_rows_for_log(snapshot)
+    if not rows:
+        return
+    column_count = max((len(row) for row in rows), default=0)
+    LOGGER.info(
+        "%s -> %s grid -> %s rows=%s cols=%s",
+        actor,
+        action,
+        target,
+        len(rows),
+        column_count,
+    )
+    for row_index, row in enumerate(rows):
+        LOGGER.info(
+            "%s -> %s row[%0*d] -> %s %s",
+            actor,
+            action,
+            GRID_ROW_INDEX_PAD,
+            row_index,
+            target,
+            row,
+        )
+
+
 def read_int_env(name: str, default: int) -> int:
     raw = os.getenv(name)
     if raw is None:
@@ -288,6 +349,8 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             snapshot is not None,
             summarize_snapshot(snapshot),
         )
+        if snapshot is not None:
+            log_snapshot_grid(srv, "snapshot", player_label, snapshot)
         await websocket.send_json(build_snapshot_message(role, snapshot, active_count))
 
         while True:
@@ -297,6 +360,9 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             if message_type == MESSAGE_TYPE_NEW_GAME:
                 LOGGER.info("%s -> newGame -> %s", player_label, srv)
                 await handle_new_game_message(session, payload)
+            elif message_type == MESSAGE_TYPE_SUBMIT_WORD:
+                LOGGER.info("%s -> submitWord -> %s", player_label, srv)
+                await handle_submit_word_message(session, payload)
             elif message_type == MESSAGE_TYPE_JOIN:
                 LOGGER.info(
                     "%s -> join -> %s rejected reason=already_joined",
@@ -448,6 +514,41 @@ async def handle_new_game_message(session: ClientSession, payload: dict) -> None
         srv,
         summarize_snapshot(snapshot),
     )
+    log_snapshot_grid(player_label, "newGame", srv, snapshot)
+    message = build_state_update_message(snapshot)
+    await broadcast_message(message, targets)
+
+
+async def handle_submit_word_message(session: ClientSession, payload: dict) -> None:
+    srv = server_label()
+    player_role = ROLE_HOST if session.player_id == ROOM.host_player_id else None
+    player_label = format_player_label(
+        session.player_id,
+        session.player_name,
+        player_role,
+    )
+    snapshot = payload.get(JSON_KEY_SNAPSHOT)
+    if not isinstance(snapshot, dict):
+        LOGGER.info(
+            "%s -> submitWord -> %s rejected reason=invalid_snapshot type=%s",
+            player_label,
+            srv,
+            type(snapshot).__name__,
+        )
+        await session.websocket.send_json(build_error_message("invalid_snapshot"))
+        return
+
+    async with ROOM_LOCK:
+        ROOM.snapshot = snapshot
+        targets = ROOM.sessions()
+
+    LOGGER.info(
+        "%s -> submitWord -> %s accepted info=%s",
+        player_label,
+        srv,
+        summarize_snapshot(snapshot),
+    )
+    log_snapshot_grid(player_label, "submitWord", srv, snapshot)
     message = build_state_update_message(snapshot)
     await broadcast_message(message, targets)
 
@@ -468,6 +569,8 @@ async def broadcast_message(message: dict, sessions: list[ClientSession]) -> Non
         len(sessions),
         summarize_snapshot(snapshot),
     )
+    if isinstance(snapshot, dict):
+        log_snapshot_grid(srv, message_label, "players", snapshot)
     for session in sessions:
         try:
             await session.websocket.send_json(message)

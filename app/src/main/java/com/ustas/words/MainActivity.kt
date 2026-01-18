@@ -205,6 +205,7 @@ private const val NET_MESSAGE_TYPE_JOIN = "join"
 private const val NET_MESSAGE_TYPE_SNAPSHOT = "snapshot"
 private const val NET_MESSAGE_TYPE_STATE_UPDATE = "stateUpdate"
 private const val NET_MESSAGE_TYPE_NEW_GAME = "newGame"
+private const val NET_MESSAGE_TYPE_SUBMIT_WORD = "submitWord"
 private const val NET_MESSAGE_TYPE_ERROR = "error"
 private const val NET_ROLE_HOST = "host"
 private const val NET_ROLE_GUEST = "guest"
@@ -843,6 +844,18 @@ private fun GameScreen() {
                     if ((result == WordResult.Success || result == WordResult.AlreadySolved) && match != null) {
                         highlightedPositions = match.positions
                         highlightTrigger += HIGHLIGHT_TRIGGER_STEP
+                    }
+                    if (result == WordResult.Success && netPlayEnabled && netConnectionStatus == NetConnectionStatus.Connected) {
+                        val snapshot = buildNetSnapshotFromState(
+                            seedLetters = seedLetters,
+                            wheelLetters = letters,
+                            grid = grid,
+                            crosswordWords = crosswordWords,
+                            settings = settings
+                        )
+                        if (snapshot != null) {
+                            netConnection.send(buildNetSubmitWordMessage(snapshot))
+                        }
                     }
                     if (result != WordResult.NotFound) {
                         result
@@ -2239,6 +2252,13 @@ private fun buildNetJoinMessage(settings: UserSettings): String {
 private fun buildNetNewGameMessage(snapshot: NetSnapshot): String {
     val root = JSONObject()
     root.put(NET_JSON_TYPE, NET_MESSAGE_TYPE_NEW_GAME)
+    root.put(NET_JSON_SNAPSHOT, buildNetSnapshotJson(snapshot))
+    return root.toString()
+}
+
+private fun buildNetSubmitWordMessage(snapshot: NetSnapshot): String {
+    val root = JSONObject()
+    root.put(NET_JSON_TYPE, NET_MESSAGE_TYPE_SUBMIT_WORD)
     root.put(NET_JSON_SNAPSHOT, buildNetSnapshotJson(snapshot))
     return root.toString()
 }
