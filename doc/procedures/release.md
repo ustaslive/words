@@ -1,5 +1,37 @@
 # Release process (internal testing)
 
+## TL;DR (quick checklist)
+
+- Create `release_v<version>` from `develop`, bump versions in `app/build.gradle.kts`, and add release notes in `doc/releases/release_v<version>.md`.
+- Build and verify the release bundle, then merge to `develop` and `master`, build again, and upload to Google Play (internal testing).
+- Tag and push only after the upload succeeds.
+
+Command template:
+
+```
+git checkout develop
+git pull
+git checkout -b release_v<version>
+# Edit app/build.gradle.kts: versionCode, versionName
+# Create doc/releases/release_v<version>.md with release notes
+git add app/build.gradle.kts doc/releases/release_v<version>.md
+git commit -m "Release v<version>"
+./gradlew bundleRelease
+git checkout develop
+git merge release_v<version>
+git checkout master
+git merge develop
+./gradlew bundleRelease
+git tag v<version>
+git push origin develop master
+git push origin v<version>
+```
+
+Files and fields to update:
+
+- `app/build.gradle.kts`: `versionCode`, `versionName` (must match `v<version>` without the `v`)
+- `doc/releases/release_v<version>.md`: release notes text
+
 This guide documents how to prepare a release for internal testing and publish it to Google Play.
 `master` contains only stable versions; release builds and version tags are created on `master`.
 `develop` may contain unstable work; builds from `develop` are debug-only for local testing via ADB and are not uploaded to Google Play.
