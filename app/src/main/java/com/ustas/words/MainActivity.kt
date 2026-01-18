@@ -207,6 +207,7 @@ private const val NET_MESSAGE_TYPE_STATE_UPDATE = "stateUpdate"
 private const val NET_MESSAGE_TYPE_NEW_GAME = "newGame"
 private const val NET_MESSAGE_TYPE_SUBMIT_WORD = "submitWord"
 private const val NET_MESSAGE_TYPE_ERROR = "error"
+private const val NET_ERROR_CONFLICT = "conflict"
 private const val NET_ROLE_HOST = "host"
 private const val NET_ROLE_GUEST = "guest"
 private const val NET_JSON_TYPE = "type"
@@ -215,12 +216,15 @@ private const val NET_JSON_PLAYER_NAME = "playerName"
 private const val NET_JSON_PLAYER_COLOR = "playerColor"
 private const val NET_JSON_ROLE = "role"
 private const val NET_JSON_SNAPSHOT = "snapshot"
+private const val NET_JSON_PLAYERS = "players"
 private const val NET_JSON_STATE_VERSION = "stateVersion"
+private const val NET_JSON_BASE_VERSION = "baseVersion"
 private const val NET_JSON_SEED_LETTERS = "seedLetters"
 private const val NET_JSON_WHEEL_LETTERS = "wheelLetters"
 private const val NET_JSON_GRID_ROWS = "gridRows"
 private const val NET_JSON_REVEALED = "revealed"
 private const val NET_JSON_WORDS = "words"
+private const val NET_JSON_SOLVED_BY = "solvedBy"
 private const val NET_JSON_WORD = "word"
 private const val NET_JSON_POSITIONS = "positions"
 private const val NET_JSON_ROW = "row"
@@ -406,6 +410,26 @@ private data class NetPlayerStat(
     val count: Int
 )
 
+private data class NetPlayerInfo(
+    val playerId: String,
+    val playerName: String,
+    val playerColor: NetPlayerColor
+)
+
+private fun buildNetStats(
+    players: List<NetPlayerInfo>,
+    solvedBy: Map<String, String>
+): List<NetPlayerStat> {
+    if (players.isEmpty()) {
+        return emptyList()
+    }
+    val counts = solvedBy.values.groupingBy { it }.eachCount()
+    return players.map { player ->
+        val count = counts[player.playerId] ?: NET_PLAY_DEFAULT_SCORE
+        NetPlayerStat(color = player.playerColor.swatch, count = count)
+    }
+}
+
 @Composable
 private fun GameScreen() {
     val context = LocalContext.current
@@ -457,27 +481,65 @@ private fun GameScreen() {
     var netRole by remember { mutableStateOf(NetPlayRole.None) }
     var netHostNeedsUpload by remember { mutableStateOf(false) }
     var netJoined by remember { mutableStateOf(false) }
+    var netConfirmedVersion by remember { mutableStateOf(NET_STATE_VERSION_INITIAL) }
+    var netPendingWords by remember { mutableStateOf(emptyList<String>()) }
+    var netSubmissionInFlight by remember { mutableStateOf(false) }
+    var netNeedsResend by remember { mutableStateOf(false) }
+    var netSolvedBy by remember { mutableStateOf(emptyMap<String, String>()) }
+    var netPlayers by remember { mutableStateOf(emptyList<NetPlayerInfo>()) }
     val netPlayEnabledState = rememberUpdatedState(netPlayEnabled)
     val netClient = remember {
         OkHttpClient.Builder()
             .pingInterval(NET_PLAY_PING_INTERVAL_SECONDS, TimeUnit.SECONDS)
             .build()
     }
-    val applyNetSnapshot: (NetSnapshot) -> Unit = { snapshot ->
-        val baseGrid = buildCrosswordGridFromRows(snapshot.gridRows)
-        val revealedGrid = applyRevealedPositions(baseGrid, snapshot.revealedPositions)
-        seedLetters = snapshot.seedLetters
-        letters = if (snapshot.wheelLetters.isEmpty()) {
-            generateLetterWheel(snapshot.seedLetters)
-        } else {
-            snapshot.wheelLetters
+    val applyNetSnapshot: (NetSnapshot) -> Pair<List<List<CrosswordCell>>, Map<String, CrosswordWord>> =
+        { snapshot ->
+            val baseGrid = buildCrosswordGridFromRows(snapshot.gridRows)
+            val revealedGrid = applyRevealedPositions(baseGrid, snapshot.revealedPositions)
+            val wordMap = snapshot.words.associateBy { it.word }
+            seedLetters = snapshot.seedLetters
+            letters = if (snapshot.wheelLetters.isEmpty()) {
+                generateLetterWheel(snapshot.seedLetters)
+            } else {
+                snapshot.wheelLetters
+            }
+            grid = revealedGrid
+            crosswordWords = wordMap
+            missingWordsState = buildMissingWordsState(snapshot.seedLetters, dictionary, wordMap)
+            highlightedPositions = emptySet()
+            hammerMode = HammerMode.Off
+            generationError = false
+            netConfirmedVersion = snapshot.stateVersion
+            netSolvedBy = snapshot.solvedBy
+            revealedGrid to wordMap
         }
-        grid = revealedGrid
-        crosswordWords = snapshot.words.associateBy { it.word }
-        missingWordsState = buildMissingWordsState(snapshot.seedLetters, dictionary, crosswordWords)
-        highlightedPositions = emptySet()
-        hammerMode = HammerMode.Off
-        generationError = false
+    fun rebasePendingWordsIfNeeded(
+        baseGrid: List<List<CrosswordCell>>,
+        wordMap: Map<String, CrosswordWord>,
+        allowResend: Boolean,
+        playDiscardFeedback: Boolean
+    ) {
+        val pending = netPendingWords
+        if (pending.isEmpty()) {
+            return
+        }
+        val rebaseResult = rebasePendingWords(
+            baseGrid = baseGrid,
+            crosswordWords = wordMap,
+            pendingWords = pending,
+            baseSolvedBy = netSolvedBy,
+            playerId = settings.playerId
+        )
+        if (rebaseResult.grid != baseGrid) {
+            grid = rebaseResult.grid
+        }
+        netSolvedBy = rebaseResult.solvedBy
+        netPendingWords = rebaseResult.pendingWords
+        netNeedsResend = allowResend && rebaseResult.pendingWords.isNotEmpty()
+        if (playDiscardFeedback && rebaseResult.discardedWords.isNotEmpty()) {
+            soundEffects.alreadySolvedConfirm()
+        }
     }
     val handleNetMessage = rememberUpdatedState<(NetMessage) -> Unit> { message ->
         if (!netPlayEnabled) {
@@ -486,17 +548,63 @@ private fun GameScreen() {
         when (message) {
             is NetMessage.Snapshot -> {
                 netRole = message.role
+                netSubmissionInFlight = false
+                if (message.players.isNotEmpty()) {
+                    netPlayers = message.players
+                }
                 if (message.snapshot != null) {
-                    applyNetSnapshot(message.snapshot)
+                    val (baseGrid, wordMap) = applyNetSnapshot(message.snapshot)
                     netHostNeedsUpload = false
+                    if (message.snapshot.stateVersion == NET_STATE_VERSION_INITIAL) {
+                        netPendingWords = emptyList()
+                    }
+                    rebasePendingWordsIfNeeded(
+                        baseGrid = baseGrid,
+                        wordMap = wordMap,
+                        allowResend = true,
+                        playDiscardFeedback = false
+                    )
                 } else {
                     netHostNeedsUpload = message.role == NetPlayRole.Host
                 }
             }
             is NetMessage.StateUpdate -> {
-                applyNetSnapshot(message.snapshot)
+                netSubmissionInFlight = false
+                if (message.players.isNotEmpty()) {
+                    netPlayers = message.players
+                }
+                val (baseGrid, wordMap) = applyNetSnapshot(message.snapshot)
+                if (message.snapshot.stateVersion == NET_STATE_VERSION_INITIAL) {
+                    netPendingWords = emptyList()
+                }
+                rebasePendingWordsIfNeeded(
+                    baseGrid = baseGrid,
+                    wordMap = wordMap,
+                    allowResend = true,
+                    playDiscardFeedback = false
+                )
             }
-            is NetMessage.Error -> Unit
+            is NetMessage.Conflict -> {
+                netSubmissionInFlight = false
+                if (message.players.isNotEmpty()) {
+                    netPlayers = message.players
+                }
+                val (baseGrid, wordMap) = applyNetSnapshot(message.snapshot)
+                if (message.snapshot.stateVersion == NET_STATE_VERSION_INITIAL) {
+                    netPendingWords = emptyList()
+                }
+                rebasePendingWordsIfNeeded(
+                    baseGrid = baseGrid,
+                    wordMap = wordMap,
+                    allowResend = true,
+                    playDiscardFeedback = true
+                )
+            }
+            is NetMessage.Error -> {
+                if (message.players.isNotEmpty()) {
+                    netPlayers = message.players
+                }
+            }
         }
     }
     val netConnection = remember(netClient) {
@@ -518,12 +626,56 @@ private fun GameScreen() {
             netConnection.shutdown()
         }
     }
+    LaunchedEffect(
+        netNeedsResend,
+        netPendingWords,
+        netSubmissionInFlight,
+        netPlayEnabled,
+        netConnectionStatus,
+        netConfirmedVersion,
+        seedLetters,
+        letters,
+        grid,
+        crosswordWords,
+        settings
+    ) {
+        if (!netNeedsResend) {
+            return@LaunchedEffect
+        }
+        if (netSubmissionInFlight) {
+            return@LaunchedEffect
+        }
+        if (!netPlayEnabled || netConnectionStatus != NetConnectionStatus.Connected) {
+            return@LaunchedEffect
+        }
+        if (netPendingWords.isEmpty()) {
+            netNeedsResend = false
+            return@LaunchedEffect
+        }
+        val snapshot = buildNetSnapshotFromState(
+            seedLetters = seedLetters,
+            wheelLetters = letters,
+            grid = grid,
+            crosswordWords = crosswordWords,
+            settings = settings,
+            solvedBy = netSolvedBy,
+            stateVersion = netConfirmedVersion
+        )
+        if (snapshot == null) {
+            netNeedsResend = false
+            return@LaunchedEffect
+        }
+        if (netConnection.send(buildNetSubmitWordMessage(snapshot, netConfirmedVersion))) {
+            netSubmissionInFlight = true
+            netNeedsResend = false
+        }
+    }
     val netServerUrl = remember(settings.serverIp, settings.serverPort) {
         buildNetServerUrl(settings.serverIp, settings.serverPort)
     }
-    val netStats = remember(netConnectionStatus, settings.playerColor) {
+    val netStats = remember(netConnectionStatus, netPlayers, netSolvedBy) {
         if (netConnectionStatus == NetConnectionStatus.Connected) {
-            listOf(NetPlayerStat(color = settings.playerColor.swatch, count = NET_PLAY_DEFAULT_SCORE))
+            buildNetStats(netPlayers, netSolvedBy)
         } else {
             emptyList()
         }
@@ -606,6 +758,7 @@ private fun GameScreen() {
                 missingWordsState = buildMissingWordsState(result.seedLetters, dictionary, result.layout.words)
                 hammerMode = HammerMode.Off
                 generationError = false
+                netSolvedBy = emptyMap()
                 if (netPlayEnabled && netRole == NetPlayRole.Host) {
                     netHostNeedsUpload = true
                 }
@@ -632,6 +785,12 @@ private fun GameScreen() {
             netRole = NetPlayRole.None
             netHostNeedsUpload = false
             netJoined = false
+            netConfirmedVersion = NET_STATE_VERSION_INITIAL
+            netPendingWords = emptyList()
+            netSubmissionInFlight = false
+            netNeedsResend = false
+            netSolvedBy = emptyMap()
+            netPlayers = emptyList()
             netConnectionStatus = NetConnectionStatus.Connecting
             netConnection.connect(netServerUrl)
         } else {
@@ -640,6 +799,12 @@ private fun GameScreen() {
             netRole = NetPlayRole.None
             netHostNeedsUpload = false
             netJoined = false
+            netConfirmedVersion = NET_STATE_VERSION_INITIAL
+            netPendingWords = emptyList()
+            netSubmissionInFlight = false
+            netNeedsResend = false
+            netSolvedBy = emptyMap()
+            netPlayers = emptyList()
         }
     }
 
@@ -656,6 +821,7 @@ private fun GameScreen() {
     LaunchedEffect(netConnectionStatus) {
         if (netConnectionStatus != NetConnectionStatus.Connected) {
             netJoined = false
+            netSubmissionInFlight = false
         }
     }
 
@@ -696,7 +862,9 @@ private fun GameScreen() {
                 wheelLetters = letters,
                 grid = grid,
                 crosswordWords = crosswordWords,
-                settings = settings
+                settings = settings,
+                solvedBy = netSolvedBy,
+                stateVersion = NET_STATE_VERSION_INITIAL
             )
             if (snapshot != null && netConnection.send(buildNetNewGameMessage(snapshot))) {
                 netHostNeedsUpload = false
@@ -845,16 +1013,34 @@ private fun GameScreen() {
                         highlightedPositions = match.positions
                         highlightTrigger += HIGHLIGHT_TRIGGER_STEP
                     }
-                    if (result == WordResult.Success && netPlayEnabled && netConnectionStatus == NetConnectionStatus.Connected) {
-                        val snapshot = buildNetSnapshotFromState(
-                            seedLetters = seedLetters,
-                            wheelLetters = letters,
-                            grid = grid,
-                            crosswordWords = crosswordWords,
-                            settings = settings
-                        )
-                        if (snapshot != null) {
-                            netConnection.send(buildNetSubmitWordMessage(snapshot))
+                    if (result == WordResult.Success && netPlayEnabled) {
+                        if (settings.playerId.isNotBlank()) {
+                            netSolvedBy = netSolvedBy + (normalizedWord to settings.playerId)
+                        }
+                        if (!netPendingWords.contains(normalizedWord)) {
+                            netPendingWords = netPendingWords + normalizedWord
+                        }
+                        if (!netSubmissionInFlight && netConnectionStatus == NetConnectionStatus.Connected) {
+                            val snapshot = buildNetSnapshotFromState(
+                                seedLetters = seedLetters,
+                                wheelLetters = letters,
+                                grid = grid,
+                                crosswordWords = crosswordWords,
+                                settings = settings,
+                                solvedBy = netSolvedBy,
+                                stateVersion = netConfirmedVersion
+                            )
+                            if (snapshot != null && netConnection.send(
+                                    buildNetSubmitWordMessage(snapshot, netConfirmedVersion)
+                                )
+                            ) {
+                                netSubmissionInFlight = true
+                                netNeedsResend = false
+                            } else {
+                                netNeedsResend = true
+                            }
+                        } else {
+                            netNeedsResend = true
                         }
                     }
                     if (result != WordResult.NotFound) {
@@ -2231,13 +2417,74 @@ private data class NetSnapshot(
     val gridRows: List<String>,
     val revealedPositions: List<GridPosition>,
     val words: List<CrosswordWord>,
+    val solvedBy: Map<String, String>,
     val settings: NetSnapshotSettings
 )
 
 private sealed interface NetMessage {
-    data class Snapshot(val role: NetPlayRole, val snapshot: NetSnapshot?) : NetMessage
-    data class StateUpdate(val snapshot: NetSnapshot) : NetMessage
-    data class Error(val message: String) : NetMessage
+    data class Snapshot(
+        val role: NetPlayRole,
+        val snapshot: NetSnapshot?,
+        val players: List<NetPlayerInfo> = emptyList()
+    ) : NetMessage
+    data class StateUpdate(
+        val snapshot: NetSnapshot,
+        val players: List<NetPlayerInfo> = emptyList()
+    ) : NetMessage
+    data class Conflict(
+        val snapshot: NetSnapshot,
+        val players: List<NetPlayerInfo> = emptyList()
+    ) : NetMessage
+    data class Error(
+        val message: String,
+        val players: List<NetPlayerInfo> = emptyList()
+    ) : NetMessage
+}
+
+private data class NetRebaseResult(
+    val grid: List<List<CrosswordCell>>,
+    val pendingWords: List<String>,
+    val discardedWords: List<String>,
+    val solvedBy: Map<String, String>
+)
+
+private fun rebasePendingWords(
+    baseGrid: List<List<CrosswordCell>>,
+    crosswordWords: Map<String, CrosswordWord>,
+    pendingWords: List<String>,
+    baseSolvedBy: Map<String, String>,
+    playerId: String
+): NetRebaseResult {
+    if (pendingWords.isEmpty()) {
+        return NetRebaseResult(baseGrid, emptyList(), emptyList(), baseSolvedBy)
+    }
+    var updatedGrid = baseGrid
+    val remaining = mutableListOf<String>()
+    val discarded = mutableListOf<String>()
+    val updatedSolvedBy = baseSolvedBy.toMutableMap()
+    for (word in pendingWords) {
+        val match = crosswordWords[word]
+        if (match == null) {
+            discarded.add(word)
+            continue
+        }
+        val isSolved = match.positions.all { pos -> updatedGrid[pos.row][pos.col].isRevealed }
+        if (isSolved) {
+            discarded.add(word)
+            continue
+        }
+        val (nextGrid, result) = applySelectedWord(word, crosswordWords, updatedGrid)
+        updatedGrid = nextGrid
+        if (result == WordResult.Success && !remaining.contains(word)) {
+            remaining.add(word)
+            if (playerId.isNotBlank()) {
+                updatedSolvedBy[word] = playerId
+            }
+        } else if (result != WordResult.Success) {
+            discarded.add(word)
+        }
+    }
+    return NetRebaseResult(updatedGrid, remaining, discarded, updatedSolvedBy.toMap())
 }
 
 private fun buildNetJoinMessage(settings: UserSettings): String {
@@ -2256,9 +2503,10 @@ private fun buildNetNewGameMessage(snapshot: NetSnapshot): String {
     return root.toString()
 }
 
-private fun buildNetSubmitWordMessage(snapshot: NetSnapshot): String {
+private fun buildNetSubmitWordMessage(snapshot: NetSnapshot, baseVersion: Int): String {
     val root = JSONObject()
     root.put(NET_JSON_TYPE, NET_MESSAGE_TYPE_SUBMIT_WORD)
+    root.put(NET_JSON_BASE_VERSION, baseVersion)
     root.put(NET_JSON_SNAPSHOT, buildNetSnapshotJson(snapshot))
     return root.toString()
 }
@@ -2269,7 +2517,8 @@ private fun buildNetSnapshotFromState(
     grid: List<List<CrosswordCell>>,
     crosswordWords: Map<String, CrosswordWord>,
     settings: UserSettings,
-    stateVersion: Int = NET_STATE_VERSION_INITIAL
+    solvedBy: Map<String, String>,
+    stateVersion: Int
 ): NetSnapshot? {
     if (seedLetters.isBlank() || grid.isEmpty()) {
         return null
@@ -2289,6 +2538,7 @@ private fun buildNetSnapshotFromState(
         gridRows = gridRows,
         revealedPositions = revealedPositions,
         words = words,
+        solvedBy = solvedBy,
         settings = buildNetSnapshotSettings(settings)
     )
 }
@@ -2311,6 +2561,7 @@ private fun buildNetSnapshotJson(snapshot: NetSnapshot): JSONObject {
     root.put(NET_JSON_GRID_ROWS, JSONArray(snapshot.gridRows))
     root.put(NET_JSON_REVEALED, buildPositionsJson(snapshot.revealedPositions))
     root.put(NET_JSON_WORDS, buildWordsJson(snapshot.words))
+    root.put(NET_JSON_SOLVED_BY, buildNetSolvedByJson(snapshot.solvedBy))
     root.put(NET_JSON_SETTINGS, buildSettingsJson(snapshot.settings))
     return root
 }
@@ -2366,6 +2617,16 @@ private fun buildWordsJson(words: List<CrosswordWord>): JSONArray {
     return array
 }
 
+private fun buildNetSolvedByJson(solvedBy: Map<String, String>): JSONObject {
+    val root = JSONObject()
+    for ((word, playerId) in solvedBy) {
+        if (word.isNotBlank() && playerId.isNotBlank()) {
+            root.put(word, playerId)
+        }
+    }
+    return root
+}
+
 private fun buildSettingsJson(settings: NetSnapshotSettings): JSONObject {
     val root = JSONObject()
     root.put(NET_JSON_SELECTION_MODE, settings.selectionModeId)
@@ -2379,18 +2640,25 @@ private fun parseNetMessage(raw: String): NetMessage? {
     } catch (error: JSONException) {
         return null
     }
+    val players = parseNetPlayers(root.optJSONArray(NET_JSON_PLAYERS))
     return when (root.optString(NET_JSON_TYPE, "")) {
         NET_MESSAGE_TYPE_SNAPSHOT -> {
             val role = NetPlayRole.fromId(root.optString(NET_JSON_ROLE, ""))
             val snapshot = root.optJSONObject(NET_JSON_SNAPSHOT)?.let { parseNetSnapshot(it) }
-            NetMessage.Snapshot(role = role, snapshot = snapshot)
+            NetMessage.Snapshot(role = role, snapshot = snapshot, players = players)
         }
         NET_MESSAGE_TYPE_STATE_UPDATE -> {
             val snapshot = root.optJSONObject(NET_JSON_SNAPSHOT)?.let { parseNetSnapshot(it) } ?: return null
-            NetMessage.StateUpdate(snapshot)
+            NetMessage.StateUpdate(snapshot = snapshot, players = players)
         }
         NET_MESSAGE_TYPE_ERROR -> {
-            NetMessage.Error(root.optString(NET_JSON_MESSAGE, ""))
+            val message = root.optString(NET_JSON_MESSAGE, "")
+            val snapshot = root.optJSONObject(NET_JSON_SNAPSHOT)?.let { parseNetSnapshot(it) }
+            if (message == NET_ERROR_CONFLICT && snapshot != null) {
+                NetMessage.Conflict(snapshot = snapshot, players = players)
+            } else {
+                NetMessage.Error(message = message, players = players)
+            }
         }
         else -> null
     }
@@ -2408,6 +2676,7 @@ private fun parseNetSnapshot(snapshot: JSONObject): NetSnapshot? {
     val wheelLetters = parseWheelLetters(snapshot.optJSONArray(NET_JSON_WHEEL_LETTERS), seedLetters)
     val revealedPositions = parsePositions(snapshot.optJSONArray(NET_JSON_REVEALED))
     val words = parseWords(snapshot.optJSONArray(NET_JSON_WORDS))
+    val solvedBy = parseSolvedBy(snapshot.optJSONObject(NET_JSON_SOLVED_BY))
     val settings = parseNetSnapshotSettings(snapshot.optJSONObject(NET_JSON_SETTINGS))
     val stateVersion = snapshot.optInt(NET_JSON_STATE_VERSION, NET_STATE_VERSION_INITIAL)
     return NetSnapshot(
@@ -2417,6 +2686,7 @@ private fun parseNetSnapshot(snapshot: JSONObject): NetSnapshot? {
         gridRows = gridRows,
         revealedPositions = revealedPositions,
         words = words,
+        solvedBy = solvedBy,
         settings = settings
     )
 }
@@ -2440,6 +2710,36 @@ private fun parseNetSnapshotSettings(settings: JSONObject?): NetSnapshotSettings
         selectionModeId = selectionModeId,
         maxLetterSetSize = maxLetterSetSize
     )
+}
+
+private fun parseNetPlayers(array: JSONArray?): List<NetPlayerInfo> {
+    if (array == null) {
+        return emptyList()
+    }
+    val players = mutableListOf<NetPlayerInfo>()
+    val seen = mutableSetOf<String>()
+    val count = array.length()
+    repeat(count) { index ->
+        val item = array.optJSONObject(index) ?: return@repeat
+        val playerId = item.optString(NET_JSON_PLAYER_ID, "").trim()
+        val colorId = item.optString(NET_JSON_PLAYER_COLOR, "").trim()
+        if (playerId.isBlank() || colorId.isBlank()) {
+            return@repeat
+        }
+        if (!seen.add(playerId)) {
+            return@repeat
+        }
+        val playerName = item.optString(NET_JSON_PLAYER_NAME, "").trim()
+        val playerColor = NetPlayerColor.fromId(colorId)
+        players.add(
+            NetPlayerInfo(
+                playerId = playerId,
+                playerName = playerName,
+                playerColor = playerColor
+            )
+        )
+    }
+    return players
 }
 
 private fun parseGridRows(rows: JSONArray?): List<String> {
@@ -2506,6 +2806,25 @@ private fun parseWords(array: JSONArray?): List<CrosswordWord> {
         words.add(CrosswordWord(word = word, positions = positions.toSet()))
     }
     return words
+}
+
+private fun parseSolvedBy(data: JSONObject?): Map<String, String> {
+    if (data == null) {
+        return emptyMap()
+    }
+    val result = mutableMapOf<String, String>()
+    val iterator = data.keys()
+    while (iterator.hasNext()) {
+        val word = iterator.next().trim().uppercase()
+        if (word.isBlank()) {
+            continue
+        }
+        val playerId = data.optString(word, "").trim()
+        if (playerId.isNotBlank()) {
+            result[word] = playerId
+        }
+    }
+    return result.toMap()
 }
 
 private fun applyRevealedPositions(

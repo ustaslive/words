@@ -19,6 +19,7 @@ MESSAGE_TYPE_STATE_UPDATE = "stateUpdate"
 MESSAGE_TYPE_NEW_GAME = "newGame"
 MESSAGE_TYPE_SUBMIT_WORD = "submitWord"
 MESSAGE_TYPE_ERROR = "error"
+MESSAGE_ERROR_CONFLICT = "conflict"
 
 ROLE_HOST = "host"
 ROLE_GUEST = "guest"
@@ -32,6 +33,9 @@ JSON_KEY_SNAPSHOT = "snapshot"
 JSON_KEY_ACTIVE_COUNT = "activeCount"
 JSON_KEY_MESSAGE = "message"
 JSON_KEY_STATE_VERSION = "stateVersion"
+JSON_KEY_BASE_VERSION = "baseVersion"
+JSON_KEY_BASE_VERSION_ALT = "base_version"
+JSON_KEY_PLAYERS = "players"
 JSON_KEY_SEED_LETTERS = "seedLetters"
 JSON_KEY_WHEEL_LETTERS = "wheelLetters"
 JSON_KEY_GRID_ROWS = "gridRows"
@@ -45,6 +49,8 @@ SHORT_ID_PREFIX = 5
 SHORT_ID_SUFFIX = 5
 SERVER_INSTANCE_ID = str(uuid.uuid4())
 GRID_ROW_INDEX_PAD = 2
+STATE_VERSION_INITIAL = 1
+STATE_VERSION_INCREMENT = 1
 
 ENV_HOST = "HOST"
 ENV_PORT = "PORT"
@@ -76,6 +82,7 @@ class RoomState:
         self._clients: dict[str, ClientSession] = {}
         self.snapshot: dict | None = None
         self.host_player_id: str | None = None
+        self.state_version: int = STATE_VERSION_INITIAL
 
     def add_client(self, session: ClientSession) -> int:
         self._clients[session.client_id] = session
@@ -101,20 +108,47 @@ def build_error_message(message: str) -> dict:
     }
 
 
-def build_snapshot_message(role: str, snapshot: dict | None, active_count: int) -> dict:
+def build_conflict_message(snapshot: dict, state_version: int, players: list[dict]) -> dict:
+    snapshot[JSON_KEY_STATE_VERSION] = state_version
+    return {
+        JSON_KEY_TYPE: MESSAGE_TYPE_ERROR,
+        JSON_KEY_MESSAGE: MESSAGE_ERROR_CONFLICT,
+        JSON_KEY_SNAPSHOT: snapshot,
+        JSON_KEY_PLAYERS: players,
+    }
+
+
+def build_snapshot_message(
+    role: str, snapshot: dict | None, active_count: int, players: list[dict]
+) -> dict:
     return {
         JSON_KEY_TYPE: MESSAGE_TYPE_SNAPSHOT,
         JSON_KEY_ROLE: role,
         JSON_KEY_SNAPSHOT: snapshot,
         JSON_KEY_ACTIVE_COUNT: active_count,
+        JSON_KEY_PLAYERS: players,
     }
 
 
-def build_state_update_message(snapshot: dict) -> dict:
+def build_state_update_message(snapshot: dict, players: list[dict]) -> dict:
     return {
         JSON_KEY_TYPE: MESSAGE_TYPE_STATE_UPDATE,
         JSON_KEY_SNAPSHOT: snapshot,
+        JSON_KEY_PLAYERS: players,
     }
+
+
+def build_players_payload(sessions: list[ClientSession]) -> list[dict]:
+    players: list[dict] = []
+    for session in sessions:
+        players.append(
+            {
+                JSON_KEY_PLAYER_ID: session.player_id,
+                JSON_KEY_PLAYER_NAME: session.player_name,
+                JSON_KEY_PLAYER_COLOR: session.player_color,
+            }
+        )
+    return players
 
 
 def get_required_str(payload: dict, key: str) -> str | None:
@@ -130,6 +164,13 @@ def get_optional_str(payload: dict, key: str) -> str:
     if not isinstance(value, str):
         return ""
     return value.strip()
+
+
+def get_optional_int(payload: dict, key: str) -> int | None:
+    value = payload.get(key)
+    if not isinstance(value, int):
+        return None
+    return value
 
 
 def format_short_id(value: str | None) -> str:
@@ -327,6 +368,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             )
             active_count = ROOM.add_client(session)
             snapshot = ROOM.snapshot
+            players = build_players_payload(ROOM.sessions())
 
         player_label = format_player_label(player_id, player_name, role)
         LOGGER.info(
@@ -351,7 +393,9 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         )
         if snapshot is not None:
             log_snapshot_grid(srv, "snapshot", player_label, snapshot)
-        await websocket.send_json(build_snapshot_message(role, snapshot, active_count))
+        await websocket.send_json(
+            build_snapshot_message(role, snapshot, active_count, players)
+        )
 
         while True:
             payload = await receive_payload(websocket, client_id)
@@ -434,6 +478,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                             summarize_snapshot(ROOM.snapshot),
                         )
                     ROOM.snapshot = None
+                    ROOM.state_version = STATE_VERSION_INITIAL
             LOGGER.info(
                 "%s disconnected active=%s reason=%s code=%s detail=%s",
                 format_player_label(
@@ -505,7 +550,9 @@ async def handle_new_game_message(session: ClientSession, payload: dict) -> None
             )
             await session.websocket.send_json(build_error_message("host_required"))
             return
+        snapshot[JSON_KEY_STATE_VERSION] = STATE_VERSION_INITIAL
         ROOM.snapshot = snapshot
+        ROOM.state_version = STATE_VERSION_INITIAL
         targets = ROOM.sessions()
 
     LOGGER.info(
@@ -515,7 +562,8 @@ async def handle_new_game_message(session: ClientSession, payload: dict) -> None
         summarize_snapshot(snapshot),
     )
     log_snapshot_grid(player_label, "newGame", srv, snapshot)
-    message = build_state_update_message(snapshot)
+    players = build_players_payload(targets)
+    message = build_state_update_message(snapshot, players)
     await broadcast_message(message, targets)
 
 
@@ -537,19 +585,79 @@ async def handle_submit_word_message(session: ClientSession, payload: dict) -> N
         )
         await session.websocket.send_json(build_error_message("invalid_snapshot"))
         return
+    base_version = get_optional_int(payload, JSON_KEY_BASE_VERSION)
+    if base_version is None:
+        base_version = get_optional_int(payload, JSON_KEY_BASE_VERSION_ALT)
+    if base_version is None:
+        base_version = get_optional_int(snapshot, JSON_KEY_STATE_VERSION)
+    if base_version is None:
+        LOGGER.info(
+            "%s -> submitWord -> %s rejected reason=invalid_base_version",
+            player_label,
+            srv,
+        )
+        await session.websocket.send_json(build_error_message("invalid_base_version"))
+        return
 
+    conflict_message = None
+    error_message = None
+    targets: list[ClientSession] | None = None
+    current_version = None
+    players: list[dict] = []
     async with ROOM_LOCK:
-        ROOM.snapshot = snapshot
-        targets = ROOM.sessions()
+        if ROOM.snapshot is None:
+            error_message = "room_empty"
+        else:
+            current_version = ROOM.state_version
+            if base_version != current_version:
+                players = build_players_payload(ROOM.sessions())
+                conflict_message = build_conflict_message(
+                    ROOM.snapshot,
+                    current_version,
+                    players,
+                )
+            else:
+                next_version = current_version + STATE_VERSION_INCREMENT
+                snapshot[JSON_KEY_STATE_VERSION] = next_version
+                ROOM.snapshot = snapshot
+                ROOM.state_version = next_version
+                targets = ROOM.sessions()
+
+    if error_message is not None:
+        LOGGER.info(
+            "%s -> submitWord -> %s rejected reason=%s",
+            player_label,
+            srv,
+            error_message,
+        )
+        await session.websocket.send_json(build_error_message(error_message))
+        return
+
+    if conflict_message is not None:
+        LOGGER.info(
+            "%s -> submitWord -> %s rejected reason=conflict base=%s current=%s",
+            player_label,
+            srv,
+            base_version,
+            current_version,
+        )
+        await session.websocket.send_json(conflict_message)
+        return
+
+    if targets is None:
+        await session.websocket.send_json(build_error_message("submit_word_failed"))
+        return
 
     LOGGER.info(
-        "%s -> submitWord -> %s accepted info=%s",
+        "%s -> submitWord -> %s accepted info=%s base=%s",
         player_label,
         srv,
         summarize_snapshot(snapshot),
+        base_version,
     )
     log_snapshot_grid(player_label, "submitWord", srv, snapshot)
-    message = build_state_update_message(snapshot)
+    players = build_players_payload(targets)
+    message = build_state_update_message(snapshot, players)
     await broadcast_message(message, targets)
 
 
