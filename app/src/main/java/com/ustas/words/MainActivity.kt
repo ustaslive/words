@@ -207,6 +207,8 @@ private const val NET_MESSAGE_TYPE_SNAPSHOT = "snapshot"
 private const val NET_MESSAGE_TYPE_STATE_UPDATE = "stateUpdate"
 private const val NET_MESSAGE_TYPE_NEW_GAME = "newGame"
 private const val NET_MESSAGE_TYPE_SUBMIT_WORD = "submitWord"
+private const val NET_MESSAGE_TYPE_REVEAL_CELL = "revealCell"
+private const val NET_MESSAGE_TYPE_PLAYERS_UPDATE = "playersUpdate"
 private const val NET_MESSAGE_TYPE_ERROR = "error"
 private const val NET_ERROR_CONFLICT = "conflict"
 private const val NET_ROLE_HOST = "host"
@@ -484,6 +486,7 @@ private fun GameScreen() {
     var netJoined by remember { mutableStateOf(false) }
     var netConfirmedVersion by remember { mutableStateOf(NET_STATE_VERSION_INITIAL) }
     var netPendingWords by remember { mutableStateOf(emptyList<String>()) }
+    var netPendingReveals by remember { mutableStateOf(emptyList<GridPosition>()) }
     var netSubmissionInFlight by remember { mutableStateOf(false) }
     var netNeedsResend by remember { mutableStateOf(false) }
     var netSolvedBy by remember { mutableStateOf(emptyMap<String, String>()) }
@@ -521,14 +524,16 @@ private fun GameScreen() {
         allowResend: Boolean,
         playDiscardFeedback: Boolean
     ) {
-        val pending = netPendingWords
-        if (pending.isEmpty()) {
+        val pendingWords = netPendingWords
+        val pendingReveals = netPendingReveals
+        if (pendingWords.isEmpty() && pendingReveals.isEmpty()) {
             return
         }
         val rebaseResult = rebasePendingWords(
             baseGrid = baseGrid,
             crosswordWords = wordMap,
-            pendingWords = pending,
+            pendingWords = pendingWords,
+            pendingReveals = pendingReveals,
             baseSolvedBy = netSolvedBy,
             playerId = settings.playerId
         )
@@ -537,7 +542,10 @@ private fun GameScreen() {
         }
         netSolvedBy = rebaseResult.solvedBy
         netPendingWords = rebaseResult.pendingWords
-        netNeedsResend = allowResend && rebaseResult.pendingWords.isNotEmpty()
+        netPendingReveals = rebaseResult.pendingReveals
+        netNeedsResend = allowResend && (
+            rebaseResult.pendingWords.isNotEmpty() || rebaseResult.pendingReveals.isNotEmpty()
+        )
         if (rebaseResult.confirmedWords.isNotEmpty()) {
             soundEffects.successBell()
         }
@@ -561,6 +569,7 @@ private fun GameScreen() {
                     netHostNeedsUpload = false
                     if (message.snapshot.stateVersion == NET_STATE_VERSION_INITIAL) {
                         netPendingWords = emptyList()
+                        netPendingReveals = emptyList()
                     }
                     rebasePendingWordsIfNeeded(
                         baseGrid = baseGrid,
@@ -580,6 +589,7 @@ private fun GameScreen() {
                 val (baseGrid, wordMap) = applyNetSnapshot(message.snapshot)
                 if (message.snapshot.stateVersion == NET_STATE_VERSION_INITIAL) {
                     netPendingWords = emptyList()
+                    netPendingReveals = emptyList()
                 }
                 rebasePendingWordsIfNeeded(
                     baseGrid = baseGrid,
@@ -596,6 +606,7 @@ private fun GameScreen() {
                 val (baseGrid, wordMap) = applyNetSnapshot(message.snapshot)
                 if (message.snapshot.stateVersion == NET_STATE_VERSION_INITIAL) {
                     netPendingWords = emptyList()
+                    netPendingReveals = emptyList()
                 }
                 rebasePendingWordsIfNeeded(
                     baseGrid = baseGrid,
@@ -603,6 +614,11 @@ private fun GameScreen() {
                     allowResend = true,
                     playDiscardFeedback = true
                 )
+            }
+            is NetMessage.PlayersUpdate -> {
+                if (message.players.isNotEmpty()) {
+                    netPlayers = message.players
+                }
             }
             is NetMessage.Error -> {
                 if (message.players.isNotEmpty()) {
@@ -633,6 +649,7 @@ private fun GameScreen() {
     LaunchedEffect(
         netNeedsResend,
         netPendingWords,
+        netPendingReveals,
         netSubmissionInFlight,
         netPlayEnabled,
         netConnectionStatus,
@@ -652,7 +669,7 @@ private fun GameScreen() {
         if (!netPlayEnabled || netConnectionStatus != NetConnectionStatus.Connected) {
             return@LaunchedEffect
         }
-        if (netPendingWords.isEmpty()) {
+        if (netPendingWords.isEmpty() && netPendingReveals.isEmpty()) {
             netNeedsResend = false
             return@LaunchedEffect
         }
@@ -791,6 +808,7 @@ private fun GameScreen() {
             netJoined = false
             netConfirmedVersion = NET_STATE_VERSION_INITIAL
             netPendingWords = emptyList()
+            netPendingReveals = emptyList()
             netSubmissionInFlight = false
             netNeedsResend = false
             netSolvedBy = emptyMap()
@@ -805,6 +823,7 @@ private fun GameScreen() {
             netJoined = false
             netConfirmedVersion = NET_STATE_VERSION_INITIAL
             netPendingWords = emptyList()
+            netPendingReveals = emptyList()
             netSubmissionInFlight = false
             netNeedsResend = false
             netSolvedBy = emptyMap()
@@ -975,6 +994,34 @@ private fun GameScreen() {
                         }
                         if (hammerMode == HammerMode.Single) {
                             hammerMode = HammerMode.Off
+                        }
+                        if (netPlayEnabled) {
+                            val position = GridPosition(row = rowIndex, col = colIndex)
+                            if (!netPendingReveals.contains(position)) {
+                                netPendingReveals = netPendingReveals + position
+                            }
+                            if (!netSubmissionInFlight && netConnectionStatus == NetConnectionStatus.Connected) {
+                                val snapshot = buildNetSnapshotFromState(
+                                    seedLetters = seedLetters,
+                                    wheelLetters = letters,
+                                    grid = grid,
+                                    crosswordWords = crosswordWords,
+                                    settings = settings,
+                                    solvedBy = netSolvedBy,
+                                    stateVersion = netConfirmedVersion
+                                )
+                                if (snapshot != null && netConnection.send(
+                                        buildNetRevealCellMessage(snapshot, netConfirmedVersion)
+                                    )
+                                ) {
+                                    netSubmissionInFlight = true
+                                    netNeedsResend = false
+                                } else {
+                                    netNeedsResend = true
+                                }
+                            } else {
+                                netNeedsResend = true
+                            }
                         }
                     }
                 },
@@ -2453,6 +2500,9 @@ private sealed interface NetMessage {
         val snapshot: NetSnapshot,
         val players: List<NetPlayerInfo> = emptyList()
     ) : NetMessage
+    data class PlayersUpdate(
+        val players: List<NetPlayerInfo> = emptyList()
+    ) : NetMessage
     data class Error(
         val message: String,
         val players: List<NetPlayerInfo> = emptyList()
@@ -2464,18 +2514,33 @@ private data class NetRebaseResult(
     val pendingWords: List<String>,
     val discardedWords: List<String>,
     val confirmedWords: List<String>,
-    val solvedBy: Map<String, String>
+    val solvedBy: Map<String, String>,
+    val pendingReveals: List<GridPosition>
+)
+
+private data class NetRebaseRevealResult(
+    val grid: List<List<CrosswordCell>>,
+    val pendingReveals: List<GridPosition>
 )
 
 private fun rebasePendingWords(
     baseGrid: List<List<CrosswordCell>>,
     crosswordWords: Map<String, CrosswordWord>,
     pendingWords: List<String>,
+    pendingReveals: List<GridPosition>,
     baseSolvedBy: Map<String, String>,
     playerId: String
 ): NetRebaseResult {
     if (pendingWords.isEmpty()) {
-        return NetRebaseResult(baseGrid, emptyList(), emptyList(), emptyList(), baseSolvedBy)
+        val revealResult = rebasePendingReveals(baseGrid, pendingReveals)
+        return NetRebaseResult(
+            revealResult.grid,
+            emptyList(),
+            emptyList(),
+            emptyList(),
+            baseSolvedBy,
+            revealResult.pendingReveals
+        )
     }
     var updatedGrid = baseGrid
     val remaining = mutableListOf<String>()
@@ -2508,13 +2573,51 @@ private fun rebasePendingWords(
             discarded.add(word)
         }
     }
+    val revealResult = rebasePendingReveals(updatedGrid, pendingReveals)
     return NetRebaseResult(
-        updatedGrid,
+        revealResult.grid,
         remaining,
         discarded,
         confirmed,
-        updatedSolvedBy.toMap()
+        updatedSolvedBy.toMap(),
+        revealResult.pendingReveals
     )
+}
+
+private fun rebasePendingReveals(
+    baseGrid: List<List<CrosswordCell>>,
+    pendingReveals: List<GridPosition>
+): NetRebaseRevealResult {
+    if (baseGrid.isEmpty() || pendingReveals.isEmpty()) {
+        return NetRebaseRevealResult(baseGrid, emptyList())
+    }
+    val rowCount = baseGrid.size
+    val columnCount = baseGrid.first().size
+    val remaining = mutableListOf<GridPosition>()
+    val seen = mutableSetOf<GridPosition>()
+    for (position in pendingReveals) {
+        val row = position.row
+        val col = position.col
+        if (row <= NET_INVALID_INDEX || col <= NET_INVALID_INDEX) {
+            continue
+        }
+        if (row >= rowCount || col >= columnCount) {
+            continue
+        }
+        if (!seen.add(position)) {
+            continue
+        }
+        val cell = baseGrid[row][col]
+        if (!cell.isActive || cell.isRevealed) {
+            continue
+        }
+        remaining.add(position)
+    }
+    if (remaining.isEmpty()) {
+        return NetRebaseRevealResult(baseGrid, emptyList())
+    }
+    val updatedGrid = applyRevealedPositions(baseGrid, remaining)
+    return NetRebaseRevealResult(updatedGrid, remaining)
 }
 
 private fun buildNetJoinMessage(settings: UserSettings): String {
@@ -2536,6 +2639,14 @@ private fun buildNetNewGameMessage(snapshot: NetSnapshot): String {
 private fun buildNetSubmitWordMessage(snapshot: NetSnapshot, baseVersion: Int): String {
     val root = JSONObject()
     root.put(NET_JSON_TYPE, NET_MESSAGE_TYPE_SUBMIT_WORD)
+    root.put(NET_JSON_BASE_VERSION, baseVersion)
+    root.put(NET_JSON_SNAPSHOT, buildNetSnapshotJson(snapshot))
+    return root.toString()
+}
+
+private fun buildNetRevealCellMessage(snapshot: NetSnapshot, baseVersion: Int): String {
+    val root = JSONObject()
+    root.put(NET_JSON_TYPE, NET_MESSAGE_TYPE_REVEAL_CELL)
     root.put(NET_JSON_BASE_VERSION, baseVersion)
     root.put(NET_JSON_SNAPSHOT, buildNetSnapshotJson(snapshot))
     return root.toString()
@@ -2680,6 +2791,9 @@ private fun parseNetMessage(raw: String): NetMessage? {
         NET_MESSAGE_TYPE_STATE_UPDATE -> {
             val snapshot = root.optJSONObject(NET_JSON_SNAPSHOT)?.let { parseNetSnapshot(it) } ?: return null
             NetMessage.StateUpdate(snapshot = snapshot, players = players)
+        }
+        NET_MESSAGE_TYPE_PLAYERS_UPDATE -> {
+            NetMessage.PlayersUpdate(players = players)
         }
         NET_MESSAGE_TYPE_ERROR -> {
             val message = root.optString(NET_JSON_MESSAGE, "")

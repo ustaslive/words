@@ -18,6 +18,8 @@ MESSAGE_TYPE_SNAPSHOT = "snapshot"
 MESSAGE_TYPE_STATE_UPDATE = "stateUpdate"
 MESSAGE_TYPE_NEW_GAME = "newGame"
 MESSAGE_TYPE_SUBMIT_WORD = "submitWord"
+MESSAGE_TYPE_REVEAL_CELL = "revealCell"
+MESSAGE_TYPE_PLAYERS_UPDATE = "playersUpdate"
 MESSAGE_TYPE_ERROR = "error"
 MESSAGE_ERROR_CONFLICT = "conflict"
 
@@ -134,6 +136,14 @@ def build_state_update_message(snapshot: dict, players: list[dict]) -> dict:
     return {
         JSON_KEY_TYPE: MESSAGE_TYPE_STATE_UPDATE,
         JSON_KEY_SNAPSHOT: snapshot,
+        JSON_KEY_PLAYERS: players,
+    }
+
+
+def build_players_update_message(players: list[dict], active_count: int) -> dict:
+    return {
+        JSON_KEY_TYPE: MESSAGE_TYPE_PLAYERS_UPDATE,
+        JSON_KEY_ACTIVE_COUNT: active_count,
         JSON_KEY_PLAYERS: players,
     }
 
@@ -368,7 +378,8 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             )
             active_count = ROOM.add_client(session)
             snapshot = ROOM.snapshot
-            players = build_players_payload(ROOM.sessions())
+            targets = ROOM.sessions()
+            players = build_players_payload(targets)
 
         player_label = format_player_label(player_id, player_name, role)
         LOGGER.info(
@@ -396,6 +407,8 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         await websocket.send_json(
             build_snapshot_message(role, snapshot, active_count, players)
         )
+        players_message = build_players_update_message(players, active_count)
+        await broadcast_message(players_message, targets)
 
         while True:
             payload = await receive_payload(websocket, client_id)
@@ -407,6 +420,9 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             elif message_type == MESSAGE_TYPE_SUBMIT_WORD:
                 LOGGER.info("%s -> submitWord -> %s", player_label, srv)
                 await handle_submit_word_message(session, payload)
+            elif message_type == MESSAGE_TYPE_REVEAL_CELL:
+                LOGGER.info("%s -> revealCell -> %s", player_label, srv)
+                await handle_reveal_cell_message(session, payload)
             elif message_type == MESSAGE_TYPE_JOIN:
                 LOGGER.info(
                     "%s -> join -> %s rejected reason=already_joined",
@@ -457,6 +473,9 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     finally:
         if session is not None:
             was_host = False
+            active_count = 0
+            players_message = None
+            targets: list[ClientSession] = []
             async with ROOM_LOCK:
                 active_count, removed_player_id = ROOM.remove_client(client_id)
                 was_host = removed_player_id == ROOM.host_player_id
@@ -479,6 +498,12 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                         )
                     ROOM.snapshot = None
                     ROOM.state_version = STATE_VERSION_INITIAL
+                else:
+                    targets = ROOM.sessions()
+                    players = build_players_payload(targets)
+                    players_message = build_players_update_message(players, active_count)
+            if players_message is not None:
+                await broadcast_message(players_message, targets)
             LOGGER.info(
                 "%s disconnected active=%s reason=%s code=%s detail=%s",
                 format_player_label(
@@ -567,7 +592,12 @@ async def handle_new_game_message(session: ClientSession, payload: dict) -> None
     await broadcast_message(message, targets)
 
 
-async def handle_submit_word_message(session: ClientSession, payload: dict) -> None:
+async def handle_state_update_message(
+    session: ClientSession,
+    payload: dict,
+    action: str,
+    failure_message: str,
+) -> None:
     srv = server_label()
     player_role = ROLE_HOST if session.player_id == ROOM.host_player_id else None
     player_label = format_player_label(
@@ -578,8 +608,9 @@ async def handle_submit_word_message(session: ClientSession, payload: dict) -> N
     snapshot = payload.get(JSON_KEY_SNAPSHOT)
     if not isinstance(snapshot, dict):
         LOGGER.info(
-            "%s -> submitWord -> %s rejected reason=invalid_snapshot type=%s",
+            "%s -> %s -> %s rejected reason=invalid_snapshot type=%s",
             player_label,
+            action,
             srv,
             type(snapshot).__name__,
         )
@@ -592,8 +623,9 @@ async def handle_submit_word_message(session: ClientSession, payload: dict) -> N
         base_version = get_optional_int(snapshot, JSON_KEY_STATE_VERSION)
     if base_version is None:
         LOGGER.info(
-            "%s -> submitWord -> %s rejected reason=invalid_base_version",
+            "%s -> %s -> %s rejected reason=invalid_base_version",
             player_label,
+            action,
             srv,
         )
         await session.websocket.send_json(build_error_message("invalid_base_version"))
@@ -625,8 +657,9 @@ async def handle_submit_word_message(session: ClientSession, payload: dict) -> N
 
     if error_message is not None:
         LOGGER.info(
-            "%s -> submitWord -> %s rejected reason=%s",
+            "%s -> %s -> %s rejected reason=%s",
             player_label,
+            action,
             srv,
             error_message,
         )
@@ -635,8 +668,9 @@ async def handle_submit_word_message(session: ClientSession, payload: dict) -> N
 
     if conflict_message is not None:
         LOGGER.info(
-            "%s -> submitWord -> %s rejected reason=conflict base=%s current=%s",
+            "%s -> %s -> %s rejected reason=conflict base=%s current=%s",
             player_label,
+            action,
             srv,
             base_version,
             current_version,
@@ -645,21 +679,39 @@ async def handle_submit_word_message(session: ClientSession, payload: dict) -> N
         return
 
     if targets is None:
-        await session.websocket.send_json(build_error_message("submit_word_failed"))
+        await session.websocket.send_json(build_error_message(failure_message))
         return
 
     LOGGER.info(
-        "%s -> submitWord -> %s accepted info=%s base=%s",
+        "%s -> %s -> %s accepted info=%s base=%s",
         player_label,
+        action,
         srv,
         summarize_snapshot(snapshot),
         base_version,
     )
-    log_snapshot_grid(player_label, "submitWord", srv, snapshot)
+    log_snapshot_grid(player_label, action, srv, snapshot)
     players = build_players_payload(targets)
     message = build_state_update_message(snapshot, players)
     await broadcast_message(message, targets)
 
+
+async def handle_submit_word_message(session: ClientSession, payload: dict) -> None:
+    await handle_state_update_message(
+        session=session,
+        payload=payload,
+        action=MESSAGE_TYPE_SUBMIT_WORD,
+        failure_message="submit_word_failed",
+    )
+
+
+async def handle_reveal_cell_message(session: ClientSession, payload: dict) -> None:
+    await handle_state_update_message(
+        session=session,
+        payload=payload,
+        action=MESSAGE_TYPE_REVEAL_CELL,
+        failure_message="reveal_cell_failed",
+    )
 
 async def broadcast_message(message: dict, sessions: list[ClientSession]) -> None:
     srv = server_label()
