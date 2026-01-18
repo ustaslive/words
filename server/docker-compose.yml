@@ -1,0 +1,8 @@
+services:
+  words-server:
+    build: .
+    image: words-server
+    container_name: words-server
+    ports:
+      - "9999:9999"
+    restart: unless-stopped

@@ -18,6 +18,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -31,6 +36,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,8 +46,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -52,7 +62,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -76,12 +89,17 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.input.pointer.changedToUp
@@ -100,6 +118,8 @@ import com.ustas.words.ui.theme.GoldShadow
 import com.ustas.words.ui.theme.IconBase
 import com.ustas.words.ui.theme.LightGreen
 import com.ustas.words.ui.theme.MidGreen
+import com.ustas.words.ui.theme.NetPlayLampOn
+import com.ustas.words.ui.theme.NetPlayToggleOff
 import com.ustas.words.ui.theme.NewWordHighlightAura
 import com.ustas.words.ui.theme.NewWordHighlightBackground
 import com.ustas.words.ui.theme.NewWordHighlightText
@@ -117,11 +137,22 @@ import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.random.Random
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
+import org.json.JSONArray
+import org.json.JSONException
+import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -141,6 +172,70 @@ private const val KEY_MAX_LETTER_SET_SIZE = "max_letter_set_size"
 private const val LEGACY_KEY_MAX_WORD_LENGTH = "max_word_length"
 private const val KEY_CROSSWORD_SELECTION_MODE = "crossword_selection_mode"
 private const val KEY_REVIEW_WORDS = "review_words"
+private const val KEY_NET_PLAYER_NAME = "net_player_name"
+private const val KEY_NET_PLAYER_COLOR = "net_player_color"
+private const val KEY_NET_SERVER_IP = "net_server_ip"
+private const val KEY_NET_SERVER_PORT = "net_server_port"
+private const val DEFAULT_NET_PLAYER_NAME = ""
+private const val NET_PLAYER_COLOR_WHITE = "white"
+private const val NET_PLAYER_COLOR_YELLOW = "yellow"
+private const val NET_PLAYER_COLOR_RED = "red"
+private const val NET_PLAYER_COLOR_LIGHT_GREEN = "light_green"
+private const val DEFAULT_NET_SERVER_IP = "199.99.9.9"
+private const val DEFAULT_NET_SERVER_PORT = 9999
+private const val MIN_NET_SERVER_PORT = 1
+private const val MAX_NET_SERVER_PORT = 65535
+private const val NET_PLAY_WEBSOCKET_SCHEME = "ws://"
+private const val NET_PLAY_WEBSOCKET_PATH = "/ws"
+private const val NET_PLAY_RETRY_DELAY_MS = 5_000L
+private const val NET_PLAY_PING_INTERVAL_SECONDS = 20L
+private const val NET_PLAY_NORMAL_CLOSE_CODE = 1000
+private const val NET_PLAY_CLOSE_REASON = "client_disconnect"
+private const val NET_PLAY_STATUS_BLINK_DURATION_MS = 650
+private const val NET_PLAY_STATUS_ALPHA_DIM = 0.3f
+private const val NET_PLAY_STATUS_ALPHA_FULL = 1f
+private const val NET_PLAY_STATUS_OFF_ALPHA = 0.4f
+private const val NET_PLAY_ICON_DISABLED_ALPHA = 0.4f
+private const val NET_PLAY_TOGGLE_ANIMATION_MS = 160
+private const val NET_PLAY_CORNER_DIVISOR = 2f
+private const val NET_PLAY_PADDING_MULTIPLIER = 2f
+private const val NET_PLAY_DEFAULT_SCORE = 0
+private const val NET_STATE_VERSION_INITIAL = 1
+private const val NET_INVALID_INDEX = -1
+private const val NET_MESSAGE_TYPE_JOIN = "join"
+private const val NET_MESSAGE_TYPE_SNAPSHOT = "snapshot"
+private const val NET_MESSAGE_TYPE_STATE_UPDATE = "stateUpdate"
+private const val NET_MESSAGE_TYPE_NEW_GAME = "newGame"
+private const val NET_MESSAGE_TYPE_SUBMIT_WORD = "submitWord"
+private const val NET_MESSAGE_TYPE_REVEAL_CELL = "revealCell"
+private const val NET_MESSAGE_TYPE_PLAYERS_UPDATE = "playersUpdate"
+private const val NET_MESSAGE_TYPE_ERROR = "error"
+private const val NET_ERROR_CONFLICT = "conflict"
+private const val NET_ROLE_HOST = "host"
+private const val NET_ROLE_GUEST = "guest"
+private const val NET_JSON_TYPE = "type"
+private const val NET_JSON_PLAYER_ID = "playerId"
+private const val NET_JSON_PLAYER_NAME = "playerName"
+private const val NET_JSON_PLAYER_COLOR = "playerColor"
+private const val NET_JSON_ROLE = "role"
+private const val NET_JSON_SNAPSHOT = "snapshot"
+private const val NET_JSON_PLAYERS = "players"
+private const val NET_JSON_STATE_VERSION = "stateVersion"
+private const val NET_JSON_BASE_VERSION = "baseVersion"
+private const val NET_JSON_SEED_LETTERS = "seedLetters"
+private const val NET_JSON_WHEEL_LETTERS = "wheelLetters"
+private const val NET_JSON_GRID_ROWS = "gridRows"
+private const val NET_JSON_REVEALED = "revealed"
+private const val NET_JSON_WORDS = "words"
+private const val NET_JSON_SOLVED_BY = "solvedBy"
+private const val NET_JSON_WORD = "word"
+private const val NET_JSON_POSITIONS = "positions"
+private const val NET_JSON_ROW = "row"
+private const val NET_JSON_COL = "col"
+private const val NET_JSON_SETTINGS = "settings"
+private const val NET_JSON_SELECTION_MODE = "selectionMode"
+private const val NET_JSON_MAX_LETTER_SET_SIZE = "maxLetterSetSize"
+private const val NET_JSON_MESSAGE = "message"
 private const val MIN_SEED_LETTER_SET_SIZE = 6
 private const val MAX_SEED_LETTER_SET_SIZE = 9
 private const val DEFAULT_MAX_LETTER_SET_SIZE = MAX_SEED_LETTER_SET_SIZE
@@ -210,6 +305,24 @@ private const val LOW_OVERLAP_MAX_SHARED_RATIO = 0.2f
 private const val FULL_WEIGHT = 1f
 private val SETTINGS_DIALOG_SPACING = 12.dp
 private val SETTINGS_CONTROL_SPACING = 8.dp
+private val PLAYER_COLOR_SWATCH_SIZE = 16.dp
+private val NET_PLAY_FIELD_HORIZONTAL_PADDING = 12.dp
+private val NET_PLAY_FIELD_VERTICAL_PADDING = 8.dp
+private val NET_PLAY_TOGGLE_WIDTH = 38.dp
+private val NET_PLAY_TOGGLE_HEIGHT = 26.dp
+private val NET_PLAY_TOGGLE_PADDING = 3.dp
+private val NET_PLAY_LAMP_SIZE = 10.dp
+private val NET_PLAY_HEADER_SPACING = 6.dp
+private val NET_PLAY_STATS_SPACING = 6.dp
+private val NET_PLAY_STATS_HEIGHT = 22.dp
+private val NET_PLAY_STATS_HORIZONTAL_PADDING = 10.dp
+private val NET_PLAY_STATS_ITEM_SPACING = 6.dp
+private val NET_PLAY_STATS_TEXT_SIZE = 14.sp
+private val NET_PLAY_TOGGLE_ELEVATION = 6.dp
+private val NET_PLAY_STATS_ELEVATION = 6.dp
+private val NET_PLAY_TOGGLE_KNOB_SIZE = NET_PLAY_TOGGLE_HEIGHT -
+    (NET_PLAY_TOGGLE_PADDING * NET_PLAY_PADDING_MULTIPLIER)
+private const val PLAYER_ID_TEXT_SIZE_DIVISOR = 1.5f
 private const val VOWELS = "AEIOU"
 private const val CONSONANTS = "BCDFGHJKLMNPQRSTVWXYZ"
 private const val MIN_RANDOM_VOWEL_COUNT = 2
@@ -223,8 +336,35 @@ private const val REVIEW_WORD_CONFIRM_VOLUME = 0.45f
 private data class UserSettings(
     val muted: Boolean = false,
     val maxLetterSetSize: Int = DEFAULT_MAX_LETTER_SET_SIZE,
-    val selectionMode: CrosswordSelectionMode = DEFAULT_CROSSWORD_SELECTION_MODE
+    val selectionMode: CrosswordSelectionMode = DEFAULT_CROSSWORD_SELECTION_MODE,
+    val playerId: String = "",
+    val playerName: String = DEFAULT_NET_PLAYER_NAME,
+    val playerColor: NetPlayerColor = NetPlayerColor.White,
+    val serverIp: String = DEFAULT_NET_SERVER_IP,
+    val serverPort: Int = DEFAULT_NET_SERVER_PORT
 )
+
+private enum class SettingsTab(val labelResId: Int) {
+    General(R.string.settings_tab_general),
+    NetPlay(R.string.settings_tab_net_play)
+}
+
+private enum class NetPlayerColor(
+    val id: String,
+    val labelResId: Int,
+    val swatch: Color
+) {
+    White(NET_PLAYER_COLOR_WHITE, R.string.settings_net_play_color_white, NewWordHighlightText),
+    Yellow(NET_PLAYER_COLOR_YELLOW, R.string.settings_net_play_color_yellow, GoldMid),
+    Red(NET_PLAYER_COLOR_RED, R.string.settings_net_play_color_red, NewWordHighlightBackground),
+    LightGreenColor(NET_PLAYER_COLOR_LIGHT_GREEN, R.string.settings_net_play_color_light_green, LightGreen);
+
+    companion object {
+        fun fromId(id: String): NetPlayerColor {
+            return values().firstOrNull { it.id == id } ?: White
+        }
+    }
+}
 
 private enum class CrosswordSelectionMode(
     val id: String,
@@ -247,6 +387,50 @@ private enum class HammerMode {
     Off,
     Single,
     Caps
+}
+
+private enum class NetConnectionStatus {
+    Off,
+    Connecting,
+    Connected,
+    Disconnected
+}
+
+private enum class NetPlayRole(val id: String) {
+    None(""),
+    Host(NET_ROLE_HOST),
+    Guest(NET_ROLE_GUEST);
+
+    companion object {
+        fun fromId(id: String): NetPlayRole {
+            return values().firstOrNull { it.id == id } ?: None
+        }
+    }
+}
+
+private data class NetPlayerStat(
+    val color: Color,
+    val count: Int
+)
+
+private data class NetPlayerInfo(
+    val playerId: String,
+    val playerName: String,
+    val playerColor: NetPlayerColor
+)
+
+private fun buildNetStats(
+    players: List<NetPlayerInfo>,
+    solvedBy: Map<String, String>
+): List<NetPlayerStat> {
+    if (players.isEmpty()) {
+        return emptyList()
+    }
+    val counts = solvedBy.values.groupingBy { it }.eachCount()
+    return players.map { player ->
+        val count = counts[player.playerId] ?: NET_PLAY_DEFAULT_SCORE
+        NetPlayerStat(color = player.playerColor.swatch, count = count)
+    }
 }
 
 @Composable
@@ -295,6 +479,228 @@ private fun GameScreen() {
     val highlightFade = remember { Animatable(NEW_WORD_HIGHLIGHT_NONE) }
     var hammerMode by remember { mutableStateOf(HammerMode.Off) }
     var generationError by remember { mutableStateOf(false) }
+    var netPlayEnabled by remember { mutableStateOf(false) }
+    var netConnectionStatus by remember { mutableStateOf(NetConnectionStatus.Off) }
+    var netRole by remember { mutableStateOf(NetPlayRole.None) }
+    var netHostNeedsUpload by remember { mutableStateOf(false) }
+    var netJoined by remember { mutableStateOf(false) }
+    var netConfirmedVersion by remember { mutableStateOf(NET_STATE_VERSION_INITIAL) }
+    var netPendingWords by remember { mutableStateOf(emptyList<String>()) }
+    var netPendingReveals by remember { mutableStateOf(emptyList<GridPosition>()) }
+    var netSubmissionInFlight by remember { mutableStateOf(false) }
+    var netNeedsResend by remember { mutableStateOf(false) }
+    var netSolvedBy by remember { mutableStateOf(emptyMap<String, String>()) }
+    var netPlayers by remember { mutableStateOf(emptyList<NetPlayerInfo>()) }
+    val netPlayEnabledState = rememberUpdatedState(netPlayEnabled)
+    val netClient = remember {
+        OkHttpClient.Builder()
+            .pingInterval(NET_PLAY_PING_INTERVAL_SECONDS, TimeUnit.SECONDS)
+            .build()
+    }
+    val applyNetSnapshot: (NetSnapshot) -> Pair<List<List<CrosswordCell>>, Map<String, CrosswordWord>> =
+        { snapshot ->
+            val baseGrid = buildCrosswordGridFromRows(snapshot.gridRows)
+            val revealedGrid = applyRevealedPositions(baseGrid, snapshot.revealedPositions)
+            val wordMap = snapshot.words.associateBy { it.word }
+            seedLetters = snapshot.seedLetters
+            letters = if (snapshot.wheelLetters.isEmpty()) {
+                generateLetterWheel(snapshot.seedLetters)
+            } else {
+                snapshot.wheelLetters
+            }
+            grid = revealedGrid
+            crosswordWords = wordMap
+            missingWordsState = buildMissingWordsState(snapshot.seedLetters, dictionary, wordMap)
+            highlightedPositions = emptySet()
+            hammerMode = HammerMode.Off
+            generationError = false
+            netConfirmedVersion = snapshot.stateVersion
+            netSolvedBy = snapshot.solvedBy
+            revealedGrid to wordMap
+        }
+    fun rebasePendingWordsIfNeeded(
+        baseGrid: List<List<CrosswordCell>>,
+        wordMap: Map<String, CrosswordWord>,
+        allowResend: Boolean,
+        playDiscardFeedback: Boolean
+    ) {
+        val pendingWords = netPendingWords
+        val pendingReveals = netPendingReveals
+        if (pendingWords.isEmpty() && pendingReveals.isEmpty()) {
+            return
+        }
+        val rebaseResult = rebasePendingWords(
+            baseGrid = baseGrid,
+            crosswordWords = wordMap,
+            pendingWords = pendingWords,
+            pendingReveals = pendingReveals,
+            baseSolvedBy = netSolvedBy,
+            playerId = settings.playerId
+        )
+        if (rebaseResult.grid != baseGrid) {
+            grid = rebaseResult.grid
+        }
+        netSolvedBy = rebaseResult.solvedBy
+        netPendingWords = rebaseResult.pendingWords
+        netPendingReveals = rebaseResult.pendingReveals
+        netNeedsResend = allowResend && (
+            rebaseResult.pendingWords.isNotEmpty() || rebaseResult.pendingReveals.isNotEmpty()
+        )
+        if (rebaseResult.confirmedWords.isNotEmpty()) {
+            soundEffects.successBell()
+        }
+        if (playDiscardFeedback && rebaseResult.discardedWords.isNotEmpty()) {
+            soundEffects.alreadySolvedConfirm()
+        }
+    }
+    val handleNetMessage = rememberUpdatedState<(NetMessage) -> Unit> { message ->
+        if (!netPlayEnabled) {
+            return@rememberUpdatedState
+        }
+        when (message) {
+            is NetMessage.Snapshot -> {
+                netRole = message.role
+                netSubmissionInFlight = false
+                if (message.players.isNotEmpty()) {
+                    netPlayers = message.players
+                }
+                if (message.snapshot != null) {
+                    val (baseGrid, wordMap) = applyNetSnapshot(message.snapshot)
+                    netHostNeedsUpload = false
+                    if (message.snapshot.stateVersion == NET_STATE_VERSION_INITIAL) {
+                        netPendingWords = emptyList()
+                        netPendingReveals = emptyList()
+                    }
+                    rebasePendingWordsIfNeeded(
+                        baseGrid = baseGrid,
+                        wordMap = wordMap,
+                        allowResend = true,
+                        playDiscardFeedback = false
+                    )
+                } else {
+                    netHostNeedsUpload = message.role == NetPlayRole.Host
+                }
+            }
+            is NetMessage.StateUpdate -> {
+                netSubmissionInFlight = false
+                if (message.players.isNotEmpty()) {
+                    netPlayers = message.players
+                }
+                val (baseGrid, wordMap) = applyNetSnapshot(message.snapshot)
+                if (message.snapshot.stateVersion == NET_STATE_VERSION_INITIAL) {
+                    netPendingWords = emptyList()
+                    netPendingReveals = emptyList()
+                }
+                rebasePendingWordsIfNeeded(
+                    baseGrid = baseGrid,
+                    wordMap = wordMap,
+                    allowResend = true,
+                    playDiscardFeedback = false
+                )
+            }
+            is NetMessage.Conflict -> {
+                netSubmissionInFlight = false
+                if (message.players.isNotEmpty()) {
+                    netPlayers = message.players
+                }
+                val (baseGrid, wordMap) = applyNetSnapshot(message.snapshot)
+                if (message.snapshot.stateVersion == NET_STATE_VERSION_INITIAL) {
+                    netPendingWords = emptyList()
+                    netPendingReveals = emptyList()
+                }
+                rebasePendingWordsIfNeeded(
+                    baseGrid = baseGrid,
+                    wordMap = wordMap,
+                    allowResend = true,
+                    playDiscardFeedback = true
+                )
+            }
+            is NetMessage.PlayersUpdate -> {
+                if (message.players.isNotEmpty()) {
+                    netPlayers = message.players
+                }
+            }
+            is NetMessage.Error -> {
+                if (message.players.isNotEmpty()) {
+                    netPlayers = message.players
+                }
+            }
+        }
+    }
+    val netConnection = remember(netClient) {
+        NetPlayConnection(
+            client = netClient,
+            onStatusChange = { status ->
+                if (netPlayEnabledState.value) {
+                    netConnectionStatus = status
+                }
+            },
+            onMessage = { rawMessage ->
+                val parsed = parseNetMessage(rawMessage) ?: return@NetPlayConnection
+                handleNetMessage.value(parsed)
+            }
+        )
+    }
+    DisposableEffect(netConnection) {
+        onDispose {
+            netConnection.shutdown()
+        }
+    }
+    LaunchedEffect(
+        netNeedsResend,
+        netPendingWords,
+        netPendingReveals,
+        netSubmissionInFlight,
+        netPlayEnabled,
+        netConnectionStatus,
+        netConfirmedVersion,
+        seedLetters,
+        letters,
+        grid,
+        crosswordWords,
+        settings
+    ) {
+        if (!netNeedsResend) {
+            return@LaunchedEffect
+        }
+        if (netSubmissionInFlight) {
+            return@LaunchedEffect
+        }
+        if (!netPlayEnabled || netConnectionStatus != NetConnectionStatus.Connected) {
+            return@LaunchedEffect
+        }
+        if (netPendingWords.isEmpty() && netPendingReveals.isEmpty()) {
+            netNeedsResend = false
+            return@LaunchedEffect
+        }
+        val snapshot = buildNetSnapshotFromState(
+            seedLetters = seedLetters,
+            wheelLetters = letters,
+            grid = grid,
+            crosswordWords = crosswordWords,
+            settings = settings,
+            solvedBy = netSolvedBy,
+            stateVersion = netConfirmedVersion
+        )
+        if (snapshot == null) {
+            netNeedsResend = false
+            return@LaunchedEffect
+        }
+        if (netConnection.send(buildNetSubmitWordMessage(snapshot, netConfirmedVersion))) {
+            netSubmissionInFlight = true
+            netNeedsResend = false
+        }
+    }
+    val netServerUrl = remember(settings.serverIp, settings.serverPort) {
+        buildNetServerUrl(settings.serverIp, settings.serverPort)
+    }
+    val netStats = remember(netConnectionStatus, netPlayers, netSolvedBy) {
+        if (netConnectionStatus == NetConnectionStatus.Connected) {
+            buildNetStats(netPlayers, netSolvedBy)
+        } else {
+            emptyList()
+        }
+    }
 
     fun showDictionaryUpdateToast(result: DictionaryUpdateResult) {
         val messageRes = when (result) {
@@ -338,6 +744,9 @@ private fun GameScreen() {
     }
 
     fun startNewGame() {
+        if (netPlayEnabled && netRole == NetPlayRole.Guest) {
+            return
+        }
         val previousSeedLetters = seedLetters
         highlightedPositions = emptySet()
         val seedLetterCandidates = buildSeedLetterCandidates(
@@ -370,6 +779,10 @@ private fun GameScreen() {
                 missingWordsState = buildMissingWordsState(result.seedLetters, dictionary, result.layout.words)
                 hammerMode = HammerMode.Off
                 generationError = false
+                netSolvedBy = emptyMap()
+                if (netPlayEnabled && netRole == NetPlayRole.Host) {
+                    netHostNeedsUpload = true
+                }
             }
             is CrosswordGenerationResult.Failure -> {
                 generationError = true
@@ -384,6 +797,100 @@ private fun GameScreen() {
                     crosswordWords = emptyMap()
                     missingWordsState = emptyMissingWordsState()
                 }
+            }
+        }
+    }
+
+    LaunchedEffect(netPlayEnabled, netServerUrl) {
+        if (netPlayEnabled) {
+            netRole = NetPlayRole.None
+            netHostNeedsUpload = false
+            netJoined = false
+            netConfirmedVersion = NET_STATE_VERSION_INITIAL
+            netPendingWords = emptyList()
+            netPendingReveals = emptyList()
+            netSubmissionInFlight = false
+            netNeedsResend = false
+            netSolvedBy = emptyMap()
+            netPlayers = emptyList()
+            netConnectionStatus = NetConnectionStatus.Connecting
+            netConnection.connect(netServerUrl)
+        } else {
+            netConnection.disconnect()
+            netConnectionStatus = NetConnectionStatus.Off
+            netRole = NetPlayRole.None
+            netHostNeedsUpload = false
+            netJoined = false
+            netConfirmedVersion = NET_STATE_VERSION_INITIAL
+            netPendingWords = emptyList()
+            netPendingReveals = emptyList()
+            netSubmissionInFlight = false
+            netNeedsResend = false
+            netSolvedBy = emptyMap()
+            netPlayers = emptyList()
+        }
+    }
+
+    LaunchedEffect(netPlayEnabled, netConnectionStatus, netServerUrl) {
+        if (netPlayEnabled && netConnectionStatus == NetConnectionStatus.Disconnected) {
+            delay(NET_PLAY_RETRY_DELAY_MS)
+            if (netPlayEnabled && netConnectionStatus == NetConnectionStatus.Disconnected) {
+                netConnectionStatus = NetConnectionStatus.Connecting
+                netConnection.connect(netServerUrl)
+            }
+        }
+    }
+
+    LaunchedEffect(netConnectionStatus) {
+        if (netConnectionStatus != NetConnectionStatus.Connected) {
+            netJoined = false
+            netSubmissionInFlight = false
+        }
+    }
+
+    LaunchedEffect(
+        netPlayEnabled,
+        netConnectionStatus,
+        settings.playerId,
+        settings.playerName,
+        settings.playerColor,
+        netJoined
+    ) {
+        if (netPlayEnabled && netConnectionStatus == NetConnectionStatus.Connected && !netJoined) {
+            if (netConnection.send(buildNetJoinMessage(settings))) {
+                netJoined = true
+            }
+        }
+    }
+
+    LaunchedEffect(
+        netPlayEnabled,
+        netConnectionStatus,
+        netRole,
+        netHostNeedsUpload,
+        seedLetters,
+        letters,
+        grid,
+        crosswordWords,
+        settings
+    ) {
+        if (
+            netPlayEnabled &&
+            netConnectionStatus == NetConnectionStatus.Connected &&
+            netRole == NetPlayRole.Host &&
+            netHostNeedsUpload
+        ) {
+            val snapshot = buildNetSnapshotFromState(
+                seedLetters = seedLetters,
+                wheelLetters = letters,
+                grid = grid,
+                crosswordWords = crosswordWords,
+                settings = settings,
+                solvedBy = netSolvedBy,
+                stateVersion = NET_STATE_VERSION_INITIAL
+            )
+            if (snapshot != null && netConnection.send(buildNetNewGameMessage(snapshot))) {
+                netHostNeedsUpload = false
             }
         }
     }
@@ -417,7 +924,8 @@ private fun GameScreen() {
     }
     val isSolved = grid.isNotEmpty() && grid.all { row -> row.all { cell -> !cell.isActive || cell.isRevealed } }
     val hammerActive = hammerMode != HammerMode.Off
-    val showNewGameButton = isSolved || generationError
+    val canStartNewGame = !netPlayEnabled || netRole == NetPlayRole.Host
+    val showNewGameButton = (isSolved || generationError) && canStartNewGame
 
     LaunchedEffect(isSolved) {
         if (isSolved) {
@@ -434,6 +942,13 @@ private fun GameScreen() {
                 .padding(horizontal = 18.dp, vertical = 16.dp)
         ) {
             TopBar(
+                netPlayEnabled = netPlayEnabled,
+                netConnectionStatus = netConnectionStatus,
+                netStats = netStats,
+                newGameEnabled = canStartNewGame,
+                onNetPlayToggle = { enabled ->
+                    netPlayEnabled = enabled
+                },
                 onSettings = { showSettings = true },
                 onNewGame = {
                     startNewGame()
@@ -480,6 +995,34 @@ private fun GameScreen() {
                         if (hammerMode == HammerMode.Single) {
                             hammerMode = HammerMode.Off
                         }
+                        if (netPlayEnabled) {
+                            val position = GridPosition(row = rowIndex, col = colIndex)
+                            if (!netPendingReveals.contains(position)) {
+                                netPendingReveals = netPendingReveals + position
+                            }
+                            if (!netSubmissionInFlight && netConnectionStatus == NetConnectionStatus.Connected) {
+                                val snapshot = buildNetSnapshotFromState(
+                                    seedLetters = seedLetters,
+                                    wheelLetters = letters,
+                                    grid = grid,
+                                    crosswordWords = crosswordWords,
+                                    settings = settings,
+                                    solvedBy = netSolvedBy,
+                                    stateVersion = netConfirmedVersion
+                                )
+                                if (snapshot != null && netConnection.send(
+                                        buildNetRevealCellMessage(snapshot, netConfirmedVersion)
+                                    )
+                                ) {
+                                    netSubmissionInFlight = true
+                                    netNeedsResend = false
+                                } else {
+                                    netNeedsResend = true
+                                }
+                            } else {
+                                netNeedsResend = true
+                            }
+                        }
                     }
                 },
                 modifier = Modifier.weight(1f)
@@ -491,6 +1034,8 @@ private fun GameScreen() {
                 hasMissingWords = missingWordsState.entries.isNotEmpty(),
                 missingWordsCount = missingWordsState.remainingCount,
                 lastMissingWord = missingWordsState.lastGuessedWord,
+                playImmediateSuccessSound = !netPlayEnabled ||
+                    netConnectionStatus != NetConnectionStatus.Connected,
                 onShuffle = { letters = letters.shuffled() },
                 onNewGame = {
                     startNewGame()
@@ -521,6 +1066,36 @@ private fun GameScreen() {
                     if ((result == WordResult.Success || result == WordResult.AlreadySolved) && match != null) {
                         highlightedPositions = match.positions
                         highlightTrigger += HIGHLIGHT_TRIGGER_STEP
+                    }
+                    if (result == WordResult.Success && netPlayEnabled) {
+                        if (settings.playerId.isNotBlank()) {
+                            netSolvedBy = netSolvedBy + (normalizedWord to settings.playerId)
+                        }
+                        if (!netPendingWords.contains(normalizedWord)) {
+                            netPendingWords = netPendingWords + normalizedWord
+                        }
+                        if (!netSubmissionInFlight && netConnectionStatus == NetConnectionStatus.Connected) {
+                            val snapshot = buildNetSnapshotFromState(
+                                seedLetters = seedLetters,
+                                wheelLetters = letters,
+                                grid = grid,
+                                crosswordWords = crosswordWords,
+                                settings = settings,
+                                solvedBy = netSolvedBy,
+                                stateVersion = netConfirmedVersion
+                            )
+                            if (snapshot != null && netConnection.send(
+                                    buildNetSubmitWordMessage(snapshot, netConfirmedVersion)
+                                )
+                            ) {
+                                netSubmissionInFlight = true
+                                netNeedsResend = false
+                            } else {
+                                netNeedsResend = true
+                            }
+                        } else {
+                            netNeedsResend = true
+                        }
                     }
                     if (result != WordResult.NotFound) {
                         result
@@ -561,6 +1136,11 @@ private fun GameScreen() {
 
 @Composable
 private fun TopBar(
+    netPlayEnabled: Boolean,
+    netConnectionStatus: NetConnectionStatus,
+    netStats: List<NetPlayerStat>,
+    newGameEnabled: Boolean,
+    onNetPlayToggle: (Boolean) -> Unit,
     onSettings: () -> Unit,
     onNewGame: () -> Unit,
     onUpdateDictionary: () -> Unit,
@@ -574,15 +1154,23 @@ private fun TopBar(
     var menuExpanded by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.End
+        verticalAlignment = Alignment.CenterVertically
     ) {
+        NetPlayHeader(
+            enabled = netPlayEnabled,
+            status = netConnectionStatus,
+            stats = netStats,
+            onToggle = onNetPlayToggle
+        )
+        Spacer(modifier = Modifier.weight(FULL_WEIGHT))
         CircleIconButton(
             icon = Icons.Filled.Autorenew,
             contentDescription = stringResource(R.string.new_game),
             onClick = {
                 menuExpanded = false
                 onNewGame()
-            }
+            },
+            enabled = newGameEnabled
         )
         Spacer(modifier = Modifier.width(8.dp))
         Box {
@@ -651,6 +1239,153 @@ private fun TopBar(
 }
 
 @Composable
+private fun NetPlayHeader(
+    enabled: Boolean,
+    status: NetConnectionStatus,
+    stats: List<NetPlayerStat>,
+    onToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        NetPlayToggle(enabled = enabled, onToggle = onToggle)
+        Spacer(modifier = Modifier.width(NET_PLAY_HEADER_SPACING))
+        NetPlayStatusLamp(enabled = enabled, status = status)
+        if (enabled && status == NetConnectionStatus.Connected && stats.isNotEmpty()) {
+            Spacer(modifier = Modifier.width(NET_PLAY_STATS_SPACING))
+            NetPlayStatsPill(stats = stats)
+        }
+    }
+}
+
+@Composable
+private fun NetPlayToggle(
+    enabled: Boolean,
+    onToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val knobOffset by animateDpAsState(
+        targetValue = if (enabled) {
+            NET_PLAY_TOGGLE_WIDTH - NET_PLAY_TOGGLE_KNOB_SIZE -
+                (NET_PLAY_TOGGLE_PADDING * NET_PLAY_PADDING_MULTIPLIER)
+        } else {
+            0.dp
+        },
+        animationSpec = tween(durationMillis = NET_PLAY_TOGGLE_ANIMATION_MS, easing = LinearEasing),
+        label = "netPlayToggleOffset"
+    )
+    val trackColor = if (enabled) LightGreen else NetPlayToggleOff
+    val toggleDescription = stringResource(
+        if (enabled) R.string.net_play_toggle_on else R.string.net_play_toggle_off
+    )
+    Surface(
+        color = trackColor,
+        shape = RoundedCornerShape(NET_PLAY_TOGGLE_HEIGHT / NET_PLAY_CORNER_DIVISOR),
+        shadowElevation = NET_PLAY_TOGGLE_ELEVATION,
+        modifier = modifier
+            .width(NET_PLAY_TOGGLE_WIDTH)
+            .height(NET_PLAY_TOGGLE_HEIGHT)
+            .semantics { contentDescription = toggleDescription }
+            .clickable(role = Role.Switch) { onToggle(!enabled) }
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(NET_PLAY_TOGGLE_PADDING)
+        ) {
+            Box(
+                modifier = Modifier
+                    .offset(x = knobOffset)
+                    .size(NET_PLAY_TOGGLE_KNOB_SIZE)
+                    .clip(CircleShape)
+                    .background(Color.White)
+            )
+        }
+    }
+}
+
+@Composable
+private fun NetPlayStatusLamp(
+    enabled: Boolean,
+    status: NetConnectionStatus,
+    modifier: Modifier = Modifier
+) {
+    val transition = rememberInfiniteTransition(label = "netPlayStatusBlink")
+    val blinkAlpha by transition.animateFloat(
+        initialValue = NET_PLAY_STATUS_ALPHA_DIM,
+        targetValue = NET_PLAY_STATUS_ALPHA_FULL,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = NET_PLAY_STATUS_BLINK_DURATION_MS,
+                easing = LinearEasing
+            ),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "netPlayStatusAlpha"
+    )
+    val lampColor = when {
+        !enabled -> WheelBackground.copy(alpha = NET_PLAY_STATUS_OFF_ALPHA)
+        status == NetConnectionStatus.Connected -> NetPlayLampOn
+        else -> NewWordHighlightBackground.copy(alpha = blinkAlpha)
+    }
+    val statusDescription = stringResource(netPlayStatusLabelResId(enabled, status))
+    Box(
+        modifier = modifier
+            .size(NET_PLAY_LAMP_SIZE)
+            .clip(CircleShape)
+            .background(lampColor)
+            .semantics { contentDescription = statusDescription }
+    )
+}
+
+@Composable
+private fun NetPlayStatsPill(
+    stats: List<NetPlayerStat>,
+    modifier: Modifier = Modifier
+) {
+    if (stats.isEmpty()) {
+        return
+    }
+    Surface(
+        color = IconBase,
+        shape = RoundedCornerShape(NET_PLAY_STATS_HEIGHT / NET_PLAY_CORNER_DIVISOR),
+        shadowElevation = NET_PLAY_STATS_ELEVATION,
+        modifier = modifier.height(NET_PLAY_STATS_HEIGHT)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = NET_PLAY_STATS_HORIZONTAL_PADDING),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            stats.forEachIndexed { index, stat ->
+                if (index >= COUNT_STEP) {
+                    Spacer(modifier = Modifier.width(NET_PLAY_STATS_ITEM_SPACING))
+                }
+                Text(
+                    text = stat.count.toString(),
+                    color = stat.color,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = NET_PLAY_STATS_TEXT_SIZE
+                )
+            }
+        }
+    }
+}
+
+private fun netPlayStatusLabelResId(
+    enabled: Boolean,
+    status: NetConnectionStatus
+): Int {
+    return when {
+        !enabled -> R.string.net_play_status_off
+        status == NetConnectionStatus.Connected -> R.string.net_play_status_connected
+        status == NetConnectionStatus.Connecting -> R.string.net_play_status_connecting
+        else -> R.string.net_play_status_disconnected
+    }
+}
+
+@Composable
 private fun SettingsDialog(
     current: UserSettings,
     onSave: (UserSettings) -> Unit,
@@ -662,17 +1397,36 @@ private fun SettingsDialog(
     }
     var selectionMode by remember(current.selectionMode) { mutableStateOf(current.selectionMode) }
     var selectionExpanded by remember { mutableStateOf(false) }
+    var selectedTab by remember { mutableStateOf(SettingsTab.General) }
+    var playerName by remember(current.playerName) { mutableStateOf(current.playerName) }
+    var playerColor by remember(current.playerColor) { mutableStateOf(current.playerColor) }
+    var serverIp by remember(current.serverIp) { mutableStateOf(current.serverIp) }
+    var serverPortText by remember(current.serverPort) { mutableStateOf(current.serverPort.toString()) }
+    var colorExpanded by remember { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
 
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(
                 onClick = {
+                    val trimmedPlayerName = playerName.trim()
+                    val trimmedServerIp = serverIp.trim()
+                    val fallbackServerIp = if (current.serverIp.isBlank()) DEFAULT_NET_SERVER_IP else current.serverIp
+                    val normalizedServerIp = if (trimmedServerIp.isBlank()) fallbackServerIp else trimmedServerIp
+                    val parsedPort = serverPortText.trim().toIntOrNull()
+                    val normalizedPort = (parsedPort ?: current.serverPort)
+                        .coerceIn(MIN_NET_SERVER_PORT, MAX_NET_SERVER_PORT)
                     onSave(
                         UserSettings(
                             muted = muted,
                             maxLetterSetSize = maxLetterSetSize.roundToInt(),
-                            selectionMode = selectionMode
+                            selectionMode = selectionMode,
+                            playerId = current.playerId,
+                            playerName = trimmedPlayerName,
+                            playerColor = playerColor,
+                            serverIp = normalizedServerIp,
+                            serverPort = normalizedPort
                         )
                     )
                 }
@@ -687,63 +1441,254 @@ private fun SettingsDialog(
         },
         title = { Text(text = stringResource(R.string.settings)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(SETTINGS_DIALOG_SPACING)) {
-                Column {
-                    Text(text = stringResource(R.string.settings_next_crossword))
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        TextButton(
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = { selectionExpanded = true }
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = stringResource(selectionMode.labelResId),
-                                    modifier = Modifier.weight(FULL_WEIGHT),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Icon(
-                                    imageVector = Icons.Filled.ArrowDropDown,
-                                    contentDescription = stringResource(R.string.dropdown_open)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(scrollState),
+                verticalArrangement = Arrangement.spacedBy(SETTINGS_DIALOG_SPACING)
+            ) {
+                TabRow(selectedTabIndex = selectedTab.ordinal) {
+                    for (tab in SettingsTab.values()) {
+                        Tab(
+                            selected = selectedTab == tab,
+                            onClick = { selectedTab = tab },
+                            text = { Text(text = stringResource(tab.labelResId)) }
+                        )
+                    }
+                }
+                when (selectedTab) {
+                    SettingsTab.General -> {
+                        Column(verticalArrangement = Arrangement.spacedBy(SETTINGS_DIALOG_SPACING)) {
+                            Column {
+                                Text(text = stringResource(R.string.settings_next_crossword))
+                                Box(modifier = Modifier.fillMaxWidth()) {
+                                    TextButton(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        onClick = { selectionExpanded = true }
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = stringResource(selectionMode.labelResId),
+                                                modifier = Modifier.weight(FULL_WEIGHT),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Icon(
+                                                imageVector = Icons.Filled.ArrowDropDown,
+                                                contentDescription = stringResource(R.string.dropdown_open)
+                                            )
+                                        }
+                                    }
+                                    DropdownMenu(
+                                        expanded = selectionExpanded,
+                                        onDismissRequest = { selectionExpanded = false }
+                                    ) {
+                                        for (mode in CrosswordSelectionMode.values()) {
+                                            DropdownMenuItem(
+                                                text = { Text(text = stringResource(mode.labelResId)) },
+                                                onClick = {
+                                                    selectionMode = mode
+                                                    selectionExpanded = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = muted, onCheckedChange = { muted = it })
+                                Spacer(modifier = Modifier.width(SETTINGS_CONTROL_SPACING))
+                                Text(text = "Mute sounds")
+                            }
+                            Column {
+                                Text(text = "Max letter set size: ${maxLetterSetSize.roundToInt()}")
+                                Slider(
+                                    value = maxLetterSetSize,
+                                    onValueChange = { maxLetterSetSize = it.roundToInt().toFloat() },
+                                    valueRange = MIN_SEED_LETTER_SET_SIZE.toFloat()..MAX_SEED_LETTER_SET_SIZE.toFloat(),
+                                    steps = (MAX_SEED_LETTER_SET_SIZE - MIN_SEED_LETTER_SET_SIZE - COUNT_STEP)
+                                        .coerceAtLeast(0)
                                 )
                             }
                         }
-                        DropdownMenu(
-                            expanded = selectionExpanded,
-                            onDismissRequest = { selectionExpanded = false }
-                        ) {
-                            for (mode in CrosswordSelectionMode.values()) {
-                                DropdownMenuItem(
-                                    text = { Text(text = stringResource(mode.labelResId)) },
-                                    onClick = {
-                                        selectionMode = mode
-                                        selectionExpanded = false
+                    }
+                    SettingsTab.NetPlay -> {
+                        Column(verticalArrangement = Arrangement.spacedBy(SETTINGS_DIALOG_SPACING)) {
+                            Text(
+                                text = stringResource(R.string.settings_net_play_player),
+                                fontWeight = FontWeight.Bold
+                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(SETTINGS_CONTROL_SPACING)) {
+                                NetPlayLabeledTextField(
+                                    labelResId = R.string.settings_net_play_player_name,
+                                    value = playerName,
+                                    onValueChange = { playerName = it }
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "${stringResource(R.string.settings_net_play_player_color)}:",
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Spacer(modifier = Modifier.width(SETTINGS_CONTROL_SPACING))
+                                    Box(modifier = Modifier.weight(FULL_WEIGHT)) {
+                                        NetPlayFieldSurface(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(MaterialTheme.shapes.small)
+                                                .clickable { colorExpanded = true }
+                                        ) {
+                                            NetPlayColorSwatch(color = playerColor.swatch)
+                                            Spacer(modifier = Modifier.width(SETTINGS_CONTROL_SPACING))
+                                            Text(
+                                                text = stringResource(playerColor.labelResId),
+                                                modifier = Modifier.weight(FULL_WEIGHT),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Icon(
+                                                imageVector = Icons.Filled.ArrowDropDown,
+                                                contentDescription = stringResource(R.string.dropdown_open)
+                                            )
+                                        }
+                                        DropdownMenu(
+                                            expanded = colorExpanded,
+                                            onDismissRequest = { colorExpanded = false }
+                                        ) {
+                                            for (color in NetPlayerColor.values()) {
+                                                DropdownMenuItem(
+                                                    text = { NetPlayColorRow(color = color) },
+                                                    onClick = {
+                                                        playerColor = color
+                                                        colorExpanded = false
+                                                    }
+                                                )
+                                            }
+                                        }
                                     }
+                                }
+                            }
+                            Column(verticalArrangement = Arrangement.spacedBy(SETTINGS_CONTROL_SPACING)) {
+                                Text(
+                                    text = stringResource(R.string.settings_net_play_server),
+                                    fontWeight = FontWeight.Bold
+                                )
+                                NetPlayLabeledTextField(
+                                    labelResId = R.string.settings_net_play_server_ip,
+                                    value = serverIp,
+                                    onValueChange = { serverIp = it }
+                                )
+                                NetPlayLabeledTextField(
+                                    labelResId = R.string.settings_net_play_server_port,
+                                    value = serverPortText,
+                                    onValueChange = { serverPortText = it },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                )
+                            }
+                            Column(verticalArrangement = Arrangement.spacedBy(SETTINGS_CONTROL_SPACING)) {
+                                Text(text = stringResource(R.string.settings_net_play_player_id))
+                                val baseStyle = MaterialTheme.typography.bodyMedium
+                                Text(
+                                    text = current.playerId,
+                                    style = baseStyle.copy(
+                                        fontSize = baseStyle.fontSize / PLAYER_ID_TEXT_SIZE_DIVISOR
+                                    )
                                 )
                             }
                         }
                     }
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = muted, onCheckedChange = { muted = it })
-                    Spacer(modifier = Modifier.width(SETTINGS_CONTROL_SPACING))
-                    Text(text = "Mute sounds")
-                }
-                Column {
-                    Text(text = "Max letter set size: ${maxLetterSetSize.roundToInt()}")
-                    Slider(
-                        value = maxLetterSetSize,
-                        onValueChange = { maxLetterSetSize = it.roundToInt().toFloat() },
-                        valueRange = MIN_SEED_LETTER_SET_SIZE.toFloat()..MAX_SEED_LETTER_SET_SIZE.toFloat(),
-                        steps = (MAX_SEED_LETTER_SET_SIZE - MIN_SEED_LETTER_SET_SIZE - COUNT_STEP)
-                            .coerceAtLeast(0)
-                    )
-                }
             }
         }
+    )
+}
+
+@Composable
+private fun NetPlayLabeledTextField(
+    labelResId: Int,
+    value: String,
+    onValueChange: (String) -> Unit,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    modifier: Modifier = Modifier
+) {
+    val colors = MaterialTheme.colorScheme
+    val textStyle = MaterialTheme.typography.bodyMedium
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "${stringResource(labelResId)}:",
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(modifier = Modifier.width(SETTINGS_CONTROL_SPACING))
+        NetPlayFieldSurface(modifier = Modifier.weight(FULL_WEIGHT)) {
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                singleLine = true,
+                keyboardOptions = keyboardOptions,
+                textStyle = textStyle.copy(color = colors.onSurface),
+                cursorBrush = SolidColor(colors.primary),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+private fun NetPlayFieldSurface(
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit
+) {
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.shapes.small
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = NET_PLAY_FIELD_HORIZONTAL_PADDING,
+                vertical = NET_PLAY_FIELD_VERTICAL_PADDING
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+            content = content
+        )
+    }
+}
+
+@Composable
+private fun NetPlayColorRow(
+    color: NetPlayerColor,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        NetPlayColorSwatch(color = color.swatch)
+        Spacer(modifier = Modifier.width(SETTINGS_CONTROL_SPACING))
+        Text(text = stringResource(color.labelResId))
+    }
+}
+
+@Composable
+private fun NetPlayColorSwatch(
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(PLAYER_COLOR_SWATCH_SIZE)
+            .clip(CircleShape)
+            .background(color)
     )
 }
 
@@ -939,6 +1884,7 @@ private fun LetterWheelSection(
     hasMissingWords: Boolean,
     missingWordsCount: Int,
     lastMissingWord: String?,
+    playImmediateSuccessSound: Boolean,
     onShuffle: () -> Unit,
     onNewGame: () -> Unit,
     onHammerTap: () -> Unit,
@@ -1032,6 +1978,7 @@ private fun LetterWheelSection(
                             settledLetters = finalLetters
                         },
                         onWordSelected = onWordSelected,
+                        playImmediateSuccessSound = playImmediateSuccessSound,
                         soundEffects = soundEffects,
                         modifier = Modifier
                             .size(wheelSize)
@@ -1109,6 +2056,7 @@ private fun LetterWheel(
     onSelectionChanged: (List<Char>) -> Unit,
     onSelectionEnd: (List<Char>) -> Unit,
     onWordSelected: (String) -> WordResult,
+    playImmediateSuccessSound: Boolean,
     soundEffects: SoundEffects,
     modifier: Modifier = Modifier
 ) {
@@ -1128,6 +2076,7 @@ private fun LetterWheel(
         var lastToneFreq by remember { mutableStateOf<Double?>(null) }
         val onWordSelectedState by rememberUpdatedState(onWordSelected)
         val soundEffectsState by rememberUpdatedState(soundEffects)
+        val playImmediateSuccessSoundState by rememberUpdatedState(playImmediateSuccessSound)
         val onSelectionStartState by rememberUpdatedState(onSelectionStart)
         val onSelectionChangedState by rememberUpdatedState(onSelectionChanged)
         val onSelectionEndState by rememberUpdatedState(onSelectionEnd)
@@ -1215,7 +2164,11 @@ private fun LetterWheel(
                     }
                 }
                 when (onWordSelectedState(selectedWord)) {
-                    WordResult.Success -> soundEffectsState.successBell()
+                    WordResult.Success -> {
+                        if (playImmediateSuccessSoundState) {
+                            soundEffectsState.successBell()
+                        }
+                    }
                     WordResult.AlreadySolved -> soundEffectsState.alreadySolvedConfirm()
                     WordResult.MissingWordFound -> soundEffectsState.sideWordFound()
                     WordResult.MissingWordAlreadyFound -> soundEffectsState.alreadySolvedConfirm()
@@ -1472,19 +2425,20 @@ private fun CircleIconButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     contentDescription: String,
     onClick: () -> Unit,
+    enabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     Surface(
-        color = IconBase,
+        color = if (enabled) IconBase else IconBase.copy(alpha = NET_PLAY_ICON_DISABLED_ALPHA),
         shape = CircleShape,
         shadowElevation = 6.dp,
         modifier = modifier.size(44.dp)
     ) {
-        IconButton(onClick = onClick) {
+        IconButton(onClick = onClick, enabled = enabled) {
             Icon(
                 imageVector = icon,
                 contentDescription = contentDescription,
-                tint = Color.White
+                tint = if (enabled) Color.White else Color.White.copy(alpha = NET_PLAY_ICON_DISABLED_ALPHA)
             )
         }
     }
@@ -1513,6 +2467,606 @@ private fun AbstractBackground(modifier: Modifier = Modifier) {
             radius = size.minDimension * 0.7f,
             center = Offset(size.width * 0.6f, size.height * 0.85f)
         )
+    }
+}
+
+private data class NetSnapshotSettings(
+    val selectionModeId: String,
+    val maxLetterSetSize: Int
+)
+
+private data class NetSnapshot(
+    val stateVersion: Int,
+    val seedLetters: String,
+    val wheelLetters: List<Char>,
+    val gridRows: List<String>,
+    val revealedPositions: List<GridPosition>,
+    val words: List<CrosswordWord>,
+    val solvedBy: Map<String, String>,
+    val settings: NetSnapshotSettings
+)
+
+private sealed interface NetMessage {
+    data class Snapshot(
+        val role: NetPlayRole,
+        val snapshot: NetSnapshot?,
+        val players: List<NetPlayerInfo> = emptyList()
+    ) : NetMessage
+    data class StateUpdate(
+        val snapshot: NetSnapshot,
+        val players: List<NetPlayerInfo> = emptyList()
+    ) : NetMessage
+    data class Conflict(
+        val snapshot: NetSnapshot,
+        val players: List<NetPlayerInfo> = emptyList()
+    ) : NetMessage
+    data class PlayersUpdate(
+        val players: List<NetPlayerInfo> = emptyList()
+    ) : NetMessage
+    data class Error(
+        val message: String,
+        val players: List<NetPlayerInfo> = emptyList()
+    ) : NetMessage
+}
+
+private data class NetRebaseResult(
+    val grid: List<List<CrosswordCell>>,
+    val pendingWords: List<String>,
+    val discardedWords: List<String>,
+    val confirmedWords: List<String>,
+    val solvedBy: Map<String, String>,
+    val pendingReveals: List<GridPosition>
+)
+
+private data class NetRebaseRevealResult(
+    val grid: List<List<CrosswordCell>>,
+    val pendingReveals: List<GridPosition>
+)
+
+private fun rebasePendingWords(
+    baseGrid: List<List<CrosswordCell>>,
+    crosswordWords: Map<String, CrosswordWord>,
+    pendingWords: List<String>,
+    pendingReveals: List<GridPosition>,
+    baseSolvedBy: Map<String, String>,
+    playerId: String
+): NetRebaseResult {
+    if (pendingWords.isEmpty()) {
+        val revealResult = rebasePendingReveals(baseGrid, pendingReveals)
+        return NetRebaseResult(
+            revealResult.grid,
+            emptyList(),
+            emptyList(),
+            emptyList(),
+            baseSolvedBy,
+            revealResult.pendingReveals
+        )
+    }
+    var updatedGrid = baseGrid
+    val remaining = mutableListOf<String>()
+    val discarded = mutableListOf<String>()
+    val confirmed = mutableListOf<String>()
+    val updatedSolvedBy = baseSolvedBy.toMutableMap()
+    for (word in pendingWords) {
+        val match = crosswordWords[word]
+        if (match == null) {
+            discarded.add(word)
+            continue
+        }
+        val isSolved = match.positions.all { pos -> updatedGrid[pos.row][pos.col].isRevealed }
+        if (isSolved) {
+            if (baseSolvedBy[word] == playerId) {
+                confirmed.add(word)
+            } else {
+                discarded.add(word)
+            }
+            continue
+        }
+        val (nextGrid, result) = applySelectedWord(word, crosswordWords, updatedGrid)
+        updatedGrid = nextGrid
+        if (result == WordResult.Success && !remaining.contains(word)) {
+            remaining.add(word)
+            if (playerId.isNotBlank()) {
+                updatedSolvedBy[word] = playerId
+            }
+        } else if (result != WordResult.Success) {
+            discarded.add(word)
+        }
+    }
+    val revealResult = rebasePendingReveals(updatedGrid, pendingReveals)
+    return NetRebaseResult(
+        revealResult.grid,
+        remaining,
+        discarded,
+        confirmed,
+        updatedSolvedBy.toMap(),
+        revealResult.pendingReveals
+    )
+}
+
+private fun rebasePendingReveals(
+    baseGrid: List<List<CrosswordCell>>,
+    pendingReveals: List<GridPosition>
+): NetRebaseRevealResult {
+    if (baseGrid.isEmpty() || pendingReveals.isEmpty()) {
+        return NetRebaseRevealResult(baseGrid, emptyList())
+    }
+    val rowCount = baseGrid.size
+    val columnCount = baseGrid.first().size
+    val remaining = mutableListOf<GridPosition>()
+    val seen = mutableSetOf<GridPosition>()
+    for (position in pendingReveals) {
+        val row = position.row
+        val col = position.col
+        if (row <= NET_INVALID_INDEX || col <= NET_INVALID_INDEX) {
+            continue
+        }
+        if (row >= rowCount || col >= columnCount) {
+            continue
+        }
+        if (!seen.add(position)) {
+            continue
+        }
+        val cell = baseGrid[row][col]
+        if (!cell.isActive || cell.isRevealed) {
+            continue
+        }
+        remaining.add(position)
+    }
+    if (remaining.isEmpty()) {
+        return NetRebaseRevealResult(baseGrid, emptyList())
+    }
+    val updatedGrid = applyRevealedPositions(baseGrid, remaining)
+    return NetRebaseRevealResult(updatedGrid, remaining)
+}
+
+private fun buildNetJoinMessage(settings: UserSettings): String {
+    val root = JSONObject()
+    root.put(NET_JSON_TYPE, NET_MESSAGE_TYPE_JOIN)
+    root.put(NET_JSON_PLAYER_ID, settings.playerId)
+    root.put(NET_JSON_PLAYER_NAME, settings.playerName)
+    root.put(NET_JSON_PLAYER_COLOR, settings.playerColor.id)
+    return root.toString()
+}
+
+private fun buildNetNewGameMessage(snapshot: NetSnapshot): String {
+    val root = JSONObject()
+    root.put(NET_JSON_TYPE, NET_MESSAGE_TYPE_NEW_GAME)
+    root.put(NET_JSON_SNAPSHOT, buildNetSnapshotJson(snapshot))
+    return root.toString()
+}
+
+private fun buildNetSubmitWordMessage(snapshot: NetSnapshot, baseVersion: Int): String {
+    val root = JSONObject()
+    root.put(NET_JSON_TYPE, NET_MESSAGE_TYPE_SUBMIT_WORD)
+    root.put(NET_JSON_BASE_VERSION, baseVersion)
+    root.put(NET_JSON_SNAPSHOT, buildNetSnapshotJson(snapshot))
+    return root.toString()
+}
+
+private fun buildNetRevealCellMessage(snapshot: NetSnapshot, baseVersion: Int): String {
+    val root = JSONObject()
+    root.put(NET_JSON_TYPE, NET_MESSAGE_TYPE_REVEAL_CELL)
+    root.put(NET_JSON_BASE_VERSION, baseVersion)
+    root.put(NET_JSON_SNAPSHOT, buildNetSnapshotJson(snapshot))
+    return root.toString()
+}
+
+private fun buildNetSnapshotFromState(
+    seedLetters: String,
+    wheelLetters: List<Char>,
+    grid: List<List<CrosswordCell>>,
+    crosswordWords: Map<String, CrosswordWord>,
+    settings: UserSettings,
+    solvedBy: Map<String, String>,
+    stateVersion: Int
+): NetSnapshot? {
+    if (seedLetters.isBlank() || grid.isEmpty()) {
+        return null
+    }
+    val gridRows = buildGridRows(grid)
+    val revealedPositions = buildRevealedPositions(grid)
+    val words = crosswordWords.values.toList()
+    val resolvedWheelLetters = if (wheelLetters.isEmpty()) {
+        generateLetterWheel(seedLetters)
+    } else {
+        wheelLetters
+    }
+    return NetSnapshot(
+        stateVersion = stateVersion,
+        seedLetters = seedLetters,
+        wheelLetters = resolvedWheelLetters,
+        gridRows = gridRows,
+        revealedPositions = revealedPositions,
+        words = words,
+        solvedBy = solvedBy,
+        settings = buildNetSnapshotSettings(settings)
+    )
+}
+
+private fun buildNetSnapshotSettings(settings: UserSettings): NetSnapshotSettings {
+    return NetSnapshotSettings(
+        selectionModeId = settings.selectionMode.id,
+        maxLetterSetSize = settings.maxLetterSetSize
+    )
+}
+
+private fun buildNetSnapshotJson(snapshot: NetSnapshot): JSONObject {
+    val root = JSONObject()
+    root.put(NET_JSON_STATE_VERSION, snapshot.stateVersion)
+    root.put(NET_JSON_SEED_LETTERS, snapshot.seedLetters)
+    root.put(
+        NET_JSON_WHEEL_LETTERS,
+        JSONArray(snapshot.wheelLetters.map { it.toString() })
+    )
+    root.put(NET_JSON_GRID_ROWS, JSONArray(snapshot.gridRows))
+    root.put(NET_JSON_REVEALED, buildPositionsJson(snapshot.revealedPositions))
+    root.put(NET_JSON_WORDS, buildWordsJson(snapshot.words))
+    root.put(NET_JSON_SOLVED_BY, buildNetSolvedByJson(snapshot.solvedBy))
+    root.put(NET_JSON_SETTINGS, buildSettingsJson(snapshot.settings))
+    return root
+}
+
+private fun buildGridRows(grid: List<List<CrosswordCell>>): List<String> {
+    if (grid.isEmpty()) {
+        return emptyList()
+    }
+    return grid.map { row ->
+        buildString {
+            row.forEach { cell ->
+                val letter = cell.letter
+                append(letter?.lowercaseChar() ?: CROSSWORD_EMPTY_CELL)
+            }
+        }
+    }
+}
+
+private fun buildRevealedPositions(grid: List<List<CrosswordCell>>): List<GridPosition> {
+    if (grid.isEmpty()) {
+        return emptyList()
+    }
+    val positions = mutableListOf<GridPosition>()
+    for ((rowIndex, row) in grid.withIndex()) {
+        for ((colIndex, cell) in row.withIndex()) {
+            if (cell.isRevealed) {
+                positions.add(GridPosition(row = rowIndex, col = colIndex))
+            }
+        }
+    }
+    return positions
+}
+
+private fun buildPositionsJson(positions: List<GridPosition>): JSONArray {
+    val array = JSONArray()
+    for (position in positions) {
+        val item = JSONObject()
+        item.put(NET_JSON_ROW, position.row)
+        item.put(NET_JSON_COL, position.col)
+        array.put(item)
+    }
+    return array
+}
+
+private fun buildWordsJson(words: List<CrosswordWord>): JSONArray {
+    val array = JSONArray()
+    for (word in words) {
+        val item = JSONObject()
+        item.put(NET_JSON_WORD, word.word)
+        item.put(NET_JSON_POSITIONS, buildPositionsJson(word.positions.toList()))
+        array.put(item)
+    }
+    return array
+}
+
+private fun buildNetSolvedByJson(solvedBy: Map<String, String>): JSONObject {
+    val root = JSONObject()
+    for ((word, playerId) in solvedBy) {
+        if (word.isNotBlank() && playerId.isNotBlank()) {
+            root.put(word, playerId)
+        }
+    }
+    return root
+}
+
+private fun buildSettingsJson(settings: NetSnapshotSettings): JSONObject {
+    val root = JSONObject()
+    root.put(NET_JSON_SELECTION_MODE, settings.selectionModeId)
+    root.put(NET_JSON_MAX_LETTER_SET_SIZE, settings.maxLetterSetSize)
+    return root
+}
+
+private fun parseNetMessage(raw: String): NetMessage? {
+    val root = try {
+        JSONObject(raw)
+    } catch (error: JSONException) {
+        return null
+    }
+    val players = parseNetPlayers(root.optJSONArray(NET_JSON_PLAYERS))
+    return when (root.optString(NET_JSON_TYPE, "")) {
+        NET_MESSAGE_TYPE_SNAPSHOT -> {
+            val role = NetPlayRole.fromId(root.optString(NET_JSON_ROLE, ""))
+            val snapshot = root.optJSONObject(NET_JSON_SNAPSHOT)?.let { parseNetSnapshot(it) }
+            NetMessage.Snapshot(role = role, snapshot = snapshot, players = players)
+        }
+        NET_MESSAGE_TYPE_STATE_UPDATE -> {
+            val snapshot = root.optJSONObject(NET_JSON_SNAPSHOT)?.let { parseNetSnapshot(it) } ?: return null
+            NetMessage.StateUpdate(snapshot = snapshot, players = players)
+        }
+        NET_MESSAGE_TYPE_PLAYERS_UPDATE -> {
+            NetMessage.PlayersUpdate(players = players)
+        }
+        NET_MESSAGE_TYPE_ERROR -> {
+            val message = root.optString(NET_JSON_MESSAGE, "")
+            val snapshot = root.optJSONObject(NET_JSON_SNAPSHOT)?.let { parseNetSnapshot(it) }
+            if (message == NET_ERROR_CONFLICT && snapshot != null) {
+                NetMessage.Conflict(snapshot = snapshot, players = players)
+            } else {
+                NetMessage.Error(message = message, players = players)
+            }
+        }
+        else -> null
+    }
+}
+
+private fun parseNetSnapshot(snapshot: JSONObject): NetSnapshot? {
+    val seedLetters = snapshot.optString(NET_JSON_SEED_LETTERS, "")
+    if (seedLetters.isBlank()) {
+        return null
+    }
+    val gridRows = parseGridRows(snapshot.optJSONArray(NET_JSON_GRID_ROWS))
+    if (gridRows.isEmpty()) {
+        return null
+    }
+    val wheelLetters = parseWheelLetters(snapshot.optJSONArray(NET_JSON_WHEEL_LETTERS), seedLetters)
+    val revealedPositions = parsePositions(snapshot.optJSONArray(NET_JSON_REVEALED))
+    val words = parseWords(snapshot.optJSONArray(NET_JSON_WORDS))
+    val solvedBy = parseSolvedBy(snapshot.optJSONObject(NET_JSON_SOLVED_BY))
+    val settings = parseNetSnapshotSettings(snapshot.optJSONObject(NET_JSON_SETTINGS))
+    val stateVersion = snapshot.optInt(NET_JSON_STATE_VERSION, NET_STATE_VERSION_INITIAL)
+    return NetSnapshot(
+        stateVersion = stateVersion,
+        seedLetters = seedLetters,
+        wheelLetters = wheelLetters,
+        gridRows = gridRows,
+        revealedPositions = revealedPositions,
+        words = words,
+        solvedBy = solvedBy,
+        settings = settings
+    )
+}
+
+private fun parseNetSnapshotSettings(settings: JSONObject?): NetSnapshotSettings {
+    if (settings == null) {
+        return NetSnapshotSettings(
+            selectionModeId = DEFAULT_CROSSWORD_SELECTION_MODE.id,
+            maxLetterSetSize = DEFAULT_MAX_LETTER_SET_SIZE
+        )
+    }
+    val selectionModeId = settings.optString(
+        NET_JSON_SELECTION_MODE,
+        DEFAULT_CROSSWORD_SELECTION_MODE.id
+    )
+    val maxLetterSetSize = settings.optInt(
+        NET_JSON_MAX_LETTER_SET_SIZE,
+        DEFAULT_MAX_LETTER_SET_SIZE
+    )
+    return NetSnapshotSettings(
+        selectionModeId = selectionModeId,
+        maxLetterSetSize = maxLetterSetSize
+    )
+}
+
+private fun parseNetPlayers(array: JSONArray?): List<NetPlayerInfo> {
+    if (array == null) {
+        return emptyList()
+    }
+    val players = mutableListOf<NetPlayerInfo>()
+    val seen = mutableSetOf<String>()
+    val count = array.length()
+    repeat(count) { index ->
+        val item = array.optJSONObject(index) ?: return@repeat
+        val playerId = item.optString(NET_JSON_PLAYER_ID, "").trim()
+        val colorId = item.optString(NET_JSON_PLAYER_COLOR, "").trim()
+        if (playerId.isBlank() || colorId.isBlank()) {
+            return@repeat
+        }
+        if (!seen.add(playerId)) {
+            return@repeat
+        }
+        val playerName = item.optString(NET_JSON_PLAYER_NAME, "").trim()
+        val playerColor = NetPlayerColor.fromId(colorId)
+        players.add(
+            NetPlayerInfo(
+                playerId = playerId,
+                playerName = playerName,
+                playerColor = playerColor
+            )
+        )
+    }
+    return players
+}
+
+private fun parseGridRows(rows: JSONArray?): List<String> {
+    if (rows == null) {
+        return emptyList()
+    }
+    val result = mutableListOf<String>()
+    val count = rows.length()
+    repeat(count) { index ->
+        result.add(rows.optString(index, ""))
+    }
+    return result
+}
+
+private fun parseWheelLetters(array: JSONArray?, seedLetters: String): List<Char> {
+    if (array == null) {
+        return generateLetterWheel(seedLetters)
+    }
+    val letters = mutableListOf<Char>()
+    val count = array.length()
+    repeat(count) { index ->
+        val raw = array.optString(index, "")
+        val letter = raw.firstOrNull()
+        if (letter != null) {
+            letters.add(letter)
+        }
+    }
+    return if (letters.isEmpty()) generateLetterWheel(seedLetters) else letters
+}
+
+private fun parsePositions(array: JSONArray?): List<GridPosition> {
+    if (array == null) {
+        return emptyList()
+    }
+    val positions = mutableListOf<GridPosition>()
+    val count = array.length()
+    repeat(count) { index ->
+        val item = array.optJSONObject(index) ?: return@repeat
+        val row = item.optInt(NET_JSON_ROW, NET_INVALID_INDEX)
+        val col = item.optInt(NET_JSON_COL, NET_INVALID_INDEX)
+        if (row != NET_INVALID_INDEX && col != NET_INVALID_INDEX) {
+            positions.add(GridPosition(row = row, col = col))
+        }
+    }
+    return positions
+}
+
+private fun parseWords(array: JSONArray?): List<CrosswordWord> {
+    if (array == null) {
+        return emptyList()
+    }
+    val words = mutableListOf<CrosswordWord>()
+    val count = array.length()
+    repeat(count) { index ->
+        val item = array.optJSONObject(index) ?: return@repeat
+        val word = item.optString(NET_JSON_WORD, "").uppercase()
+        if (word.isBlank()) {
+            return@repeat
+        }
+        val positions = parsePositions(item.optJSONArray(NET_JSON_POSITIONS))
+        if (positions.isEmpty()) {
+            return@repeat
+        }
+        words.add(CrosswordWord(word = word, positions = positions.toSet()))
+    }
+    return words
+}
+
+private fun parseSolvedBy(data: JSONObject?): Map<String, String> {
+    if (data == null) {
+        return emptyMap()
+    }
+    val result = mutableMapOf<String, String>()
+    val iterator = data.keys()
+    while (iterator.hasNext()) {
+        val word = iterator.next().trim().uppercase()
+        if (word.isBlank()) {
+            continue
+        }
+        val playerId = data.optString(word, "").trim()
+        if (playerId.isNotBlank()) {
+            result[word] = playerId
+        }
+    }
+    return result.toMap()
+}
+
+private fun applyRevealedPositions(
+    grid: List<List<CrosswordCell>>,
+    positions: List<GridPosition>
+): List<List<CrosswordCell>> {
+    if (grid.isEmpty() || positions.isEmpty()) {
+        return grid
+    }
+    val revealed = positions.toSet()
+    return grid.mapIndexed { rowIndex, row ->
+        row.mapIndexed { colIndex, cell ->
+            if (revealed.contains(GridPosition(row = rowIndex, col = colIndex))) {
+                cell.copy(isRevealed = true)
+            } else {
+                cell
+            }
+        }
+    }
+}
+
+private class NetPlayConnection(
+    private val client: OkHttpClient,
+    private val onStatusChange: (NetConnectionStatus) -> Unit,
+    private val onMessage: (String) -> Unit
+) {
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var webSocket: WebSocket? = null
+
+    fun connect(url: String) {
+        webSocket?.cancel()
+        val request = try {
+            Request.Builder().url(url).build()
+        } catch (exception: IllegalArgumentException) {
+            postStatus(NetConnectionStatus.Disconnected)
+            return
+        }
+        webSocket = client.newWebSocket(
+            request,
+            object : WebSocketListener() {
+                override fun onOpen(webSocket: WebSocket, response: Response) {
+                    if (isCurrentSocket(webSocket)) {
+                        postStatus(NetConnectionStatus.Connected)
+                    }
+                }
+
+                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    if (isCurrentSocket(webSocket)) {
+                        postStatus(NetConnectionStatus.Disconnected)
+                    }
+                }
+
+                override fun onMessage(webSocket: WebSocket, text: String) {
+                    if (isCurrentSocket(webSocket)) {
+                        postMessage(text)
+                    }
+                }
+
+                override fun onFailure(
+                    webSocket: WebSocket,
+                    t: Throwable,
+                    response: Response?
+                ) {
+                    if (isCurrentSocket(webSocket)) {
+                        postStatus(NetConnectionStatus.Disconnected)
+                    }
+                }
+            }
+        )
+    }
+
+    fun disconnect() {
+        webSocket?.close(NET_PLAY_NORMAL_CLOSE_CODE, NET_PLAY_CLOSE_REASON)
+        webSocket = null
+    }
+
+    fun shutdown() {
+        disconnect()
+    }
+
+    fun send(message: String): Boolean {
+        return webSocket?.send(message) ?: false
+    }
+
+    private fun isCurrentSocket(socket: WebSocket): Boolean {
+        return socket == webSocket
+    }
+
+    private fun postStatus(status: NetConnectionStatus) {
+        mainHandler.post {
+            onStatusChange(status)
+        }
+    }
+
+    private fun postMessage(message: String) {
+        mainHandler.post {
+            onMessage(message)
+        }
     }
 }
 
@@ -1732,6 +3286,15 @@ private class SoundEffects(
     }
 }
 
+private fun buildNetServerUrl(serverIp: String, serverPort: Int): String {
+    val trimmedIp = serverIp.trim().ifBlank { DEFAULT_NET_SERVER_IP }
+    return "$NET_PLAY_WEBSOCKET_SCHEME$trimmedIp:$serverPort$NET_PLAY_WEBSOCKET_PATH"
+}
+
+private fun generatePlayerId(): String {
+    return UUID.randomUUID().toString()
+}
+
 private fun loadSettings(context: Context): UserSettings {
     val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     val storedMax = if (prefs.contains(KEY_MAX_LETTER_SET_SIZE)) {
@@ -1747,7 +3310,23 @@ private fun loadSettings(context: Context): UserSettings {
     val selectionModeId = prefs.getString(KEY_CROSSWORD_SELECTION_MODE, DEFAULT_CROSSWORD_SELECTION_MODE_ID)
         ?: DEFAULT_CROSSWORD_SELECTION_MODE_ID
     val selectionMode = CrosswordSelectionMode.fromId(selectionModeId)
-    return UserSettings(muted = muted, maxLetterSetSize = maxLetterSetSize, selectionMode = selectionMode)
+    val playerName = prefs.getString(KEY_NET_PLAYER_NAME, DEFAULT_NET_PLAYER_NAME) ?: DEFAULT_NET_PLAYER_NAME
+    val playerColorId = prefs.getString(KEY_NET_PLAYER_COLOR, NET_PLAYER_COLOR_WHITE) ?: NET_PLAYER_COLOR_WHITE
+    val playerColor = NetPlayerColor.fromId(playerColorId)
+    val serverIp = prefs.getString(KEY_NET_SERVER_IP, DEFAULT_NET_SERVER_IP) ?: DEFAULT_NET_SERVER_IP
+    val normalizedServerIp = serverIp.ifBlank { DEFAULT_NET_SERVER_IP }
+    val serverPort = prefs.getInt(KEY_NET_SERVER_PORT, DEFAULT_NET_SERVER_PORT)
+        .coerceIn(MIN_NET_SERVER_PORT, MAX_NET_SERVER_PORT)
+    return UserSettings(
+        muted = muted,
+        maxLetterSetSize = maxLetterSetSize,
+        selectionMode = selectionMode,
+        playerId = generatePlayerId(),
+        playerName = playerName,
+        playerColor = playerColor,
+        serverIp = normalizedServerIp,
+        serverPort = serverPort
+    )
 }
 
 private fun seedLetterLengthRange(maxLetterSetSize: Int): IntRange {
@@ -1920,6 +3499,7 @@ private fun buildRejectedSeedLettersDescription(seedLetters: String): String {
 }
 
 private fun saveSettings(context: Context, settings: UserSettings) {
+    val normalizedServerIp = settings.serverIp.trim().ifBlank { DEFAULT_NET_SERVER_IP }
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         .edit()
         .putBoolean(KEY_MUTE, settings.muted)
@@ -1928,6 +3508,13 @@ private fun saveSettings(context: Context, settings: UserSettings) {
             settings.maxLetterSetSize.coerceIn(MIN_SEED_LETTER_SET_SIZE, MAX_SEED_LETTER_SET_SIZE)
         )
         .putString(KEY_CROSSWORD_SELECTION_MODE, settings.selectionMode.id)
+        .putString(KEY_NET_PLAYER_NAME, settings.playerName.trim())
+        .putString(KEY_NET_PLAYER_COLOR, settings.playerColor.id)
+        .putString(KEY_NET_SERVER_IP, normalizedServerIp)
+        .putInt(
+            KEY_NET_SERVER_PORT,
+            settings.serverPort.coerceIn(MIN_NET_SERVER_PORT, MAX_NET_SERVER_PORT)
+        )
         .apply()
 }
 

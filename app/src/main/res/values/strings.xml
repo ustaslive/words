@@ -29,4 +29,23 @@
     <string name="crossword_mode_random_word">Random word</string>
     <string name="crossword_mode_low_overlap">Least similar word</string>
     <string name="crossword_mode_vowel_rich_letters">Random letters</string>
+    <string name="settings_tab_general">General</string>
+    <string name="settings_tab_net_play">Net Play</string>
+    <string name="settings_net_play_player">Player</string>
+    <string name="settings_net_play_player_name">name</string>
+    <string name="settings_net_play_player_id">Player id</string>
+    <string name="settings_net_play_player_color">color</string>
+    <string name="settings_net_play_server">Server</string>
+    <string name="settings_net_play_server_ip">ip</string>
+    <string name="settings_net_play_server_port">port</string>
+    <string name="settings_net_play_color_white">White</string>
+    <string name="settings_net_play_color_yellow">Yellow</string>
+    <string name="settings_net_play_color_red">Red</string>
+    <string name="settings_net_play_color_light_green">Light green</string>
+    <string name="net_play_toggle_on">Net play on</string>
+    <string name="net_play_toggle_off">Net play off</string>
+    <string name="net_play_status_off">Off</string>
+    <string name="net_play_status_connecting">Connecting</string>
+    <string name="net_play_status_connected">Connected</string>
+    <string name="net_play_status_disconnected">Disconnected</string>
 </resources>
