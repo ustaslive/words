@@ -11,8 +11,16 @@ install:
 	@if [ ! -f "$(DEBUG_APK)" ]; then \
 		echo "Missing $(DEBUG_APK). Run 'make' to build before install."; \
 		exit 1; \
-	fi
-	adb install -r "$(DEBUG_APK)"
+	fi; \
+	devices="$$(adb devices | awk 'NR>1 && $$2=="device" {print $$1}')"; \
+	if [ -z "$$devices" ]; then \
+		echo "No connected devices found. Run 'make list' to check adb devices."; \
+		exit 1; \
+	fi; \
+	for device in $$devices; do \
+		echo "Installing to $$device"; \
+		adb -s "$$device" install -r "$(DEBUG_APK)" || exit 1; \
+	done
 
 all:
 	$(MAKE) build

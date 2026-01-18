@@ -195,6 +195,7 @@ private const val NET_PLAY_STATUS_BLINK_DURATION_MS = 650
 private const val NET_PLAY_STATUS_ALPHA_DIM = 0.3f
 private const val NET_PLAY_STATUS_ALPHA_FULL = 1f
 private const val NET_PLAY_STATUS_OFF_ALPHA = 0.4f
+private const val NET_PLAY_ICON_DISABLED_ALPHA = 0.4f
 private const val NET_PLAY_TOGGLE_ANIMATION_MS = 160
 private const val NET_PLAY_CORNER_DIVISOR = 2f
 private const val NET_PLAY_PADDING_MULTIPLIER = 2f
@@ -537,6 +538,9 @@ private fun GameScreen() {
         netSolvedBy = rebaseResult.solvedBy
         netPendingWords = rebaseResult.pendingWords
         netNeedsResend = allowResend && rebaseResult.pendingWords.isNotEmpty()
+        if (rebaseResult.confirmedWords.isNotEmpty()) {
+            soundEffects.successBell()
+        }
         if (playDiscardFeedback && rebaseResult.discardedWords.isNotEmpty()) {
             soundEffects.alreadySolvedConfirm()
         }
@@ -922,6 +926,7 @@ private fun GameScreen() {
                 netPlayEnabled = netPlayEnabled,
                 netConnectionStatus = netConnectionStatus,
                 netStats = netStats,
+                newGameEnabled = canStartNewGame,
                 onNetPlayToggle = { enabled ->
                     netPlayEnabled = enabled
                 },
@@ -982,6 +987,8 @@ private fun GameScreen() {
                 hasMissingWords = missingWordsState.entries.isNotEmpty(),
                 missingWordsCount = missingWordsState.remainingCount,
                 lastMissingWord = missingWordsState.lastGuessedWord,
+                playImmediateSuccessSound = !netPlayEnabled ||
+                    netConnectionStatus != NetConnectionStatus.Connected,
                 onShuffle = { letters = letters.shuffled() },
                 onNewGame = {
                     startNewGame()
@@ -1085,6 +1092,7 @@ private fun TopBar(
     netPlayEnabled: Boolean,
     netConnectionStatus: NetConnectionStatus,
     netStats: List<NetPlayerStat>,
+    newGameEnabled: Boolean,
     onNetPlayToggle: (Boolean) -> Unit,
     onSettings: () -> Unit,
     onNewGame: () -> Unit,
@@ -1114,7 +1122,8 @@ private fun TopBar(
             onClick = {
                 menuExpanded = false
                 onNewGame()
-            }
+            },
+            enabled = newGameEnabled
         )
         Spacer(modifier = Modifier.width(8.dp))
         Box {
@@ -1828,6 +1837,7 @@ private fun LetterWheelSection(
     hasMissingWords: Boolean,
     missingWordsCount: Int,
     lastMissingWord: String?,
+    playImmediateSuccessSound: Boolean,
     onShuffle: () -> Unit,
     onNewGame: () -> Unit,
     onHammerTap: () -> Unit,
@@ -1921,6 +1931,7 @@ private fun LetterWheelSection(
                             settledLetters = finalLetters
                         },
                         onWordSelected = onWordSelected,
+                        playImmediateSuccessSound = playImmediateSuccessSound,
                         soundEffects = soundEffects,
                         modifier = Modifier
                             .size(wheelSize)
@@ -1998,6 +2009,7 @@ private fun LetterWheel(
     onSelectionChanged: (List<Char>) -> Unit,
     onSelectionEnd: (List<Char>) -> Unit,
     onWordSelected: (String) -> WordResult,
+    playImmediateSuccessSound: Boolean,
     soundEffects: SoundEffects,
     modifier: Modifier = Modifier
 ) {
@@ -2017,6 +2029,7 @@ private fun LetterWheel(
         var lastToneFreq by remember { mutableStateOf<Double?>(null) }
         val onWordSelectedState by rememberUpdatedState(onWordSelected)
         val soundEffectsState by rememberUpdatedState(soundEffects)
+        val playImmediateSuccessSoundState by rememberUpdatedState(playImmediateSuccessSound)
         val onSelectionStartState by rememberUpdatedState(onSelectionStart)
         val onSelectionChangedState by rememberUpdatedState(onSelectionChanged)
         val onSelectionEndState by rememberUpdatedState(onSelectionEnd)
@@ -2104,7 +2117,11 @@ private fun LetterWheel(
                     }
                 }
                 when (onWordSelectedState(selectedWord)) {
-                    WordResult.Success -> soundEffectsState.successBell()
+                    WordResult.Success -> {
+                        if (playImmediateSuccessSoundState) {
+                            soundEffectsState.successBell()
+                        }
+                    }
                     WordResult.AlreadySolved -> soundEffectsState.alreadySolvedConfirm()
                     WordResult.MissingWordFound -> soundEffectsState.sideWordFound()
                     WordResult.MissingWordAlreadyFound -> soundEffectsState.alreadySolvedConfirm()
@@ -2361,19 +2378,20 @@ private fun CircleIconButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     contentDescription: String,
     onClick: () -> Unit,
+    enabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     Surface(
-        color = IconBase,
+        color = if (enabled) IconBase else IconBase.copy(alpha = NET_PLAY_ICON_DISABLED_ALPHA),
         shape = CircleShape,
         shadowElevation = 6.dp,
         modifier = modifier.size(44.dp)
     ) {
-        IconButton(onClick = onClick) {
+        IconButton(onClick = onClick, enabled = enabled) {
             Icon(
                 imageVector = icon,
                 contentDescription = contentDescription,
-                tint = Color.White
+                tint = if (enabled) Color.White else Color.White.copy(alpha = NET_PLAY_ICON_DISABLED_ALPHA)
             )
         }
     }
@@ -2445,6 +2463,7 @@ private data class NetRebaseResult(
     val grid: List<List<CrosswordCell>>,
     val pendingWords: List<String>,
     val discardedWords: List<String>,
+    val confirmedWords: List<String>,
     val solvedBy: Map<String, String>
 )
 
@@ -2456,11 +2475,12 @@ private fun rebasePendingWords(
     playerId: String
 ): NetRebaseResult {
     if (pendingWords.isEmpty()) {
-        return NetRebaseResult(baseGrid, emptyList(), emptyList(), baseSolvedBy)
+        return NetRebaseResult(baseGrid, emptyList(), emptyList(), emptyList(), baseSolvedBy)
     }
     var updatedGrid = baseGrid
     val remaining = mutableListOf<String>()
     val discarded = mutableListOf<String>()
+    val confirmed = mutableListOf<String>()
     val updatedSolvedBy = baseSolvedBy.toMutableMap()
     for (word in pendingWords) {
         val match = crosswordWords[word]
@@ -2470,7 +2490,11 @@ private fun rebasePendingWords(
         }
         val isSolved = match.positions.all { pos -> updatedGrid[pos.row][pos.col].isRevealed }
         if (isSolved) {
-            discarded.add(word)
+            if (baseSolvedBy[word] == playerId) {
+                confirmed.add(word)
+            } else {
+                discarded.add(word)
+            }
             continue
         }
         val (nextGrid, result) = applySelectedWord(word, crosswordWords, updatedGrid)
@@ -2484,7 +2508,13 @@ private fun rebasePendingWords(
             discarded.add(word)
         }
     }
-    return NetRebaseResult(updatedGrid, remaining, discarded, updatedSolvedBy.toMap())
+    return NetRebaseResult(
+        updatedGrid,
+        remaining,
+        discarded,
+        confirmed,
+        updatedSolvedBy.toMap()
+    )
 }
 
 private fun buildNetJoinMessage(settings: UserSettings): String {
