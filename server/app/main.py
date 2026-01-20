@@ -3,6 +3,7 @@ import logging
 import os
 import uuid
 from dataclasses import dataclass
+from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import uvicorn
@@ -22,6 +23,7 @@ MESSAGE_TYPE_REVEAL_CELL = "revealCell"
 MESSAGE_TYPE_PLAYERS_UPDATE = "playersUpdate"
 MESSAGE_TYPE_ERROR = "error"
 MESSAGE_ERROR_CONFLICT = "conflict"
+MESSAGE_ERROR_VERSION_MISMATCH = "version_mismatch"
 
 ROLE_HOST = "host"
 ROLE_GUEST = "guest"
@@ -37,6 +39,9 @@ JSON_KEY_MESSAGE = "message"
 JSON_KEY_STATE_VERSION = "stateVersion"
 JSON_KEY_BASE_VERSION = "baseVersion"
 JSON_KEY_BASE_VERSION_ALT = "base_version"
+JSON_KEY_CLIENT_VERSION = "clientVersion"
+JSON_KEY_SERVER_VERSION = "serverVersion"
+JSON_KEY_REQUIRED_CLIENT_VERSION = "requiredClientVersion"
 JSON_KEY_PLAYERS = "players"
 JSON_KEY_SEED_LETTERS = "seedLetters"
 JSON_KEY_WHEEL_LETTERS = "wheelLetters"
@@ -53,11 +58,14 @@ SERVER_INSTANCE_ID = str(uuid.uuid4())
 GRID_ROW_INDEX_PAD = 2
 STATE_VERSION_INITIAL = 1
 STATE_VERSION_INCREMENT = 1
+VERSION_DEBUG_SUFFIX = "-debug"
+VERSION_UNKNOWN = "unknown"
 
 ENV_HOST = "HOST"
 ENV_PORT = "PORT"
 ENV_WS_PING_INTERVAL_SECONDS = "WS_PING_INTERVAL_SECONDS"
 ENV_WS_PING_TIMEOUT_SECONDS = "WS_PING_TIMEOUT_SECONDS"
+ENV_VERSION_FILE = "WORDS_VERSION_FILE"
 
 LOGGER_NAME = "words.server"
 
@@ -107,6 +115,18 @@ def build_error_message(message: str) -> dict:
     return {
         JSON_KEY_TYPE: MESSAGE_TYPE_ERROR,
         JSON_KEY_MESSAGE: message,
+    }
+
+
+def build_version_mismatch_message(client_version: str, server_version: str) -> dict:
+    resolved_client = coalesce_version(client_version)
+    resolved_server = coalesce_version(server_version)
+    return {
+        JSON_KEY_TYPE: MESSAGE_TYPE_ERROR,
+        JSON_KEY_MESSAGE: MESSAGE_ERROR_VERSION_MISMATCH,
+        JSON_KEY_CLIENT_VERSION: resolved_client,
+        JSON_KEY_SERVER_VERSION: resolved_server,
+        JSON_KEY_REQUIRED_CLIENT_VERSION: resolved_server,
     }
 
 
@@ -224,6 +244,49 @@ def format_client(websocket: WebSocket) -> str:
             return f"{host}:{port}"
         except Exception:
             return "unknown"
+
+
+def normalize_version(value: str) -> str:
+    trimmed = value.strip()
+    if trimmed.endswith(VERSION_DEBUG_SUFFIX):
+        return trimmed[: -len(VERSION_DEBUG_SUFFIX)]
+    return trimmed
+
+
+def coalesce_version(value: str) -> str:
+    trimmed = value.strip()
+    return trimmed if trimmed else VERSION_UNKNOWN
+
+
+def resolve_version_file() -> Path:
+    override = os.getenv(ENV_VERSION_FILE)
+    if override:
+        return Path(override)
+    source_path = Path(__file__).resolve()
+    for parent in source_path.parents:
+        candidate = parent / "version.txt"
+        if candidate.exists():
+            return candidate
+    return source_path.parents[2] / "version.txt"
+
+
+def read_server_version() -> str:
+    version_file = resolve_version_file()
+    try:
+        raw = version_file.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        LOGGER.warning("version_file_missing path=%s", version_file)
+        return ""
+    except OSError as error:
+        LOGGER.warning("version_file_error path=%s error=%s", version_file, str(error))
+        return ""
+    normalized = normalize_version(raw)
+    if not normalized:
+        LOGGER.warning("version_file_empty path=%s", version_file)
+    return normalized
+
+
+SERVER_VERSION = read_server_version()
 
 
 def summarize_snapshot(snapshot: dict | None) -> str:
@@ -363,6 +426,23 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 join_payload.get(JSON_KEY_PLAYER_COLOR),
             )
             await websocket.send_json(build_error_message("invalid_join_payload"))
+            await websocket.close()
+            return
+        client_version = normalize_version(
+            get_optional_str(join_payload, JSON_KEY_CLIENT_VERSION)
+        )
+        server_version = SERVER_VERSION
+        if not client_version or not server_version or client_version != server_version:
+            LOGGER.info(
+                "%s -> join -> %s rejected reason=version_mismatch client=%s server=%s",
+                connection_label,
+                srv,
+                coalesce_version(client_version),
+                coalesce_version(server_version),
+            )
+            await websocket.send_json(
+                build_version_mismatch_message(client_version, server_version)
+            )
             await websocket.close()
             return
 

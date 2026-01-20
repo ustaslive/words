@@ -3,6 +3,10 @@ services:
     build: .
     image: words-server
     container_name: words-server
+    environment:
+      WORDS_VERSION_FILE: /app/version.txt
     ports:
       - "9999:9999"
     restart: unless-stopped
+    volumes:
+      - "../version.txt:/app/version.txt:ro"

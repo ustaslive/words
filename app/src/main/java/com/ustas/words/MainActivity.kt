@@ -63,6 +63,10 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -136,6 +140,7 @@ import kotlin.math.roundToInt
 import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.random.Random
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -211,6 +216,7 @@ private const val NET_MESSAGE_TYPE_REVEAL_CELL = "revealCell"
 private const val NET_MESSAGE_TYPE_PLAYERS_UPDATE = "playersUpdate"
 private const val NET_MESSAGE_TYPE_ERROR = "error"
 private const val NET_ERROR_CONFLICT = "conflict"
+private const val NET_ERROR_VERSION_MISMATCH = "version_mismatch"
 private const val NET_ROLE_HOST = "host"
 private const val NET_ROLE_GUEST = "guest"
 private const val NET_JSON_TYPE = "type"
@@ -222,6 +228,9 @@ private const val NET_JSON_SNAPSHOT = "snapshot"
 private const val NET_JSON_PLAYERS = "players"
 private const val NET_JSON_STATE_VERSION = "stateVersion"
 private const val NET_JSON_BASE_VERSION = "baseVersion"
+private const val NET_JSON_CLIENT_VERSION = "clientVersion"
+private const val NET_JSON_SERVER_VERSION = "serverVersion"
+private const val NET_JSON_REQUIRED_CLIENT_VERSION = "requiredClientVersion"
 private const val NET_JSON_SEED_LETTERS = "seedLetters"
 private const val NET_JSON_GRID_ROWS = "gridRows"
 private const val NET_JSON_REVEALED = "revealed"
@@ -235,6 +244,10 @@ private const val NET_JSON_SETTINGS = "settings"
 private const val NET_JSON_SELECTION_MODE = "selectionMode"
 private const val NET_JSON_MAX_LETTER_SET_SIZE = "maxLetterSetSize"
 private const val NET_JSON_MESSAGE = "message"
+private const val NET_VERSION_DEBUG_SUFFIX = "-debug"
+private const val NET_VERSION_UNKNOWN = "unknown"
+private val NET_VERSION_SNACKBAR_HORIZONTAL_PADDING = 16.dp
+private val NET_VERSION_SNACKBAR_VERTICAL_PADDING = 12.dp
 private const val MIN_SEED_LETTER_SET_SIZE = 6
 private const val MAX_SEED_LETTER_SET_SIZE = 9
 private const val DEFAULT_MAX_LETTER_SET_SIZE = MAX_SEED_LETTER_SET_SIZE
@@ -445,6 +458,7 @@ private fun GameScreen() {
         SoundEffects(tonePlayer, letterTapSample, bellSample, sideWordSample, completedSample)
     }
     val coroutineScope = rememberCoroutineScope()
+    val netVersionSnackbarHostState = remember { SnackbarHostState() }
     var settings by remember { mutableStateOf(loadSettings(appContext)) }
     var showSettings by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
@@ -628,6 +642,20 @@ private fun GameScreen() {
             is NetMessage.Error -> {
                 if (message.players.isNotEmpty()) {
                     netPlayers = message.players
+                }
+                if (message.message == NET_ERROR_VERSION_MISMATCH) {
+                    val serverVersion = message.serverVersion.ifBlank { NET_VERSION_UNKNOWN }
+                    val clientVersion = message.clientVersion.ifBlank { NET_VERSION_UNKNOWN }
+                    val requiredVersion = message.requiredClientVersion.ifBlank { serverVersion }
+                    showNetVersionMismatchSnackbar(
+                        context = appContext,
+                        snackbarHostState = netVersionSnackbarHostState,
+                        coroutineScope = coroutineScope,
+                        serverVersion = serverVersion,
+                        clientVersion = clientVersion,
+                        requiredVersion = requiredVersion
+                    )
+                    netPlayEnabled = false
                 }
             }
         }
@@ -1114,6 +1142,20 @@ private fun GameScreen() {
                 modifier = Modifier.weight(0.9f)
             )
         }
+        SnackbarHost(
+            hostState = netVersionSnackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(
+                    horizontal = NET_VERSION_SNACKBAR_HORIZONTAL_PADDING,
+                    vertical = NET_VERSION_SNACKBAR_VERTICAL_PADDING
+                ),
+            snackbar = { data ->
+                Snackbar(modifier = Modifier.fillMaxWidth()) {
+                    Text(text = data.visuals.message)
+                }
+            }
+        )
         if (showSettings) {
             SettingsDialog(
                 current = settings,
@@ -2505,7 +2547,10 @@ private sealed interface NetMessage {
     ) : NetMessage
     data class Error(
         val message: String,
-        val players: List<NetPlayerInfo> = emptyList()
+        val players: List<NetPlayerInfo> = emptyList(),
+        val serverVersion: String = "",
+        val clientVersion: String = "",
+        val requiredClientVersion: String = ""
     ) : NetMessage
 }
 
@@ -2620,12 +2665,42 @@ private fun rebasePendingReveals(
     return NetRebaseRevealResult(updatedGrid, remaining)
 }
 
+private fun normalizeClientVersion(rawVersion: String): String {
+    val trimmed = rawVersion.trim()
+    val normalized = trimmed.removeSuffix(NET_VERSION_DEBUG_SUFFIX)
+    return normalized.ifBlank { NET_VERSION_UNKNOWN }
+}
+
+private fun showNetVersionMismatchSnackbar(
+    context: Context,
+    snackbarHostState: SnackbarHostState,
+    coroutineScope: CoroutineScope,
+    serverVersion: String,
+    clientVersion: String,
+    requiredVersion: String
+) {
+    val message = context.getString(
+        R.string.net_version_mismatch,
+        serverVersion,
+        clientVersion,
+        requiredVersion
+    )
+    coroutineScope.launch {
+        snackbarHostState.currentSnackbarData?.dismiss()
+        snackbarHostState.showSnackbar(
+            message = message,
+            duration = SnackbarDuration.Long
+        )
+    }
+}
+
 private fun buildNetJoinMessage(settings: UserSettings): String {
     val root = JSONObject()
     root.put(NET_JSON_TYPE, NET_MESSAGE_TYPE_JOIN)
     root.put(NET_JSON_PLAYER_ID, settings.playerId)
     root.put(NET_JSON_PLAYER_NAME, settings.playerName)
     root.put(NET_JSON_PLAYER_COLOR, settings.playerColor.id)
+    root.put(NET_JSON_CLIENT_VERSION, normalizeClientVersion(BuildConfig.VERSION_NAME))
     return root.toString()
 }
 
@@ -2787,10 +2862,19 @@ private fun parseNetMessage(raw: String): NetMessage? {
         NET_MESSAGE_TYPE_ERROR -> {
             val message = root.optString(NET_JSON_MESSAGE, "")
             val snapshot = root.optJSONObject(NET_JSON_SNAPSHOT)?.let { parseNetSnapshot(it) }
+            val serverVersion = root.optString(NET_JSON_SERVER_VERSION, "")
+            val clientVersion = root.optString(NET_JSON_CLIENT_VERSION, "")
+            val requiredClientVersion = root.optString(NET_JSON_REQUIRED_CLIENT_VERSION, "")
             if (message == NET_ERROR_CONFLICT && snapshot != null) {
                 NetMessage.Conflict(snapshot = snapshot, players = players)
             } else {
-                NetMessage.Error(message = message, players = players)
+                NetMessage.Error(
+                    message = message,
+                    players = players,
+                    serverVersion = serverVersion,
+                    clientVersion = clientVersion,
+                    requiredClientVersion = requiredClientVersion
+                )
             }
         }
         else -> null

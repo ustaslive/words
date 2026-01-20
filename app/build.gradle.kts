@@ -11,6 +11,12 @@ android {
     namespace = "com.ustas.words"
     compileSdk = 35
 
+    val versionFile = rootProject.file("version.txt")
+    val appVersion = versionFile.readText().trim()
+    if (appVersion.isBlank()) {
+        error("version.txt is empty")
+    }
+
     val buildTimePattern = "yyyy-MM-dd HH:mm:ss 'UTC'"
     val buildTimeUtc = ZonedDateTime.now(ZoneOffset.UTC)
         .format(DateTimeFormatter.ofPattern(buildTimePattern))
@@ -20,7 +26,7 @@ android {
         minSdk = 24
         targetSdk = 35
         versionCode = 7
-        versionName = "1.0.7"
+        versionName = appVersion
         buildConfigField("String", "BUILD_TIME_UTC", "\"$buildTimeUtc\"")
     }
 
