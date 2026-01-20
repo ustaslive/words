@@ -49,6 +49,9 @@
         player - not be part of snapshot
     [ ] word selection wheel in net more can redraw someimes. the order is probably saved in snapshot with new word guessed.
         and transfered to other player(s)
+    [ ] add apps / server versioning - comparing/supporting
+    [ ] 
+    [ ] 
     [ ] 
 
 

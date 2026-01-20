@@ -223,7 +223,6 @@ private const val NET_JSON_PLAYERS = "players"
 private const val NET_JSON_STATE_VERSION = "stateVersion"
 private const val NET_JSON_BASE_VERSION = "baseVersion"
 private const val NET_JSON_SEED_LETTERS = "seedLetters"
-private const val NET_JSON_WHEEL_LETTERS = "wheelLetters"
 private const val NET_JSON_GRID_ROWS = "gridRows"
 private const val NET_JSON_REVEALED = "revealed"
 private const val NET_JSON_WORDS = "words"
@@ -502,15 +501,21 @@ private fun GameScreen() {
             val baseGrid = buildCrosswordGridFromRows(snapshot.gridRows)
             val revealedGrid = applyRevealedPositions(baseGrid, snapshot.revealedPositions)
             val wordMap = snapshot.words.associateBy { it.word }
-            seedLetters = snapshot.seedLetters
-            letters = if (snapshot.wheelLetters.isEmpty()) {
-                generateLetterWheel(snapshot.seedLetters)
-            } else {
-                snapshot.wheelLetters
+            val nextSeedLetters = snapshot.seedLetters
+            val shouldResetWheel = letters.isEmpty() || seedLetters != nextSeedLetters
+            val shouldResetMissingWords = missingWordsState.entries.isEmpty() ||
+                seedLetters != nextSeedLetters ||
+                crosswordWords.keys != wordMap.keys ||
+                snapshot.stateVersion == NET_STATE_VERSION_INITIAL
+            seedLetters = nextSeedLetters
+            if (shouldResetWheel) {
+                letters = generateLetterWheel(nextSeedLetters).shuffled()
             }
             grid = revealedGrid
             crosswordWords = wordMap
-            missingWordsState = buildMissingWordsState(snapshot.seedLetters, dictionary, wordMap)
+            if (shouldResetMissingWords) {
+                missingWordsState = buildMissingWordsState(snapshot.seedLetters, dictionary, wordMap)
+            }
             highlightedPositions = emptySet()
             hammerMode = HammerMode.Off
             generationError = false
@@ -675,7 +680,6 @@ private fun GameScreen() {
         }
         val snapshot = buildNetSnapshotFromState(
             seedLetters = seedLetters,
-            wheelLetters = letters,
             grid = grid,
             crosswordWords = crosswordWords,
             settings = settings,
@@ -882,7 +886,6 @@ private fun GameScreen() {
         ) {
             val snapshot = buildNetSnapshotFromState(
                 seedLetters = seedLetters,
-                wheelLetters = letters,
                 grid = grid,
                 crosswordWords = crosswordWords,
                 settings = settings,
@@ -1003,7 +1006,6 @@ private fun GameScreen() {
                             if (!netSubmissionInFlight && netConnectionStatus == NetConnectionStatus.Connected) {
                                 val snapshot = buildNetSnapshotFromState(
                                     seedLetters = seedLetters,
-                                    wheelLetters = letters,
                                     grid = grid,
                                     crosswordWords = crosswordWords,
                                     settings = settings,
@@ -1077,7 +1079,6 @@ private fun GameScreen() {
                         if (!netSubmissionInFlight && netConnectionStatus == NetConnectionStatus.Connected) {
                             val snapshot = buildNetSnapshotFromState(
                                 seedLetters = seedLetters,
-                                wheelLetters = letters,
                                 grid = grid,
                                 crosswordWords = crosswordWords,
                                 settings = settings,
@@ -2478,7 +2479,6 @@ private data class NetSnapshotSettings(
 private data class NetSnapshot(
     val stateVersion: Int,
     val seedLetters: String,
-    val wheelLetters: List<Char>,
     val gridRows: List<String>,
     val revealedPositions: List<GridPosition>,
     val words: List<CrosswordWord>,
@@ -2654,7 +2654,6 @@ private fun buildNetRevealCellMessage(snapshot: NetSnapshot, baseVersion: Int): 
 
 private fun buildNetSnapshotFromState(
     seedLetters: String,
-    wheelLetters: List<Char>,
     grid: List<List<CrosswordCell>>,
     crosswordWords: Map<String, CrosswordWord>,
     settings: UserSettings,
@@ -2667,15 +2666,9 @@ private fun buildNetSnapshotFromState(
     val gridRows = buildGridRows(grid)
     val revealedPositions = buildRevealedPositions(grid)
     val words = crosswordWords.values.toList()
-    val resolvedWheelLetters = if (wheelLetters.isEmpty()) {
-        generateLetterWheel(seedLetters)
-    } else {
-        wheelLetters
-    }
     return NetSnapshot(
         stateVersion = stateVersion,
         seedLetters = seedLetters,
-        wheelLetters = resolvedWheelLetters,
         gridRows = gridRows,
         revealedPositions = revealedPositions,
         words = words,
@@ -2695,10 +2688,6 @@ private fun buildNetSnapshotJson(snapshot: NetSnapshot): JSONObject {
     val root = JSONObject()
     root.put(NET_JSON_STATE_VERSION, snapshot.stateVersion)
     root.put(NET_JSON_SEED_LETTERS, snapshot.seedLetters)
-    root.put(
-        NET_JSON_WHEEL_LETTERS,
-        JSONArray(snapshot.wheelLetters.map { it.toString() })
-    )
     root.put(NET_JSON_GRID_ROWS, JSONArray(snapshot.gridRows))
     root.put(NET_JSON_REVEALED, buildPositionsJson(snapshot.revealedPositions))
     root.put(NET_JSON_WORDS, buildWordsJson(snapshot.words))
@@ -2817,7 +2806,6 @@ private fun parseNetSnapshot(snapshot: JSONObject): NetSnapshot? {
     if (gridRows.isEmpty()) {
         return null
     }
-    val wheelLetters = parseWheelLetters(snapshot.optJSONArray(NET_JSON_WHEEL_LETTERS), seedLetters)
     val revealedPositions = parsePositions(snapshot.optJSONArray(NET_JSON_REVEALED))
     val words = parseWords(snapshot.optJSONArray(NET_JSON_WORDS))
     val solvedBy = parseSolvedBy(snapshot.optJSONObject(NET_JSON_SOLVED_BY))
@@ -2826,7 +2814,6 @@ private fun parseNetSnapshot(snapshot: JSONObject): NetSnapshot? {
     return NetSnapshot(
         stateVersion = stateVersion,
         seedLetters = seedLetters,
-        wheelLetters = wheelLetters,
         gridRows = gridRows,
         revealedPositions = revealedPositions,
         words = words,
@@ -2896,22 +2883,6 @@ private fun parseGridRows(rows: JSONArray?): List<String> {
         result.add(rows.optString(index, ""))
     }
     return result
-}
-
-private fun parseWheelLetters(array: JSONArray?, seedLetters: String): List<Char> {
-    if (array == null) {
-        return generateLetterWheel(seedLetters)
-    }
-    val letters = mutableListOf<Char>()
-    val count = array.length()
-    repeat(count) { index ->
-        val raw = array.optString(index, "")
-        val letter = raw.firstOrNull()
-        if (letter != null) {
-            letters.add(letter)
-        }
-    }
-    return if (letters.isEmpty()) generateLetterWheel(seedLetters) else letters
 }
 
 private fun parsePositions(array: JSONArray?): List<GridPosition> {

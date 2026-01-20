@@ -234,7 +234,6 @@ def summarize_snapshot(snapshot: dict | None) -> str:
     grid_rows = snapshot.get(JSON_KEY_GRID_ROWS)
     revealed = snapshot.get(JSON_KEY_REVEALED)
     words = snapshot.get(JSON_KEY_WORDS)
-    wheel_letters = snapshot.get(JSON_KEY_WHEEL_LETTERS)
     settings = snapshot.get(JSON_KEY_SETTINGS)
     grid_count = len(grid_rows) if isinstance(grid_rows, list) else None
     grid_cols = (
@@ -245,7 +244,7 @@ def summarize_snapshot(snapshot: dict | None) -> str:
         else None
     )
     return (
-        "stateVersion=%s seedLen=%s grid=%sx%s words=%s revealed=%s wheel=%s settings=%s"
+        "stateVersion=%s seedLen=%s grid=%sx%s words=%s revealed=%s settings=%s"
         % (
             state_version,
             len(seed_letters) if isinstance(seed_letters, str) else None,
@@ -253,10 +252,13 @@ def summarize_snapshot(snapshot: dict | None) -> str:
             grid_cols,
             len(words) if isinstance(words, list) else None,
             len(revealed) if isinstance(revealed, list) else None,
-            len(wheel_letters) if isinstance(wheel_letters, list) else None,
             "yes" if isinstance(settings, dict) else "no",
         )
     )
+
+
+def strip_wheel_letters(snapshot: dict) -> None:
+    snapshot.pop(JSON_KEY_WHEEL_LETTERS, None)
 
 
 def build_grid_rows_for_log(snapshot: dict) -> list[str]:
@@ -575,6 +577,7 @@ async def handle_new_game_message(session: ClientSession, payload: dict) -> None
             )
             await session.websocket.send_json(build_error_message("host_required"))
             return
+        strip_wheel_letters(snapshot)
         snapshot[JSON_KEY_STATE_VERSION] = STATE_VERSION_INITIAL
         ROOM.snapshot = snapshot
         ROOM.state_version = STATE_VERSION_INITIAL
@@ -616,6 +619,7 @@ async def handle_state_update_message(
         )
         await session.websocket.send_json(build_error_message("invalid_snapshot"))
         return
+    strip_wheel_letters(snapshot)
     base_version = get_optional_int(payload, JSON_KEY_BASE_VERSION)
     if base_version is None:
         base_version = get_optional_int(payload, JSON_KEY_BASE_VERSION_ALT)

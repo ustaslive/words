@@ -114,6 +114,7 @@ advisory
 advocacy
 advocate
 aerial
+aero
 aerospace
 aesthetic
 affair
@@ -539,7 +540,6 @@ beastie
 beat
 beaten
 beating
-beau
 beautiful
 beauty
 beaver
@@ -1095,6 +1095,7 @@ choose
 choosing
 chop
 chord
+chore
 chorus
 chose
 chosen
@@ -1751,6 +1752,7 @@ ding
 dingo
 dining
 dinner
+dino
 dinosaur
 dioxide
 diploma
@@ -3052,6 +3054,7 @@ hourly
 house
 household
 housing
+hover
 however
 huge
 hugely
@@ -3912,6 +3915,7 @@ mixer
 mixing
 mixture
 moan
+moat
 mobile
 mobility
 mock
@@ -4210,6 +4214,7 @@ offset
 offshore
 offspring
 often
+oily
 okay
 older
 oldest
@@ -4926,6 +4931,7 @@ raining
 rainy
 raise
 raising
+rake
 rally
 ramp
 rampant
@@ -5244,6 +5250,7 @@ rivalry
 river
 riverside
 road
+roam
 roaming
 roar
 roaring
@@ -5708,6 +5715,7 @@ slightest
 slightly
 slim
 slip
+slipper
 slippery
 slipping
 slogan
@@ -6368,7 +6376,6 @@ through
 throw
 throwing
 thrown
-thru
 thrust
 thumb
 thunder
