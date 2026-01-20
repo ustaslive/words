@@ -44,8 +44,11 @@
         еще предположение - что я уже выставил там буквы на экране - и  это при сбросе порядка букв как то 
     [ ] при наклоне телефона. если ориентация не фиксирована и меняется - то весь кроссворд сбрасывается
         надо чтобы этого не происходило
-    [ ] 
-    [ ] 
+    [ ] in network mode - number of found missing words is kept separately for each player, but is it updated
+        with grod update. not good. these numbers and list of missing words shall be lekp for each
+        player - not be part of snapshot
+    [ ] word selection wheel in net more can redraw someimes. the order is probably saved in snapshot with new word guessed.
+        and transfered to other player(s)
     [ ] 
 
 
