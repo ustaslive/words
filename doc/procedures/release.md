@@ -2,7 +2,7 @@
 
 ## TL;DR (quick checklist)
 
-- Create `release_v<version>` from `develop`, bump versions in `app/build.gradle.kts`, and add release notes in `doc/releases/release_v<version>.md`.
+- Create `release_v<version>` from `develop`, bump versions in `version.txt` and `app/build.gradle.kts`, and add release notes in `doc/releases/release_v<version>.md`.
 - Build and verify the release bundle, then merge to `develop` and `master`, build again, and upload to Google Play (internal testing).
 - Tag and push only after the upload succeeds.
 
@@ -12,9 +12,9 @@ Command template:
 git checkout develop
 git pull
 git checkout -b release_v<version>
-# Edit app/build.gradle.kts: versionCode, versionName
+# Edit version.txt (versionName) and app/build.gradle.kts (versionCode)
 # Create doc/releases/release_v<version>.md with release notes
-git add app/build.gradle.kts doc/releases/release_v<version>.md
+git add version.txt app/build.gradle.kts doc/releases/release_v<version>.md
 git commit -m "Release v<version>"
 ./gradlew bundleRelease
 git checkout develop
@@ -29,7 +29,8 @@ git push origin v<version>
 
 Files and fields to update:
 
-- `app/build.gradle.kts`: `versionCode`, `versionName` (must match `v<version>` without the `v`)
+- `version.txt`: `versionName` value (must match `v<version>` without the `v`)
+- `app/build.gradle.kts`: `versionCode` (must strictly increase)
 - `doc/releases/release_v<version>.md`: release notes text
 
 This guide documents how to prepare a release for internal testing and publish it to Google Play.
@@ -50,10 +51,10 @@ The release version must match both the Gradle config and the Git tag.
 - Check the latest tag:
   - `git tag --list "v*" --sort=version:refname | tail -n 1`
 - Decide the next version by incrementing that tag (patch, minor, or major).
-- Read current values in `app/build.gradle.kts`:
-  - `versionCode` must strictly increase.
-  - `versionName` must match the tag version without the `v` prefix, for example `1.2.3` with tag `v1.2.3`.
-- If Gradle values and tags do not align, fix them before creating the release branch.
+- Read current values:
+  - `version.txt` holds `versionName` and must match the tag version without the `v` prefix, for example `1.2.3` with tag `v1.2.3`.
+  - `versionCode` in `app/build.gradle.kts` must strictly increase.
+- If the version file, Gradle values, and tags do not align, fix them before creating the release branch.
 
 ## Create the release branch
 
@@ -63,7 +64,8 @@ The release version must match both the Gradle config and the Git tag.
 - Create `release_v<version>`:
   - `git checkout -b release_v<version>`
 - Only release-specific changes are allowed in this branch:
-  - Update `versionCode` and `versionName` in `app/build.gradle.kts`.
+  - Update `version.txt` with the new `versionName`.
+  - Update `versionCode` in `app/build.gradle.kts`.
   - Create `doc/releases` if it does not exist.
   - Create release notes in `doc/releases/release_v<version>.md`.
   - Commit the release changes.
