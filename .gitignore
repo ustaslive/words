@@ -26,6 +26,9 @@ outputs/
 *.swo
 *~
 
+# Local environment overrides
+.env
+
 # Devcontainer
 .devcontainer/.env
 

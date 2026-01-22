@@ -3,6 +3,12 @@
 .PHONY: build install all uninstall test release connect list
 
 DEBUG_APK := app/build/outputs/apk/debug/app-debug.apk
+DOTENV_FILE := .env
+EXAMPLE_ADB_HOSTS := 203.0.113.10 203.0.113.11
+
+ifneq (,$(wildcard $(DOTENV_FILE)))
+	include $(DOTENV_FILE)
+endif
 
 build:
 	./gradlew assembleDebug
@@ -36,12 +42,23 @@ release:
 	./gradlew bundleRelease
 
 connect:
-	@read -p "Port: " PORT; \
-	if [ -z "$$PORT" ]; then \
-		echo "Port is required."; \
+	@if [ -z "$(ADB_HOSTS)" ]; then \
+		echo "Missing ADB_HOSTS in $(DOTENV_FILE)."; \
+		echo "Create $(DOTENV_FILE) with:"; \
+		echo "  ADB_HOSTS=$(EXAMPLE_ADB_HOSTS)"; \
+		echo "This sets the device IPs used by 'make connect' to run adb over TCP/IP."; \
+		echo "You can separate IPs with spaces or commas."; \
 		exit 1; \
 	fi; \
-	adb connect 199.99.9.14:$$PORT
+	hosts="$$(echo "$(ADB_HOSTS)" | tr ',' ' ')"; \
+	for host in $$hosts; do \
+		read -p "Port for $$host (Enter to skip): " PORT; \
+		if [ -z "$$PORT" ]; then \
+			echo "Skipping $$host"; \
+			continue; \
+		fi; \
+		adb connect "$$host:$$PORT" || exit 1; \
+	done
 
 list:
 	adb devices
