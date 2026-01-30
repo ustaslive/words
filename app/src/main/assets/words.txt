@@ -1509,7 +1509,6 @@ cult
 cultural
 culture
 curator
-curb
 cure
 curiosity
 curious
@@ -2750,6 +2749,7 @@ grace
 gracious
 grad
 grade
+gradient
 gradual
 gradually
 graduate
@@ -3440,6 +3440,7 @@ largely
 larger
 largest
 laser
+lash
 last
 lasting
 lastly
@@ -3626,6 +3627,7 @@ lookout
 loop
 loose
 loosely
+loot
 lord
 lore
 lose
@@ -3783,6 +3785,7 @@ matter
 mattress
 mature
 maturity
+maul
 maximize
 maximum
 maybe
@@ -4008,6 +4011,7 @@ movie
 moving
 much
 muddy
+mule
 multiple
 multiply
 multitude
@@ -5254,7 +5258,6 @@ rising
 risk
 risking
 risky
-rite
 ritual
 rival
 rivalry
@@ -5997,6 +6000,7 @@ still
 stimulate
 stimulus
 sting
+stink
 stint
 stir
 stirring
