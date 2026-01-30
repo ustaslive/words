@@ -26,6 +26,7 @@ absurd
 abundance
 abundant
 abuse
+abuser
 abusing
 abusive
 academia
@@ -818,6 +819,7 @@ brushing
 brutal
 brutality
 brutally
+brute
 bubble
 buck
 bucket
@@ -1813,6 +1815,7 @@ district
 disturb
 ditch
 dive
+diver
 diverse
 diversion
 diversity
@@ -2566,6 +2569,7 @@ freeze
 freezer
 freezing
 freight
+french
 frequency
 frequent
 fresh
@@ -2683,6 +2687,7 @@ gill
 gimme
 ginger
 girl
+gist
 give
 giveaway
 given
@@ -2695,7 +2700,6 @@ glamour
 glance
 glare
 glass
-glen
 glide
 glimpse
 glitter
@@ -2991,6 +2995,7 @@ history
 hitter
 hitting
 hive
+hoard
 hoax
 hobby
 hockey
@@ -3104,6 +3109,7 @@ ideology
 idiot
 idle
 idol
+igloo
 ignition
 ignorance
 ignorant
@@ -3283,6 +3289,7 @@ invent
 invention
 inventor
 inventory
+inverse
 invest
 investing
 investor
@@ -3374,6 +3381,7 @@ kidney
 kill
 killer
 killing
+kilo
 kind
 kindle
 kindly
@@ -3441,6 +3449,7 @@ latent
 later
 lateral
 latest
+latin
 latino
 latitude
 latter
@@ -4004,6 +4013,7 @@ multiply
 multitude
 mummy
 municipal
+mural
 murder
 murderer
 murdering
@@ -4364,7 +4374,6 @@ papa
 paper
 paperback
 paperwork
-para
 parachute
 parade
 paradigm
@@ -5026,6 +5035,7 @@ recruit
 recurring
 recycling
 redeem
+redo
 reduce
 reducing
 reduction
@@ -5210,6 +5220,7 @@ revive
 revolt
 reward
 rewarding
+rework
 rhetoric
 rhino
 rhyme
@@ -5739,6 +5750,7 @@ smell
 smelling
 smile
 smiling
+smith
 smoke
 smoking
 smooth
@@ -5880,6 +5892,7 @@ spoken
 spokesman
 sponge
 sponsor
+spoof
 spooky
 spoon
 spore
@@ -6548,6 +6561,7 @@ trophy
 tropical
 trouble
 troubling
+trousers
 trout
 truce
 truck
