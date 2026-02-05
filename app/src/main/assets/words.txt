@@ -420,7 +420,6 @@ averaging
 avert
 avia
 aviation
-avid
 avoid
 avoidance
 avoiding
@@ -937,6 +936,7 @@ card
 cardboard
 cardiac
 cardinal
+cardio
 care
 career
 careful
@@ -1306,7 +1306,7 @@ conductor
 cone
 confess
 confident
-confined
+confine
 confirm
 conflict
 conform
@@ -2824,7 +2824,6 @@ guiding
 guild
 guilt
 guilty
-guinea
 guitar
 guitarist
 gulf
@@ -3490,6 +3489,7 @@ leave
 leaving
 lecture
 lecturer
+ledge
 left
 leftist
 legacy
@@ -4943,6 +4943,7 @@ rainfall
 raining
 rainy
 raise
+raisin
 raising
 rake
 rally
@@ -5563,7 +5564,6 @@ shade
 shadow
 shady
 shaft
-shah
 shake
 shaken
 shaking
@@ -5768,6 +5768,7 @@ sneak
 sneaky
 snipe
 sniper
+snore
 snow
 soak
 soap
@@ -5814,6 +5815,7 @@ somewhat
 somewhere
 song
 sonic
+sonnet
 soon
 sooner
 sophomore
