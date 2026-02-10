@@ -27,6 +27,8 @@
     [ ] кликабельная ссылка в about
     [ ] how it is possible that 'send words for review' does not use share feature but sends email in background to particular email?
     [ ] чтобы сервер проверял версию клиента (брать из ts файла конфигурации) чтобы поддерживалась. пока просто равенство
+    [ ] улучшить алгоритм/подход к формированию новго кроссворда, чтобы было разнообразие. см src/lab/crossword_repetability/PROBLEM_OVERVIEW.md
+    [ ] 
     [ ] 
 
 [ ] publish in google play
