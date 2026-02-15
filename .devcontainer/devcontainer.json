@@ -19,7 +19,8 @@
       "settings": {
         "java.home": "/usr/lib/jvm/java-17-openjdk-amd64",
         "java.configuration.checkProjectSettingsExclusions": false,
-        "livePreview.portNumber": 3000
+        "livePreview.portNumber": 3000,
+        "remote.autoForwardPorts": false
       },
       "extensions": [
         "ms-azuretools.vscode-docker",
@@ -39,6 +40,21 @@
     "devcontainer"
   ],
   "forwardPorts": [
-    3000
-  ]
+    3000,
+    5037
+  ],
+  "portsAttributes": {
+    "3000": {
+      "label": "Live Preview",
+      "onAutoForward": "notify"
+    },
+    "5037": {
+      "label": "ADB Server",
+      "requireLocalPort": true,
+      "onAutoForward": "silent"
+    }
+  },
+  "otherPortsAttributes": {
+    "onAutoForward": "ignore"
+  }
 }
