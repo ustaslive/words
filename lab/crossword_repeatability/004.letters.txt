@@ -1,0 +1,35 @@
+# format=v1
+# generated_by=generate_004_letter_stats.py
+# source_dictionary=/words/app/src/main/assets/words.txt
+# source_forbidden=/words/app/src/main/assets/forbidden_words.txt
+# dictionary_words=7102
+# forbidden_words=45
+# allowed_words_before_ascii_filter=7094
+# skipped_non_ascii_words=0
+# total_letters_counted=45498
+e:5294
+i:3775
+a:3662
+r:3631
+n:3375
+t:3260
+o:2818
+l:2514
+s:2491
+c:1950
+g:1623
+u:1499
+d:1407
+p:1338
+m:1283
+h:1107
+y:969
+b:824
+f:726
+v:604
+w:518
+k:468
+x:142
+j:75
+z:74
+q:71

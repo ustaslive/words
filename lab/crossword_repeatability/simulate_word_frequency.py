@@ -9,6 +9,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Sequence
 
+from mode004_simulation import (
+    Mode004Config,
+    Mode004Hooks,
+    build_mode004_timing_header_lines,
+    simulate_mode004_word_frequency,
+)
+
 
 ALPHABET_START = "A"
 ALPHABET_END = "Z"
@@ -42,15 +49,19 @@ DEFAULT_SELECTION_MODE = "random_word"
 MODE_RANDOM_WORD = "random_word"
 MODE_LEAST_SIMILAR = "least_similar"
 MODE_RANDOM_LETTERS = "random_letters"
+MODE_STATS_004 = "stats_004"
 
 MODE_ALIAS_RANDOM_WORD = "random"
 MODE_ALIAS_LOW_OVERLAP = "low_overlap"
 MODE_ALIAS_VOWEL_RICH_LETTERS = "vowel_rich_letters"
+MODE_ALIAS_STATS_004 = "004"
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parents[1]
 DEFAULT_DICTIONARY_PATH = PROJECT_ROOT / "app/src/main/assets/words.txt"
 DEFAULT_FORBIDDEN_PATH = PROJECT_ROOT / "app/src/main/assets/forbidden_words.txt"
+DEFAULT_MODE004_WORD_STATS_PATH = SCRIPT_DIR / "004.txt"
+DEFAULT_MODE004_LETTER_STATS_PATH = SCRIPT_DIR / "004.letters.txt"
 
 
 @dataclass(frozen=True)
@@ -105,8 +116,8 @@ def parse_args() -> argparse.Namespace:
         "--selection-mode",
         default=DEFAULT_SELECTION_MODE,
         help=(
-            "Selection mode. Supported values: random_word, least_similar, random_letters "
-            "(aliases: random, low_overlap, vowel_rich_letters)."
+            "Selection mode. Supported values: random_word, least_similar, random_letters, stats_004 "
+            "(aliases: random, low_overlap, vowel_rich_letters, 004)."
         ),
     )
     parser.add_argument(
@@ -154,9 +165,52 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional random seed for reproducible runs.",
     )
+    parser.add_argument(
+        "--mode004-word-stats",
+        type=Path,
+        default=DEFAULT_MODE004_WORD_STATS_PATH,
+        help=f"Path to 004 word stats file (default: {DEFAULT_MODE004_WORD_STATS_PATH}).",
+    )
+    parser.add_argument(
+        "--mode004-letter-stats",
+        type=Path,
+        default=DEFAULT_MODE004_LETTER_STATS_PATH,
+        help=f"Path to 004 letter stats file (default: {DEFAULT_MODE004_LETTER_STATS_PATH}).",
+    )
+    parser.add_argument(
+        "--mode004-log",
+        type=Path,
+        default=None,
+        help="Optional path to plain-text trace log for stats_004 mode.",
+    )
+    parser.add_argument(
+        "--mode004-attempts",
+        type=int,
+        default=MAX_CROSSWORD_GENERATION_ATTEMPTS,
+        help=(
+            "Maximum candidate attempts per run for stats_004 mode "
+            f"(default: {MAX_CROSSWORD_GENERATION_ATTEMPTS})."
+        ),
+    )
+    parser.add_argument(
+        "--004_seed_selection_approach_id",
+        "--mode004-seed-selection-approach-id",
+        dest="mode004_seed_selection_approach_id",
+        type=int,
+        default=0,
+        help=(
+            "Seed selection approach for stats_004 mode: "
+            "0=random alphabet-based seed (default), "
+            "1=rare-word merge seed."
+        ),
+    )
     args = parser.parse_args()
     if args.runs < COUNT_STEP:
         parser.error("--runs must be at least 1.")
+    if args.mode004_attempts < COUNT_STEP:
+        parser.error("--mode004-attempts must be at least 1.")
+    if args.mode004_seed_selection_approach_id not in (0, 1):
+        parser.error("--004_seed_selection_approach_id must be 0 or 1.")
     return args
 
 
@@ -169,6 +223,8 @@ def normalize_selection_mode(mode: str) -> str:
         MODE_ALIAS_LOW_OVERLAP: MODE_LEAST_SIMILAR,
         MODE_RANDOM_LETTERS: MODE_RANDOM_LETTERS,
         MODE_ALIAS_VOWEL_RICH_LETTERS: MODE_RANDOM_LETTERS,
+        MODE_STATS_004: MODE_STATS_004,
+        MODE_ALIAS_STATS_004: MODE_STATS_004,
     }
     resolved = mapping.get(normalized)
     if resolved is None:
@@ -533,6 +589,15 @@ def build_crossword_layout_words(
     return set(extracted_words)
 
 
+def build_layout_words_from_input_word_set(
+    layout_input_word_set: set[str],
+    rng: random.Random,
+) -> set[str]:
+    rows = generate_random_crossword(list(layout_input_word_set), rng)
+    extracted_words = extract_crossword_words(rows)
+    return set(extracted_words)
+
+
 def are_all_seed_letters_used(seed_letters: str, layout_words: set[str]) -> bool:
     used_letters = [False] * ALPHABET_SIZE
     for word in layout_words:
@@ -795,6 +860,7 @@ def render_report(
     runs: int,
     successful_runs: int,
     failed_runs: int,
+    extra_header_lines: Sequence[str] | None = None,
 ) -> str:
     lines = [
         f"# selection_mode={selection_mode}",
@@ -802,8 +868,10 @@ def render_report(
         f"# runs={runs}",
         f"# successful_runs={successful_runs}",
         f"# failed_runs={failed_runs}",
-        "word\tcount",
     ]
+    if extra_header_lines:
+        lines.extend(extra_header_lines)
+    lines.append("word\tcount")
     sorted_items = sorted(frequency.items(), key=lambda item: (-item[1], item[0]))
     lines.extend(f"{word}\t{count}" for word, count in sorted_items)
     return "\n".join(lines)
@@ -817,14 +885,50 @@ def main() -> None:
     dictionary = load_word_list(args.dictionary)
     forbidden_words = load_optional_word_set(args.forbidden)
     dictionary = filter_forbidden_words(dictionary, forbidden_words)
+    extra_header_lines: list[str] = []
 
-    frequency, successful_runs, failed_runs = simulate_word_frequency(
-        dictionary=dictionary,
-        selection_mode=selection_mode,
-        max_letter_set_size=args.max_letter_set_size,
-        runs=args.runs,
-        rng=rng,
-    )
+    if selection_mode == MODE_STATS_004:
+        hooks = Mode004Hooks(
+            build_mini_dictionary=build_mini_dictionary,
+            build_layout_words_from_input=build_layout_words_from_input_word_set,
+            are_all_seed_letters_used=are_all_seed_letters_used,
+            seed_letter_length_range=seed_letter_length_range,
+        )
+        config = Mode004Config(
+            max_letter_set_size=args.max_letter_set_size,
+            max_generation_attempts=args.mode004_attempts,
+            min_word_length=MIN_CROSSWORD_WORD_LENGTH,
+            min_crossword_word_count=MIN_CROSSWORD_WORD_COUNT,
+            seed_selection_approach_id=args.mode004_seed_selection_approach_id,
+        )
+        mode004_result = simulate_mode004_word_frequency(
+            dictionary=dictionary,
+            runs=args.runs,
+            rng=rng,
+            config=config,
+            hooks=hooks,
+            word_stats_path=args.mode004_word_stats,
+            letter_stats_path=args.mode004_letter_stats,
+            trace_log_path=args.mode004_log,
+        )
+        frequency = mode004_result.frequency
+        successful_runs = mode004_result.successful_runs
+        failed_runs = mode004_result.failed_runs
+        extra_header_lines.extend(build_mode004_timing_header_lines(mode004_result))
+        extra_header_lines.append(
+            "# mode004_seed_selection_approach_id="
+            f"{args.mode004_seed_selection_approach_id}"
+        )
+        if args.mode004_log is not None:
+            extra_header_lines.append(f"# mode004_trace_log={args.mode004_log}")
+    else:
+        frequency, successful_runs, failed_runs = simulate_word_frequency(
+            dictionary=dictionary,
+            selection_mode=selection_mode,
+            max_letter_set_size=args.max_letter_set_size,
+            runs=args.runs,
+            rng=rng,
+        )
     report = render_report(
         frequency=frequency,
         selection_mode=selection_mode,
@@ -832,6 +936,7 @@ def main() -> None:
         runs=args.runs,
         successful_runs=successful_runs,
         failed_runs=failed_runs,
+        extra_header_lines=extra_header_lines,
     )
 
     if args.output is None:

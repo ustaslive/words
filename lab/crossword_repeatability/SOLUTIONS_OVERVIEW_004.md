@@ -31,18 +31,11 @@ Draft. This document captures initial theses and will be expanded incrementally.
 - This frequency data comes from another offline file (working name: `004.letters.txt`).
 - `004.letters.txt` is also produced by lab tooling.
 
-## 6) Version control and GitHub CI integration
+## 6) Version metadata control
 - `004` artifacts should include a metadata file (working name: `004.meta.json`).
 - `004.meta.json` stores input fingerprints for `words.txt`, `forbidden_words.txt`, generator script, and generator parameters/version.
 - `004.meta.json` stores output fingerprints for `004.txt` and `004.letters.txt`.
 - No cryptographic signature is required for this project scope.
-
-GitHub CI flow:
-1. Trigger when `words.txt`, `forbidden_words.txt`, or generator files change.
-2. Run generator in CI and rebuild `004.txt`, `004.letters.txt`, and `004.meta.json`.
-3. Compare generated outputs with repository files.
-4. If mismatched, fail the job with a clear message to regenerate and commit `004*`.
-5. Optional later step: add a bot PR mode that commits regenerated `004*` automatically.
 
 ## 7) File formats
 `004.txt` format:
@@ -113,45 +106,61 @@ e:21301
 This section captures the current draft flow and is intentionally incomplete.
 
 Initial state:
-- Keep `previousSeed` and `previousWordSet` in memory only.
-- Both can be empty after app restart (no disk persistence for this state).
+- Keep runtime state in memory only (no disk persistence for this state):
+- `previousSeed`;
+- `previousFullWordSet` (all buildable words from previous accepted seed);
+- `previousCrosswordWordSet` (words that actually entered previous crossword layout).
+- All three can be empty after app restart.
 
 Main loop (`attempt` from `1` to configured max attempts):
 1. Randomly choose `excludeCount` in range `1..3`.
 2. From letters of `previousSeed`, select letters to exclude using `004.letters.txt` frequency (prefer higher-frequency letters first).
 3. Build full alphabet and remove excluded letters.
 4. Generate a new seed letter set from the reduced alphabet, with length from current configuration.
-5. Build mini-dictionary for this seed:
+5. Build `fullWordSet` for this seed:
 - collect all words buildable from seed;
 - keep only words with length `>= MIN_CROSSWORD_WORD_LENGTH`.
-6. Build a crossword layout from that mini-dictionary.
-7. Validate by layout result (not by raw buildable list only):
+6. Run pre-layout overlap check against previous full set:
+- `overlapRatio = |fullWordSet ∩ previousFullWordSet| / |fullWordSet|`.
+- reject seed if `overlapRatio >= 0.10` (10% or more).
+7. Split words before layout build:
+- `layoutInputWordSet = fullWordSet - previousCrosswordWordSet`.
+8. Build crossword layout from `layoutInputWordSet` (not from the original full set):
+- layout builder should try to place all words from `layoutInputWordSet`, or the maximum possible subset;
+- structural limits (including `14 x 14`) should be enforced during placement, not only after generation.
+9. Build one final `missingWords` set for this candidate:
+- `missingWords = fullWordSet - layoutWordSet`;
+- this includes both categories:
+  - words removed before layout because they were in previous crossword;
+  - words that were in layout input but still did not enter final layout.
+10. Validate by layout result:
 - reject seed if `layout.words.size < MIN_CROSSWORD_WORD_COUNT`.
-8. Reject seed if at least one word from `layout.words` overlaps with `previousWordSet`.
-9. Apply mode-specific extra validation:
+11. Apply mode-specific extra validation:
 - for letter-generated modes, require all seed letters to be used in layout words (`areAllSeedLettersUsed` behavior).
-10. Apply structural layout validation constraints:
+12. Apply structural layout validation constraints:
 - placement rules from current crossword generator;
 - max layout bounds `<= 14 x 14`;
 - reject layout if constraints are violated.
-11. If seed is rejected, add it to rejected list and log rejection reason:
-- always track rejected seed values;
-- for low-word-count case, log a specific diagnostics entry.
-12. If seed passed checks, store candidate as `(seed, wordSet)`.
-13. If no best candidate exists yet, mark current candidate as best.
-14. If best candidate already exists, compare current vs best by criteria (to be defined) and keep only one as best.
-15. Continue loop until max attempts is reached, always comparing with current best candidate.
+13. If seed is rejected, add it to rejected list and log rejection reason.
+14. If seed passed checks, store candidate as `(seed, fullWordSet, layoutWordSet, missingWords)`.
+15. If no best candidate exists yet, mark current candidate as best.
+16. If best candidate already exists, compare current vs best by weighted score rules from section `10`.
+17. Continue loop until max attempts is reached, always comparing with current best candidate.
 
 After loop:
-1. Best candidate becomes the finalist `(seed, wordSet)`.
-2. Build crossword dictionary/input from finalist.
-3. If no finalist was found:
+1. Best candidate becomes the finalist `(seed, fullWordSet, layoutWordSet, missingWords)`.
+2. Build crossword from finalist `layoutWordSet`.
+3. Use finalist `missingWords` as the only missing/not-in-crossword list.
+4. If no finalist was found:
 - set generation error state;
 - keep existing crossword/grid if one already exists;
 - only clear state when there is no previous grid to keep.
 
 State update rules:
-- If player completes the crossword, finalist `(seed, wordSet)` becomes `previousSeed` and `previousWordSet` for the next game.
+- If player completes the crossword, save finalist state for next round:
+- `previousSeed = finalist.seed`;
+- `previousFullWordSet = finalist.fullWordSet`;
+- `previousCrosswordWordSet = finalist.layoutWordSet`.
 - If player presses reset/rebuild, restart flow from step 1 of main loop (new random `excludeCount`).
 
 Auto-regeneration trigger:
@@ -161,21 +170,23 @@ Auto-regeneration trigger:
 To keep logic explicit and easy to mirror in both Kotlin and Python, each mode uses the same fixed step slots.
 
 Fixed step slots:
-1. `step_build_layout`
-2. `step_min_word_count`
-3. `step_no_overlap_previous`
-4. `step_mode_extra_a`
-5. `step_mode_extra_b`
+1. `step_build_full_word_set`
+2. `step_reject_if_full_overlap_ge_10_percent`
+3. `step_prepare_layout_input`
+4. `step_build_layout_with_in_generation_limits`
+5. `step_mode_extra_a`
+6. `step_mode_extra_b`
+7. `step_build_missing_words_and_validate_layout`
 
 Mode-to-steps mapping:
-- `m1 = [step_build_layout, step_min_word_count, step_no_overlap_previous, none, none]`
-- `m2 = [step_build_layout, step_min_word_count, step_no_overlap_previous, step_mode2_extra, none]`
-- `m3 = [step_build_layout, step_min_word_count, step_no_overlap_previous, step_all_seed_letters_used, none]`
-- `m4 = [step_build_layout, step_min_word_count, step_no_overlap_previous, none, step_use_004_stats]`
+- `m1 = [step_build_full_word_set, step_reject_if_full_overlap_ge_10_percent, step_prepare_layout_input, step_build_layout_with_in_generation_limits, none, none, step_build_missing_words_and_validate_layout]`
+- `m2 = [step_build_full_word_set, step_reject_if_full_overlap_ge_10_percent, step_prepare_layout_input, step_build_layout_with_in_generation_limits, step_mode2_extra, none, step_build_missing_words_and_validate_layout]`
+- `m3 = [step_build_full_word_set, step_reject_if_full_overlap_ge_10_percent, step_prepare_layout_input, step_build_layout_with_in_generation_limits, step_all_seed_letters_used, none, step_build_missing_words_and_validate_layout]`
+- `m4 = [step_build_full_word_set, step_reject_if_full_overlap_ge_10_percent, step_prepare_layout_input, step_build_layout_with_in_generation_limits, step_all_seed_letters_used, step_use_004_stats, step_build_missing_words_and_validate_layout]`
 
 Rules:
 - `none`/`null` means the slot is intentionally skipped for that mode.
-- Runner executes slots strictly in order from 1 to 5.
+- Runner executes slots strictly in order from 1 to 7.
 - Any failed step rejects the seed immediately with a reason.
 - No hidden branching should decide whether a step is active; activation is defined only by the matrix above.
 
@@ -184,8 +195,62 @@ Implementation note:
 - Kotlin: `Map<Mode, List<Step?>>`
 - Keep slot names identical in both languages for easier logic sync.
 
-## 10) Open points to define next
+## 10) Candidate comparison score (new vs current best)
+Comparison is applied only after a candidate passes all hard reject filters.
+
+The `004.txt` `count` values are word-level stats. Seed is compared indirectly through words produced by that seed:
+- `fullWordSet` (all buildable words for seed);
+- `layoutWordSet` (words that entered layout).
+
+If a word is missing in `004.txt`, use `count = 0`.
+
+Normalized components (`0..1`):
+- `pL`: layout coverage quality, `pL = |layoutWordSet| / max(1, |layoutInputWordSet|)`.
+- `pRfull`: average rarity of `fullWordSet`, where `rarity(word) = 1 / (1 + count004(word))`.
+- `pMissing`: inverse missing ratio, `pMissing = 1 - (|missingWords| / max(1, |fullWordSet|))`.
+- `pOverlap`: inverse pre-layout overlap ratio, `pOverlap = 1 - overlapRatio`.
+- `pRlayout`: average rarity of `layoutWordSet`, using same rarity formula as above.
+- `pSeedDiff`: seed difference from previous seed (normalized to `0..1`, higher is better).
+
+Score formula:
+- `S = 2*pL + 2*pRfull + 1*pMissing + 1*pOverlap + 1*pRlayout + 1*pSeedDiff`
+
+Weights:
+- `wL = 2`
+- `wRfull = 2`
+- all other weights are `1`
+
+Selection rule:
+- candidate with larger `S` wins;
+- if equal score, tie-break in this order:
+1. larger `|layoutWordSet|`
+2. lower `overlapRatio`
+3. deterministic seed order (stable lexical compare)
+
+## 11) Developer diagnostics logging requirements
+- The generator must log full decision flow for each new game attempt.
+- Logs must include:
+- mode, config, and run/session id;
+- selected/excluded letters and seed candidates;
+- `fullWordSet` size, pre-layout overlap ratio, and threshold comparison;
+- counts for `layoutInputWordSet`, final layout words, and final `missingWords`;
+- reject reasons per attempt;
+- candidate comparison decisions and chosen finalist;
+- score components (`pL`, `pRfull`, `pMissing`, `pOverlap`, `pRlayout`, `pSeedDiff`) and total `S`;
+- counters (attempts, rejects by reason, successes).
+- Logs must be accessible to developers for analysis:
+- local persisted log files with rolling retention;
+- export/share action from app settings or debug menu.
+
+## 12) Open points to define next
 - How stats from `004.txt` influence ranking of candidate seed letter sets.
 - Exact randomization policy for excluding 1/2/3 letters.
-- Exact comparison criteria for candidate-vs-best selection in the loop.
 - Fallback behavior when update files are missing, stale, or partially incompatible.
+
+## 13) Optional ideas (not decided yet)
+- Optional GitHub CI flow for `004*` regeneration checks:
+1. Trigger when `words.txt`, `forbidden_words.txt`, or generator files change.
+2. Run generator in CI and rebuild `004.txt`, `004.letters.txt`, and `004.meta.json`.
+3. Compare generated outputs with repository files.
+4. If mismatched, fail the job with a clear message to regenerate and commit `004*`.
+5. Optional later step: add a bot PR mode that commits regenerated `004*` automatically.
