@@ -15,6 +15,12 @@ from mode004_simulation import (
     build_mode004_timing_header_lines,
     simulate_mode004_word_frequency,
 )
+from mode005_simulation import (
+    Mode005Config,
+    Mode005Hooks,
+    build_mode005_timing_header_lines,
+    simulate_mode005_word_frequency,
+)
 
 
 ALPHABET_START = "A"
@@ -50,11 +56,13 @@ MODE_RANDOM_WORD = "random_word"
 MODE_LEAST_SIMILAR = "least_similar"
 MODE_RANDOM_LETTERS = "random_letters"
 MODE_STATS_004 = "stats_004"
+MODE_STATS_005 = "stats_005"
 
 MODE_ALIAS_RANDOM_WORD = "random"
 MODE_ALIAS_LOW_OVERLAP = "low_overlap"
 MODE_ALIAS_VOWEL_RICH_LETTERS = "vowel_rich_letters"
 MODE_ALIAS_STATS_004 = "004"
+MODE_ALIAS_STATS_005 = "005"
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parents[1]
@@ -62,6 +70,7 @@ DEFAULT_DICTIONARY_PATH = PROJECT_ROOT / "app/src/main/assets/words.txt"
 DEFAULT_FORBIDDEN_PATH = PROJECT_ROOT / "app/src/main/assets/forbidden_words.txt"
 DEFAULT_MODE004_WORD_STATS_PATH = SCRIPT_DIR / "004.txt"
 DEFAULT_MODE004_LETTER_STATS_PATH = SCRIPT_DIR / "004.letters.txt"
+DEFAULT_MODE005_WORD_STATS_PATH = SCRIPT_DIR / "005.stat.txt"
 
 
 @dataclass(frozen=True)
@@ -116,8 +125,9 @@ def parse_args() -> argparse.Namespace:
         "--selection-mode",
         default=DEFAULT_SELECTION_MODE,
         help=(
-            "Selection mode. Supported values: random_word, least_similar, random_letters, stats_004 "
-            "(aliases: random, low_overlap, vowel_rich_letters, 004)."
+            "Selection mode. Supported values: random_word, least_similar, random_letters, "
+            "stats_004, stats_005 "
+            "(aliases: random, low_overlap, vowel_rich_letters, 004, 005)."
         ),
     )
     parser.add_argument(
@@ -204,6 +214,45 @@ def parse_args() -> argparse.Namespace:
             "1=rare-word merge seed."
         ),
     )
+    parser.add_argument(
+        "--mode005-word-stats",
+        type=Path,
+        default=DEFAULT_MODE005_WORD_STATS_PATH,
+        help=f"Path to 005 word stats file (default: {DEFAULT_MODE005_WORD_STATS_PATH}).",
+    )
+    parser.add_argument(
+        "--mode005-log",
+        type=Path,
+        default=None,
+        help="Optional path to plain-text trace log for stats_005 mode.",
+    )
+    parser.add_argument(
+        "--mode005-attempts",
+        type=int,
+        default=MAX_CROSSWORD_GENERATION_ATTEMPTS,
+        help=(
+            "Maximum full generation attempts per run for stats_005 mode "
+            f"(default: {MAX_CROSSWORD_GENERATION_ATTEMPTS})."
+        ),
+    )
+    parser.add_argument(
+        "--mode005-swap-cycles",
+        type=int,
+        default=5,
+        help="Maximum letter swap cycles per full attempt for stats_005 mode (default: 5).",
+    )
+    parser.add_argument(
+        "--mode005-top-frequent-share",
+        type=float,
+        default=0.10,
+        help="Share of top frequent words from full dictionary for stats_005 mode (default: 0.10).",
+    )
+    parser.add_argument(
+        "--mode005-max-repeat-share",
+        type=float,
+        default=0.40,
+        help="Maximum allowed repeat share for stats_005 mode (default: 0.40).",
+    )
     args = parser.parse_args()
     if args.runs < COUNT_STEP:
         parser.error("--runs must be at least 1.")
@@ -211,6 +260,14 @@ def parse_args() -> argparse.Namespace:
         parser.error("--mode004-attempts must be at least 1.")
     if args.mode004_seed_selection_approach_id not in (0, 1):
         parser.error("--004_seed_selection_approach_id must be 0 or 1.")
+    if args.mode005_attempts < COUNT_STEP:
+        parser.error("--mode005-attempts must be at least 1.")
+    if args.mode005_swap_cycles < COUNT_STEP:
+        parser.error("--mode005-swap-cycles must be at least 1.")
+    if not (0.0 < args.mode005_top_frequent_share <= 1.0):
+        parser.error("--mode005-top-frequent-share must be in range (0.0, 1.0].")
+    if not (0.0 <= args.mode005_max_repeat_share <= 1.0):
+        parser.error("--mode005-max-repeat-share must be in range [0.0, 1.0].")
     return args
 
 
@@ -225,6 +282,8 @@ def normalize_selection_mode(mode: str) -> str:
         MODE_ALIAS_VOWEL_RICH_LETTERS: MODE_RANDOM_LETTERS,
         MODE_STATS_004: MODE_STATS_004,
         MODE_ALIAS_STATS_004: MODE_STATS_004,
+        MODE_STATS_005: MODE_STATS_005,
+        MODE_ALIAS_STATS_005: MODE_STATS_005,
     }
     resolved = mapping.get(normalized)
     if resolved is None:
@@ -921,6 +980,54 @@ def main() -> None:
         )
         if args.mode004_log is not None:
             extra_header_lines.append(f"# mode004_trace_log={args.mode004_log}")
+    elif selection_mode == MODE_STATS_005:
+        hooks = Mode005Hooks(
+            build_mini_dictionary=build_mini_dictionary,
+            build_layout_words_from_input=build_layout_words_from_input_word_set,
+            seed_letter_length_range=seed_letter_length_range,
+        )
+        config = Mode005Config(
+            max_letter_set_size=args.max_letter_set_size,
+            max_generation_attempts=args.mode005_attempts,
+            min_word_length=MIN_CROSSWORD_WORD_LENGTH,
+            min_crossword_word_count=MIN_CROSSWORD_WORD_COUNT,
+            max_letter_swap_cycles=args.mode005_swap_cycles,
+            top_frequent_word_share=args.mode005_top_frequent_share,
+            max_repeat_share_with_control_set=args.mode005_max_repeat_share,
+        )
+        mode005_result = simulate_mode005_word_frequency(
+            dictionary=dictionary,
+            runs=args.runs,
+            rng=rng,
+            config=config,
+            hooks=hooks,
+            word_stats_path=args.mode005_word_stats,
+            trace_log_path=args.mode005_log,
+        )
+        frequency = mode005_result.frequency
+        successful_runs = mode005_result.successful_runs
+        failed_runs = mode005_result.failed_runs
+        extra_header_lines.extend(build_mode005_timing_header_lines(mode005_result))
+        extra_header_lines.append(
+            "# mode005_top_frequent_share="
+            f"{args.mode005_top_frequent_share}"
+        )
+        extra_header_lines.append(
+            "# mode005_max_repeat_share="
+            f"{args.mode005_max_repeat_share}"
+        )
+        extra_header_lines.append(
+            "# mode005_max_swap_cycles="
+            f"{args.mode005_swap_cycles}"
+        )
+        if mode005_result.crosswords_generated_from_stats is not None:
+            extra_header_lines.append(
+                "# mode005_crosswords_generated_from_stats="
+                f"{mode005_result.crosswords_generated_from_stats}"
+            )
+        if args.mode005_log is not None:
+            extra_header_lines.append(f"# mode005_trace_log={args.mode005_log}")
+        extra_header_lines.extend(mode005_result.run_summaries)
     else:
         frequency, successful_runs, failed_runs = simulate_word_frequency(
             dictionary=dictionary,

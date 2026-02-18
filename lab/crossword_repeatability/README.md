@@ -19,8 +19,10 @@ This project simulates crossword seed selection from the Android app and counts 
 - `random_word`
 - `least_similar` (same logic as app `low_overlap`)
 - `random_letters` (same logic as app `vowel_rich_letters`)
+- `stats_004`
+- `stats_005`
 
-Aliases are also supported: `random`, `low_overlap`, `vowel_rich_letters`.
+Aliases are also supported: `random`, `low_overlap`, `vowel_rich_letters`, `004`, `005`.
 
 ## Usage (from this folder)
 
@@ -42,6 +44,18 @@ python3 simulate_word_frequency.py -m least_similar -r 1000 -o least_similar.tsv
 
 # Random letters mode
 python3 simulate_word_frequency.py -m random_letters -r 1000 -o random_letters.tsv
+
+# Mode 005 with trace log
+python3 simulate_word_frequency.py -m stats_005 -r 1000 \
+  --mode005-word-stats 005.stat.txt \
+  --mode005-log mode005_trace.log \
+  -o mode005_report.tsv
+
+# Generate fresh 005 word stats file (timestamped)
+python3 generate_005_word_stats.py 100000
+
+# Same with verbose progress (dot every 100 runs)
+python3 generate_005_word_stats.py 100000 -v
 ```
 
 ## Short options
