@@ -12,6 +12,18 @@ It does **not** contain implementation proposals.
 - Prevent frequent recurrence of the same words (example pattern: similar recurring pairs like `TONE` / `NOTE`).
 - Preserve smooth UX: no visible freezes when generating a new crossword.
 
+## Short Game Description (Player View)
+
+- The game is round-based.
+- At the start of each round, the player gets a small set of letters.
+- The player swipes letters to form words using only that set.
+- A crossword is generated from words that can be made from the same letters.
+- When a crossword word is found, corresponding cells in the grid are revealed.
+- Some valid words from the letter set may exist but not be placed in the final crossword grid; these are side/missing words.
+- The round goal is to reveal the full crossword.
+- After the round is completed, the next round starts with a new letter set.
+- The diversity issue is that different rounds can still feel too similar because they reuse the same or strongly overlapping word groups.
+
 ## Current Runtime Context
 
 - Platform: Android app (Kotlin/Compose).
