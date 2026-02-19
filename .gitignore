@@ -34,6 +34,7 @@ outputs/
 
 #
 **/tmp/
+**/__pycache__/**
 
 # MCP
 /mcp.stderr
