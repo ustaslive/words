@@ -518,6 +518,11 @@ def _run_single_attempt(
 
             validation_start = time.perf_counter()
             layout_word_count_ok = len(layout_word_set) >= config.min_crossword_word_count
+            trimmed_seed_letters, unused_seed_letters = _trim_seed_letters_to_used_letters(
+                seed_letters=seed_letters,
+                words=full_word_set,
+            )
+            all_seed_letters_used = len(unused_seed_letters) == ORIGIN_INDEX
             _record_phase_timing(
                 timing_stats=timing_stats,
                 phase_name=PHASE_VALIDATION,
@@ -534,12 +539,16 @@ def _run_single_attempt(
                     "layout_word_count": len(layout_word_set),
                     "minimum_layout_word_count": config.min_crossword_word_count,
                     "layout_word_count_ok": layout_word_count_ok,
+                    "all_seed_letters_used": all_seed_letters_used,
+                    "unused_seed_letters": unused_seed_letters,
+                    "seed_before_trim": seed_letters,
+                    "seed_after_trim": trimmed_seed_letters,
                 },
             )
             if layout_word_count_ok:
                 return (
                     Mode005Candidate(
-                        seed_letters=seed_letters,
+                        seed_letters=trimmed_seed_letters,
                         full_word_set=frozenset(full_word_set),
                         layout_word_set=frozenset(layout_word_set),
                         repeat_source_word_set=frozenset(repeat_source_word_set),
@@ -790,6 +799,40 @@ def _build_layout_word_set(
             continue
         result.add(word)
     return result
+
+
+def _collect_used_letters_from_words(words: Iterable[str]) -> set[str]:
+    used_letters: set[str] = set()
+    for raw_word in words:
+        word = raw_word.strip().upper()
+        for char in word:
+            if char in ALPHABET:
+                used_letters.add(char)
+    return used_letters
+
+
+def _trim_seed_letters_to_used_letters(
+    seed_letters: str,
+    words: Iterable[str],
+) -> tuple[str, list[str]]:
+    normalized_seed = seed_letters.strip().upper()
+    if not normalized_seed:
+        return ("", [])
+
+    used_letters = _collect_used_letters_from_words(words)
+    trimmed_seed_letters = "".join(
+        char
+        for char in normalized_seed
+        if char in used_letters
+    )
+    unused_seed_letters = sorted(
+        {
+            char
+            for char in normalized_seed
+            if char in ALPHABET and char not in used_letters
+        }
+    )
+    return (trimmed_seed_letters, unused_seed_letters)
 
 
 def _pick_letter_to_remove(

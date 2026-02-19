@@ -312,6 +312,7 @@ private const val SOUND_POOL_COMPLETED_VOLUME = SOUND_POOL_TAP_VOLUME
 private const val CROSSWORD_MODE_RANDOM_WORD = "random_word"
 private const val CROSSWORD_MODE_LOW_OVERLAP = "low_overlap"
 private const val CROSSWORD_MODE_VOWEL_RICH_LETTERS = "vowel_rich_letters"
+private const val CROSSWORD_MODE_RANDOM_LETTERS_AVD = "random_letters_avd"
 private const val DEFAULT_CROSSWORD_SELECTION_MODE_ID = CROSSWORD_MODE_RANDOM_WORD
 private const val LOW_OVERLAP_MAX_SHARED_RATIO = 0.2f
 private const val FULL_WEIGHT = 1f
@@ -384,7 +385,8 @@ private enum class CrosswordSelectionMode(
 ) {
     RandomWord(CROSSWORD_MODE_RANDOM_WORD, R.string.crossword_mode_random_word),
     LowOverlapWord(CROSSWORD_MODE_LOW_OVERLAP, R.string.crossword_mode_low_overlap),
-    VowelRichLetters(CROSSWORD_MODE_VOWEL_RICH_LETTERS, R.string.crossword_mode_vowel_rich_letters);
+    VowelRichLetters(CROSSWORD_MODE_VOWEL_RICH_LETTERS, R.string.crossword_mode_vowel_rich_letters),
+    RandomLettersAvd(CROSSWORD_MODE_RANDOM_LETTERS_AVD, R.string.crossword_mode_random_letters_avd);
 
     companion object {
         fun fromId(id: String): CrosswordSelectionMode {
@@ -473,7 +475,14 @@ private fun GameScreen() {
     }
     soundEffects.muted = settings.muted
     var dictionary by remember { mutableStateOf(loadDictionaryWords(appContext)) }
+    var mode005WordStats by remember { mutableStateOf(loadMode005WordStats(appContext)) }
     val dictionarySet = remember(dictionary) { dictionary.toHashSet() }
+    val mode005TopFrequentWordSet = remember(dictionary, mode005WordStats) {
+        buildMode005TopFrequentWordSet(
+            dictionary = dictionary,
+            wordStats = mode005WordStats.frequencies
+        )
+    }
     val seedLengthRange = seedLetterLengthRange(settings.maxLetterSetSize)
     val eligibleWords = remember(dictionarySet, seedLengthRange) {
         dictionarySet.filter { it.length in seedLengthRange }
@@ -758,6 +767,7 @@ private fun GameScreen() {
                 }
                 if (result is DictionaryUpdateResult.Updated) {
                     dictionary = result.words
+                    mode005WordStats = loadMode005WordStats(appContext)
                 }
                 if (showToast) {
                     showDictionaryUpdateToast(result)
@@ -780,23 +790,36 @@ private fun GameScreen() {
             return
         }
         val previousSeedLetters = seedLetters
+        val previousRoundWordSet = crosswordWords.keys
         highlightedPositions = emptySet()
-        val seedLetterCandidates = buildSeedLetterCandidates(
-            eligibleWords = eligibleWords,
-            previousSeedLetters = previousSeedLetters,
-            selectionMode = settings.selectionMode,
-            maxLetterSetSize = settings.maxLetterSetSize
-        )
-        val result = generateCrosswordWithQuality(
-            seedLetterCandidates = seedLetterCandidates,
-            dictionary = dictionary,
-            isValidLayout = { seedLetters, layout ->
-                if (settings.selectionMode != CrosswordSelectionMode.VowelRichLetters) {
-                    return@generateCrosswordWithQuality true
-                }
-                areAllSeedLettersUsed(seedLetters, layout)
+        val result = when (settings.selectionMode) {
+            CrosswordSelectionMode.RandomLettersAvd -> {
+                generateCrosswordWithMode005(
+                    dictionary = dictionary,
+                    previousRoundWordSet = previousRoundWordSet,
+                    topFrequentWordSet = mode005TopFrequentWordSet,
+                    seedLengthRange = seedLengthRange
+                )
             }
-        )
+            else -> {
+                val seedLetterCandidates = buildSeedLetterCandidates(
+                    eligibleWords = eligibleWords,
+                    previousSeedLetters = previousSeedLetters,
+                    selectionMode = settings.selectionMode,
+                    maxLetterSetSize = settings.maxLetterSetSize
+                )
+                generateCrosswordWithQuality(
+                    seedLetterCandidates = seedLetterCandidates,
+                    dictionary = dictionary,
+                    isValidLayout = { candidateSeedLetters, layout ->
+                        if (settings.selectionMode != CrosswordSelectionMode.VowelRichLetters) {
+                            return@generateCrosswordWithQuality true
+                        }
+                        areAllSeedLettersUsed(candidateSeedLetters, layout)
+                    }
+                )
+            }
+        }
         val rejectedSeedLetters = when (result) {
             is CrosswordGenerationResult.Success -> result.rejectedSeedLetters
             is CrosswordGenerationResult.Failure -> result.rejectedSeedLetters
@@ -3412,6 +3435,7 @@ private fun buildSeedLetterCandidates(
                 random = random
             )
         }
+        CrosswordSelectionMode.RandomLettersAvd -> emptyList()
     }
 }
 
