@@ -20,7 +20,8 @@
         "java.home": "/usr/lib/jvm/java-17-openjdk-amd64",
         "java.configuration.checkProjectSettingsExclusions": false,
         "livePreview.portNumber": 3000,
-        "remote.autoForwardPorts": false
+        "remote.autoForwardPorts": false,
+        "chat.disableAIFeatures": true
       },
       "extensions": [
         "ms-azuretools.vscode-docker",

@@ -7,6 +7,7 @@ services:
     volumes:
       - ./:/words:cached
       - ~/.android/secrets/words:/words/secrets:ro
+      - /etc/localtime:/etc/localtime:ro
     working_dir: /words
     privileged: true
     devices:
