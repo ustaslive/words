@@ -1,3 +1,13 @@
+[ ] this change
+    [ ] server instalable | updatable
+    [ ] update words dict
+    [ ] default xword generationn method is 4th one
+    [ ] default server 199.99.9.99
+    [ ] new release
+    [ ] какая ветвка в урле инсталлятора должна быть main or master?   
+        master
+
+
 [ ] words dict improved - скрипт + ui, который через google API, упростил редактирование словаря
     [ ] 
 
@@ -33,6 +43,8 @@
         если нет слова в котором используются одновременно все буквы пары/тройки.. то неиспользованные считаются
         ненужными и выбрасываются из seed. seed уменьшается на одну букву
     [ ] 
+    [ ] default xword generationn method is 4th one
+    [ ] default server 199.99.9.99
 
 [ ] publish in google play
     [ ] Подтоговка, шаги от гемини

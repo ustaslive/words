@@ -313,7 +313,7 @@ private const val CROSSWORD_MODE_RANDOM_WORD = "random_word"
 private const val CROSSWORD_MODE_LOW_OVERLAP = "low_overlap"
 private const val CROSSWORD_MODE_VOWEL_RICH_LETTERS = "vowel_rich_letters"
 private const val CROSSWORD_MODE_RANDOM_LETTERS_AVD = "random_letters_avd"
-private const val DEFAULT_CROSSWORD_SELECTION_MODE_ID = CROSSWORD_MODE_RANDOM_WORD
+private const val DEFAULT_CROSSWORD_SELECTION_MODE_ID = CROSSWORD_MODE_RANDOM_LETTERS_AVD
 private const val LOW_OVERLAP_MAX_SHARED_RATIO = 0.2f
 private const val FULL_WEIGHT = 1f
 private val SETTINGS_DIALOG_SPACING = 12.dp
@@ -395,7 +395,7 @@ private enum class CrosswordSelectionMode(
     }
 }
 
-private val DEFAULT_CROSSWORD_SELECTION_MODE = CrosswordSelectionMode.RandomWord
+private val DEFAULT_CROSSWORD_SELECTION_MODE = CrosswordSelectionMode.RandomLettersAvd
 
 private enum class HammerMode {
     Off,

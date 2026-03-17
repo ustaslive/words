@@ -106,6 +106,7 @@ advantage
 advent
 adventure
 adverse
+advert
 advertise
 advice
 advise
@@ -144,6 +145,7 @@ agree
 agreeing
 agreement
 ahead
+aide
 aiming
 airborne
 aircraft
@@ -294,6 +296,7 @@ appoint
 approach
 approval
 approve
+apron
 aquarium
 aquatic
 arabic
@@ -439,6 +442,7 @@ awful
 awhile
 awkward
 axis
+axiom
 babe
 baby
 bachelor
@@ -475,6 +479,7 @@ ballet
 balloon
 ballot
 ballroom
+balm
 bamboo
 banana
 band
@@ -552,6 +557,7 @@ bedroom
 bedtime
 beef
 been
+beep
 beer
 beet
 beetle
@@ -880,6 +886,7 @@ cabinet
 cable
 cacao
 cache
+cactus
 cadet
 caesar
 cafe
@@ -1442,7 +1449,6 @@ craft
 crafting
 crane
 crank
-crap
 crappy
 crash
 crashing
@@ -1752,6 +1758,7 @@ digital
 dignity
 dilemma
 diligence
+dill
 dime
 dimension
 dinar
@@ -1852,6 +1859,7 @@ dominance
 dominant
 dominate
 dominion
+domino
 donate
 donating
 donation
@@ -1859,6 +1867,7 @@ done
 dong
 donkey
 donor
+donut
 doom
 door
 doorstep
@@ -1879,6 +1888,7 @@ download
 downside
 downtown
 downward
+doze
 dozen
 draft
 drafting
@@ -2684,6 +2694,7 @@ geography
 geology
 geometric
 geometry
+germ
 german
 gesture
 getaway
@@ -2699,6 +2710,7 @@ ginger
 girl
 gist
 give
+giver
 giveaway
 given
 giving
@@ -3194,6 +3206,7 @@ induce
 induction
 indulge
 industry
+inept
 infamous
 infant
 infantry
@@ -3324,6 +3337,7 @@ isolate
 isolation
 issue
 issuing
+itch
 item
 itself
 ivory
@@ -3546,6 +3560,7 @@ liberate
 liberty
 librarian
 library
+lice
 licence
 license
 licensing
@@ -3679,6 +3694,7 @@ lunar
 lunch
 lung
 lure
+lurk
 lurking
 lush
 luxurious
@@ -4266,6 +4282,7 @@ ongoing
 onion
 only
 onto
+opal
 open
 opener
 opening
@@ -4663,6 +4680,7 @@ poly
 polymer
 pond
 pony
+poodle
 pool
 poop
 poor
@@ -5373,7 +5391,6 @@ rush
 rushing
 rust
 rusty
-ruth
 ruthless
 sabbath
 sable
@@ -5437,6 +5454,7 @@ sausage
 savage
 savannah
 save
+saver
 saving
 savior
 savvy
@@ -5494,6 +5512,7 @@ sculpture
 scum
 seafood
 seal
+seam
 search
 searching
 seaside
@@ -5785,6 +5804,7 @@ smile
 smiling
 smith
 smoke
+smoker
 smoking
 smooth
 smoothly
@@ -6488,6 +6508,7 @@ tomorrow
 tone
 toner
 tongue
+tonic
 tonight
 took
 tool
@@ -6577,6 +6598,8 @@ trek
 trench
 trend
 trending
+trey
+triad
 trial
 triangle
 tribal
@@ -6789,6 +6812,7 @@ vase
 vast
 vastly
 vault
+veal
 vector
 vegan
 vegetable
@@ -6887,6 +6911,7 @@ vomiting
 vote
 voter
 voting
+vowel
 voyage
 vulgar
 wage
@@ -6898,6 +6923,7 @@ waiting
 waitress
 waiver
 wake
+waken
 waking
 walk
 walker
@@ -7123,6 +7149,7 @@ yesterday
 yield
 yoga
 yogurt
+yolk
 young
 younger
 youngest

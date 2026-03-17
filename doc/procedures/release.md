@@ -3,6 +3,7 @@
 ## TL;DR (quick checklist)
 
 - Create `release_v<version>` from `develop`, bump versions in `version.txt` and `app/build.gradle.kts`, and add release notes in `doc/releases/release_v<version>.md`.
+- If `app/src/main/assets/words.txt` or `app/src/main/assets/forbidden_words.txt` changed, regenerate `Random letters (adv)` stats and sync `lab/crossword_repeatability/005.stat.txt` with `app/src/main/assets/005.stat.txt`.
 - Build and verify the release bundle, then merge to `develop` and `master`, build again, and upload to Google Play (internal testing).
 - Tag and push only after the upload succeeds.
 
@@ -13,8 +14,10 @@ git checkout develop
 git pull
 git checkout -b release_v<version>
 # Edit version.txt (versionName) and app/build.gradle.kts (versionCode)
+# If words.txt or forbidden_words.txt changed, regenerate mode 005 stats and copy them to both target files
 # Create doc/releases/release_v<version>.md with release notes
 git add version.txt app/build.gradle.kts doc/releases/release_v<version>.md
+# Also add app/src/main/assets/words.txt app/src/main/assets/forbidden_words.txt lab/crossword_repeatability/005.stat.txt app/src/main/assets/005.stat.txt when updated
 git commit -m "Release v<version>"
 ./gradlew bundleRelease
 git checkout develop
@@ -32,6 +35,11 @@ Files and fields to update:
 - `version.txt`: `versionName` value (must match `v<version>` without the `v`)
 - `app/build.gradle.kts`: `versionCode` (must strictly increase)
 - `doc/releases/release_v<version>.md`: release notes text
+- If the dictionary or forbidden-word list changed:
+  - `app/src/main/assets/words.txt`
+  - `app/src/main/assets/forbidden_words.txt`
+  - `lab/crossword_repeatability/005.stat.txt`
+  - `app/src/main/assets/005.stat.txt`
 
 This guide documents how to prepare a release for internal testing and publish it to Google Play.
 `master` contains only stable versions; release builds and version tags are created on `master`.
@@ -66,9 +74,55 @@ The release version must match both the Gradle config and the Git tag.
 - Only release-specific changes are allowed in this branch:
   - Update `version.txt` with the new `versionName`.
   - Update `versionCode` in `app/build.gradle.kts`.
+  - If the dictionary or forbidden-word list changed, regenerate `Random letters (adv)` stats and update both `005.stat.txt` copies.
   - Create `doc/releases` if it does not exist.
   - Create release notes in `doc/releases/release_v<version>.md`.
   - Commit the release changes.
+
+## If the dictionary or forbidden-word list changed: regenerate `Random letters (adv)` stats
+
+The `Random letters (adv)` mode depends on `005.stat.txt`.
+When `app/src/main/assets/words.txt` or `app/src/main/assets/forbidden_words.txt` changes, regenerate the stats before building the release.
+
+Run from the repository root (`/words` in the devcontainer):
+
+```bash
+cd /words/lab/crossword_repeatability
+python3 generate_005_word_stats.py 10000 -v
+latest_stats="$(ls -t 005.20*.txt | head -n 1)"
+cp "$latest_stats" 005.stat.txt
+cp 005.stat.txt /words/app/src/main/assets/005.stat.txt
+cmp -s 005.stat.txt /words/app/src/main/assets/005.stat.txt
+```
+
+What this does:
+
+- Uses `app/src/main/assets/words.txt` as the source dictionary.
+- Uses `app/src/main/assets/forbidden_words.txt` if that file exists.
+- Produces a timestamped file such as `lab/crossword_repeatability/005.20260304224411.txt`.
+- Copies the fresh stats into:
+  - `lab/crossword_repeatability/005.stat.txt`
+  - `app/src/main/assets/005.stat.txt`
+
+Why both copies matter:
+
+- `app/src/main/assets/005.stat.txt` is bundled into the APK/AAB.
+- `lab/crossword_repeatability/005.stat.txt` is the file downloaded by the app's dictionary update flow.
+
+Before committing, verify that these files are in sync:
+
+```bash
+cmp -s /words/lab/crossword_repeatability/005.stat.txt /words/app/src/main/assets/005.stat.txt
+```
+
+Then add the updated files to the release commit:
+
+```bash
+git add app/src/main/assets/words.txt
+git add app/src/main/assets/forbidden_words.txt
+git add lab/crossword_repeatability/005.stat.txt
+git add app/src/main/assets/005.stat.txt
+```
 
 ## Verify the release branch
 

@@ -3,10 +3,11 @@ services:
     build: .
     image: words-server
     container_name: words-server
-    environment:
-      WORDS_VERSION_FILE: /app/version.txt
     ports:
       - "9999:9999"
-    restart: unless-stopped
+    restart: "${XWORD_RESTART_POLICY:-unless-stopped}"
     volumes:
-      - "../version.txt:/app/version.txt:ro"
+      - type: bind
+        source: ${WORDS_VERSION_FILE_HOST}
+        target: /app/version.txt
+        read_only: true

@@ -59,13 +59,13 @@ GRID_ROW_INDEX_PAD = 2
 STATE_VERSION_INITIAL = 1
 STATE_VERSION_INCREMENT = 1
 VERSION_DEBUG_SUFFIX = "-debug"
+VERSION_FILE_NAME = "version.txt"
 VERSION_UNKNOWN = "unknown"
 
 ENV_HOST = "HOST"
 ENV_PORT = "PORT"
 ENV_WS_PING_INTERVAL_SECONDS = "WS_PING_INTERVAL_SECONDS"
 ENV_WS_PING_TIMEOUT_SECONDS = "WS_PING_TIMEOUT_SECONDS"
-ENV_VERSION_FILE = "WORDS_VERSION_FILE"
 
 LOGGER_NAME = "words.server"
 
@@ -259,30 +259,31 @@ def coalesce_version(value: str) -> str:
 
 
 def resolve_version_file() -> Path:
-    override = os.getenv(ENV_VERSION_FILE)
-    if override:
-        return Path(override)
-    source_path = Path(__file__).resolve()
-    for parent in source_path.parents:
-        candidate = parent / "version.txt"
+    current_directory = Path.cwd().resolve()
+    candidates = (
+        current_directory / VERSION_FILE_NAME,
+        current_directory.parent / VERSION_FILE_NAME,
+    )
+    for candidate in candidates:
         if candidate.exists():
             return candidate
-    return source_path.parents[2] / "version.txt"
+    expected_paths = ", ".join(str(candidate) for candidate in candidates)
+    raise SystemExit(
+        f"Missing {VERSION_FILE_NAME}. Expected one of: {expected_paths}."
+    )
 
 
 def read_server_version() -> str:
     version_file = resolve_version_file()
     try:
         raw = version_file.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        LOGGER.warning("version_file_missing path=%s", version_file)
-        return ""
     except OSError as error:
-        LOGGER.warning("version_file_error path=%s error=%s", version_file, str(error))
-        return ""
+        raise SystemExit(
+            f"Failed to read {VERSION_FILE_NAME} at {version_file}: {error}"
+        ) from error
     normalized = normalize_version(raw)
     if not normalized:
-        LOGGER.warning("version_file_empty path=%s", version_file)
+        raise SystemExit(f"Version file is empty: {version_file}")
     return normalized
 
 
