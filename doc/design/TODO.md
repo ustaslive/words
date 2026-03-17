@@ -1,10 +1,10 @@
-[ ] this change
-    [ ] server instalable | updatable
-    [ ] update words dict
-    [ ] default xword generationn method is 4th one
-    [ ] default server 199.99.9.99
-    [ ] new release
-    [ ] какая ветвка в урле инсталлятора должна быть main or master?   
+[x] this change v1.0.9
+    [x] server instalable | updatable
+    [x] update words dict
+    [x] default xword generationn method is 4th one
+    [x] default server 199.99.9.99
+    [x] new release
+    [x] какая ветвка в урле инсталлятора должна быть main or master?   
         master
 
 
