@@ -31,6 +31,7 @@ outputs/
 
 # Devcontainer
 .devcontainer/.env
+.devcontainer/state/
 
 #
 **/tmp/

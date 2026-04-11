@@ -6,6 +6,7 @@
   "service": "devcontainer",
   "workspaceFolder": "/words",
   "remoteUser": "vscode",
+  "initializeCommand": "mkdir -p .devcontainer/state/codex && chmod 700 .devcontainer/state/codex",
   "overrideCommand": false,
   "updateRemoteUserUID": false,
   "containerEnv": {

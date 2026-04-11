@@ -6,6 +6,7 @@ services:
       dockerfile: .devcontainer/Dockerfile
     volumes:
       - ./:/words:cached
+      - ./.devcontainer/state/codex:/home/vscode/.codex
       - ~/.android/secrets/words:/words/secrets:ro
       - /etc/localtime:/etc/localtime:ro
     working_dir: /words
