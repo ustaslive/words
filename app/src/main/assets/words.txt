@@ -153,6 +153,7 @@ airing
 airline
 airplane
 airport
+airy
 aisle
 akin
 alarm
@@ -381,6 +382,7 @@ athletic
 atlas
 atom
 atomic
+atone
 atop
 attach
 attack
@@ -473,6 +475,7 @@ balance
 balancing
 balcony
 bald
+baldly
 bale
 ball
 ballet
@@ -756,6 +759,7 @@ boyfriend
 brace
 bracelet
 bracket
+braid
 brain
 brake
 branch
@@ -859,6 +863,7 @@ burden
 bureau
 burger
 burial
+burrito
 burn
 burner
 burning
@@ -909,6 +914,7 @@ came
 camel
 cameo
 camera
+camo
 camp
 campaign
 camping
@@ -968,6 +974,7 @@ cart
 cartel
 cartoon
 cartridge
+carve
 carving
 case
 cash
@@ -1221,6 +1228,7 @@ coffee
 coffin
 cognitive
 coherent
+cohort
 coil
 coin
 coke
@@ -1440,6 +1448,7 @@ covert
 coward
 cowboy
 coworker
+coyote
 cozy
 crab
 crack
@@ -1454,6 +1463,7 @@ crash
 crashing
 crate
 crater
+crave
 craving
 crawl
 crawling
@@ -1955,6 +1965,7 @@ dumping
 dune
 dungeon
 dunk
+dupe
 duplicate
 durable
 duration
@@ -2061,6 +2072,7 @@ emergence
 emergency
 emerging
 eminent
+emir
 emission
 emit
 emitent
@@ -2228,6 +2240,7 @@ exotic
 expand
 expanding
 expansion
+expat
 expect
 expecting
 expel
@@ -2316,6 +2329,7 @@ fascism
 fascist
 fashion
 fast
+fasten
 faster
 fastest
 fasting
@@ -3078,6 +3092,7 @@ hosting
 hotel
 hotter
 hottest
+hound
 hour
 hourly
 house
@@ -3345,6 +3360,7 @@ jacket
 jackpot
 jaguar
 jail
+jargon
 java
 jazz
 jealous
@@ -3376,6 +3392,7 @@ judiciary
 judo
 juice
 juicy
+july
 jump
 jumper
 jumping
@@ -3498,6 +3515,7 @@ layer
 laying
 layout
 lazy
+leach
 lead
 leader
 leading
@@ -3851,7 +3869,9 @@ mediocre
 medium
 meet
 meeting
+mega
 melody
+melon
 melt
 meltdown
 melting
@@ -3863,6 +3883,7 @@ memorable
 memorial
 memory
 menace
+meniscus
 mental
 mentality
 mentally
@@ -4011,6 +4032,7 @@ morale
 morality
 morally
 more
+morel
 moreover
 morning
 moron
@@ -4213,6 +4235,7 @@ nuke
 null
 numb
 number
+numeral
 numerical
 numerous
 nurse
@@ -4312,6 +4335,7 @@ oral
 orange
 orbit
 orbital
+orca
 orchard
 orchestra
 ordeal
@@ -4507,6 +4531,7 @@ pediatric
 peek
 peel
 peer
+penal
 penalty
 pence
 pencil
@@ -4640,6 +4665,7 @@ pledge
 plenty
 plot
 plotting
+ploy
 plug
 plum
 plumbing
@@ -4793,7 +4819,6 @@ prey
 price
 priceless
 pricing
-prick
 pride
 priest
 primarily
@@ -5508,6 +5533,7 @@ scripture
 scroll
 scrub
 scrutiny
+scuba
 sculpture
 scum
 seafood
@@ -5789,6 +5815,7 @@ slow
 slower
 slowing
 slowly
+slur
 smack
 small
 smaller
@@ -5864,11 +5891,13 @@ something
 sometime
 somewhat
 somewhere
+sonar
 song
 sonic
 sonnet
 soon
 sooner
+soothe
 sophomore
 sore
 sorrow
@@ -5889,6 +5918,7 @@ southwest
 sovereign
 soviet
 space
+spade
 spaghetti
 spain
 spam
@@ -5922,7 +5952,6 @@ spelling
 spend
 spending
 spent
-sperm
 sphere
 spice
 spicy
@@ -6174,6 +6203,7 @@ summary
 summer
 summit
 summon
+sumo
 sung
 sunk
 sunlight
@@ -6317,6 +6347,7 @@ tavern
 taxation
 taxi
 taxpayer
+taze
 teach
 teacher
 teaching
@@ -6622,6 +6653,7 @@ triumph
 trivial
 troll
 troop
+trope
 trophy
 tropical
 trouble
@@ -6995,6 +7027,7 @@ weight
 weird
 welcome
 welcoming
+weld
 welding
 welfare
 well
@@ -7029,7 +7062,6 @@ whisky
 whisper
 whistle
 white
-whoa
 whoever
 whole
 wholesale
@@ -7127,6 +7159,7 @@ wrap
 wrapping
 wrath
 wreck
+wrest
 wrestler
 wrestling
 wrist
@@ -7159,6 +7192,7 @@ youth
 youthful
 yuan
 yummy
+zebra
 zero
 zinc
 zombie
