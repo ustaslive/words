@@ -14,7 +14,7 @@ git checkout develop
 git pull
 git checkout -b release_v<version>
 # Edit version.txt (versionName) and app/build.gradle.kts (versionCode)
-# If words.txt or forbidden_words.txt changed, regenerate mode 005 stats and copy them to both target files
+# If words.txt or forbidden_words.txt changed, run tools/update_mode005_stats.py
 # Create doc/releases/release_v<version>.md with release notes
 git add version.txt app/build.gradle.kts doc/releases/release_v<version>.md
 # Also add app/src/main/assets/words.txt app/src/main/assets/forbidden_words.txt lab/crossword_repeatability/005.stat.txt app/src/main/assets/005.stat.txt when updated
@@ -87,12 +87,7 @@ When `app/src/main/assets/words.txt` or `app/src/main/assets/forbidden_words.txt
 Run from the repository root (`/words` in the devcontainer):
 
 ```bash
-cd /words/lab/crossword_repeatability
-python3 generate_005_word_stats.py 10000 -v
-latest_stats="$(ls -t 005.20*.txt | head -n 1)"
-cp "$latest_stats" 005.stat.txt
-cp 005.stat.txt /words/app/src/main/assets/005.stat.txt
-cmp -s 005.stat.txt /words/app/src/main/assets/005.stat.txt
+python3 tools/update_mode005_stats.py 10000 --verbose
 ```
 
 What this does:

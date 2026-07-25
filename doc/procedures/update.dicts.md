@@ -1,24 +1,32 @@
-- collect words, manually, or sent from the app via (...) -> Send words to review -> ustas@live.com
+# Update dictionaries
 
-- use Gemini Gem `words`, https://gemini.google.com/gem/e85ab88ab09a
-    - copy all collected words there
-    - get 2 lists: valid words and not valid
-    - check/add/remove the words in the dictionaries files
-        - app/src/main/assets/words.txt
-        - app/src/main/assets/forbidden_words.txt
+1. Collect words manually or from the app with **Send words to review**.
+2. Analyze the collected words with the Gemini Gem `words`:
+   <https://gemini.google.com/gem/e85ab88ab09a>
+3. Copy the reviewed decisions into a dated file such as
+   `data/dictionary_updates/YYYY-MM-DD_word_review.txt`. See
+   `data/dictionary_updates/README.md` for the format.
+4. Preview the exact dictionary changes from the repository root:
 
-- run script to reevaluate words frequences in dictionaries
-```
-cd /words/lab/crossword_repeatability
-python3 generate_005_word_stats.py 10000 -v
-latest_stats="$(ls -t 005.20*.txt | head -n 1)"
-cp "$latest_stats" 005.stat.txt
-cp 005.stat.txt /words/app/src/main/assets/005.stat.txt
-```
+   ```bash
+   python3 tools/apply_dictionary_review.py
+   ```
 
+   With no file argument, the newest `*_word_review.txt` file is selected and
+   printed. Pass an explicit path when updating an older batch.
 
-- commit to `develop` branch
-- push `develop` branch to github
+5. Check the preview, then apply it:
 
-- wait for 10 minutes, and update phone app with
-    (...) -> Update dictionary
+   ```bash
+   python3 tools/apply_dictionary_review.py --apply
+   ```
+
+6. Regenerate and synchronize mode 005 statistics:
+
+   ```bash
+   python3 tools/update_mode005_stats.py 10000 --verbose
+   ```
+
+7. Review the Git diff and run the relevant tests.
+8. Commit and push the changes to the `develop` branch.
+9. Wait for the remote update, then select **Update dictionary** in the app.

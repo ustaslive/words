@@ -226,6 +226,7 @@ amnesty
 among
 amongst
 amount
+amper
 ample
 amulet
 amusement
@@ -624,6 +625,7 @@ bible
 biblical
 bicycle
 bidding
+bidet
 bigger
 biggest
 bike
@@ -831,6 +833,7 @@ broker
 bronze
 brook
 broom
+broth
 brother
 brought
 brow
@@ -1027,6 +1030,7 @@ celebrity
 celestial
 cell
 cellar
+cello
 cellular
 cement
 cemetery
@@ -1231,7 +1235,6 @@ coating
 cobalt
 cobra
 coca
-cock
 cockpit
 cocktail
 cocoa
@@ -1573,6 +1576,7 @@ cyclist
 cyclone
 cylinder
 cynical
+czar
 daddy
 dagger
 daily
@@ -1859,6 +1863,7 @@ diver
 diverse
 diversion
 diversity
+divert
 divide
 dividend
 dividing
@@ -1937,6 +1942,7 @@ dread
 dreadful
 dream
 dreaming
+dreamt
 dress
 dressing
 drew
@@ -1952,6 +1958,7 @@ driven
 driver
 driveway
 driving
+droid
 drone
 drop
 dropping
@@ -2162,6 +2169,7 @@ enzyme
 epic
 epidemic
 episode
+epoch
 equal
 equality
 equally
@@ -2361,7 +2369,6 @@ fatty
 fault
 faulty
 fauna
-faux
 favor
 favorable
 favorite
@@ -2600,6 +2607,7 @@ four
 fourteen
 fourth
 fowler
+foyer
 fraction
 fracture
 fragile
@@ -2795,6 +2803,7 @@ goodness
 goodwill
 goofy
 goose
+gopher
 gore
 gorgeous
 gorilla
@@ -2900,7 +2909,6 @@ habitat
 hack
 hacker
 hacking
-haha
 hail
 hair
 haircut
@@ -3646,6 +3654,7 @@ lineup
 lingerie
 lining
 link
+linker
 linking
 lion
 lipstick
@@ -3710,6 +3719,7 @@ lookout
 loop
 loose
 loosely
+loosen
 loot
 lord
 lore
@@ -3767,6 +3777,7 @@ made
 madness
 mafia
 magazine
+magenta
 magic
 magical
 magician
@@ -3802,6 +3813,7 @@ mandate
 mandatory
 mane
 maneuver
+manger
 mango
 manifest
 manifesto
@@ -3889,6 +3901,7 @@ meanwhile
 measure
 measuring
 meat
+mebel
 mechanic
 mechanism
 medal
@@ -4001,6 +4014,7 @@ mint
 minus
 minute
 miracle
+mirage
 mirror
 miserable
 misery
@@ -4118,6 +4132,7 @@ mural
 murder
 murderer
 murdering
+muscat
 muscle
 muscular
 muse
@@ -4193,6 +4208,7 @@ nest
 netto
 network
 neural
+neuro
 neutral
 never
 newborn
@@ -5028,6 +5044,7 @@ quicker
 quickly
 quiet
 quietly
+quilt
 quirky
 quit
 quite
@@ -5068,6 +5085,7 @@ raisin
 raising
 rake
 rally
+ramen
 ramp
 rampant
 ranch
@@ -5169,6 +5187,7 @@ reduction
 redundant
 reed
 reef
+reek
 reel
 refer
 referee
@@ -5209,6 +5228,7 @@ reinforce
 reject
 rejecting
 rejection
+rejoin
 relate
 relating
 relation
@@ -5227,6 +5247,7 @@ relief
 relieve
 religion
 religious
+relink
 reload
 reluctant
 rely
@@ -5350,6 +5371,7 @@ revive
 revolt
 reward
 rewarding
+rewind
 rework
 rhetoric
 rhino
@@ -5463,6 +5485,7 @@ runaway
 rung
 runner
 running
+runny
 runoff
 runway
 rural
@@ -5502,6 +5525,7 @@ salesman
 saliva
 salmon
 salon
+saloon
 salsa
 salt
 salty
@@ -6134,6 +6158,7 @@ stereo
 sterling
 stern
 stew
+steward
 stick
 sticker
 sticking
@@ -6394,6 +6419,7 @@ tango
 tank
 tanner
 tape
+tapir
 tapping
 tare
 target
@@ -6418,6 +6444,7 @@ team
 teammate
 tear
 tearing
+teary
 tease
 teasing
 tech
@@ -6723,6 +6750,7 @@ trophy
 tropical
 trouble
 troubling
+trough
 trousers
 trout
 truce
@@ -6746,6 +6774,7 @@ tulip
 tumor
 tuna
 tune
+tuner
 tuning
 tunnel
 turbine
@@ -6940,6 +6969,7 @@ verse
 version
 versus
 vertical
+vertigo
 very
 vessel
 vest
@@ -7109,6 +7139,7 @@ well
 wellness
 welsh
 went
+wept
 were
 west
 western
