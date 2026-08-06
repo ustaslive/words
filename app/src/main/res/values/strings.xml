@@ -26,9 +26,6 @@
     <string name="about_close">Close</string>
     <string name="settings_next_crossword">Crossword generation mode</string>
     <string name="dropdown_open">Open options</string>
-    <string name="crossword_mode_random_word">Random word</string>
-    <string name="crossword_mode_low_overlap">Least similar word</string>
-    <string name="crossword_mode_vowel_rich_letters">Random letters</string>
     <string name="crossword_mode_random_letters_avd">Random letters (avd)</string>
     <string name="settings_tab_general">General</string>
     <string name="settings_tab_net_play">Net Play</string>

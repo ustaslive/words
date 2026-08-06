@@ -7,7 +7,7 @@ import org.junit.Test
 
 class Mode005SelectionTest {
     @Test
-    fun parseMode005WordStatsReadsMetadataAndWords() {
+    fun parseMode005WordStatsReadsWordsAndIgnoresMetadata() {
         val lines = sequenceOf(
             "# format=v1",
             "# crosswords_generated=123",
@@ -17,7 +17,6 @@ class Mode005SelectionTest {
 
         val result = parseMode005WordStats(lines)
 
-        assertEquals(123, result.crosswordsGenerated)
         assertEquals(7, result.frequencies["NEAR"])
         assertEquals(5, result.frequencies["IDEA"])
     }
@@ -52,7 +51,6 @@ class Mode005SelectionTest {
         )
 
         assertTrue(result is CrosswordGenerationResult.Failure)
-        assertEquals(0, (result as CrosswordGenerationResult.Failure).attempts)
     }
 
     @Test

@@ -40,13 +40,11 @@ internal sealed interface CrosswordGenerationResult {
     data class Success(
         val seedLetters: String,
         val layout: CrosswordLayout,
-        val rejectedSeedLetters: List<String>,
-        val attempts: Int
+        val rejectedSeedLetters: List<String>
     ) : CrosswordGenerationResult
 
     data class Failure(
-        val rejectedSeedLetters: List<String>,
-        val attempts: Int
+        val rejectedSeedLetters: List<String>
     ) : CrosswordGenerationResult
 }
 
@@ -127,14 +125,6 @@ internal fun loadWordListFromLines(lines: Sequence<String>): List<String> {
         .toList()
 }
 
-internal fun pickRandomBaseWord(words: List<String>): String {
-    return if (words.isEmpty()) {
-        "WORDS"
-    } else {
-        words.random()
-    }
-}
-
 internal fun buildMiniDictionary(seedLetters: String, dictionary: Iterable<String>): List<String> {
     val normalizedSeed = seedLetters.trim().uppercase()
     if (normalizedSeed.isEmpty()) {
@@ -159,26 +149,6 @@ internal fun generateLetterWheel(seedLetters: String): List<Char> {
     return seedLetters.uppercase().toList()
 }
 
-internal fun generateCrosswordGrid(seedLetters: String): List<List<CrosswordCell>> {
-    val normalized = seedLetters.uppercase()
-    val size = normalized.length
-    val wordRow = size / 2
-
-    return List(size) { rowIndex ->
-        List(size) { colIndex ->
-            if (rowIndex == wordRow) {
-                CrosswordCell(
-                    letter = normalized[colIndex],
-                    isActive = true,
-                    isRevealed = false
-                )
-            } else {
-                CrosswordCell(letter = null, isActive = false, isRevealed = false)
-            }
-        }
-    }
-}
-
 internal fun revealCells(
     grid: List<List<CrosswordCell>>,
     positions: Set<GridPosition>
@@ -197,12 +167,6 @@ internal fun revealCells(
     }
 }
 
-internal fun generateCrosswordWords(seedLetters: String): List<CrosswordWord> {
-    val normalized = seedLetters.uppercase()
-    val row = normalized.length / 2
-    return listOf(horizontalWord(normalized, row, startCol = 0))
-}
-
 internal fun buildCrosswordLayout(
     seedLetters: String,
     dictionary: List<String>,
@@ -214,60 +178,6 @@ internal fun buildCrosswordLayout(
     val grid = buildCrosswordGridFromRows(rows)
     val words = extractCrosswordWords(rows).associateBy { it.word }
     return CrosswordLayout(grid = grid, words = words)
-}
-
-internal fun generateCrosswordWithQuality(
-    seedLetterCandidates: List<String>,
-    dictionary: List<String>,
-    minWordCount: Int = MIN_CROSSWORD_WORD_COUNT,
-    maxAttempts: Int = MAX_CROSSWORD_GENERATION_ATTEMPTS,
-    random: Random = Random.Default,
-    isValidLayout: (String, CrosswordLayout) -> Boolean = { _, _ -> true }
-): CrosswordGenerationResult {
-    if (seedLetterCandidates.isEmpty()) {
-        return CrosswordGenerationResult.Failure(emptyList(), ORIGIN_INDEX)
-    }
-    val remainingSeedLetters = seedLetterCandidates.toMutableList()
-    val rejectedSeedLetters = mutableListOf<String>()
-    var attempts = ORIGIN_INDEX
-    while (attempts < maxAttempts && remainingSeedLetters.isNotEmpty()) {
-        val seedIndex = random.nextInt(remainingSeedLetters.size)
-        val seedLetters = remainingSeedLetters.removeAt(seedIndex)
-        attempts += INDEX_STEP
-        val layout = buildCrosswordLayout(seedLetters, dictionary, random)
-        val wordCount = layout.words.size
-        if (wordCount >= minWordCount && isValidLayout(seedLetters, layout)) {
-            return CrosswordGenerationResult.Success(
-                seedLetters = seedLetters,
-                layout = layout,
-                rejectedSeedLetters = rejectedSeedLetters,
-                attempts = attempts
-            )
-        }
-        rejectedSeedLetters.add(seedLetters)
-    }
-    return CrosswordGenerationResult.Failure(rejectedSeedLetters, attempts)
-}
-
-internal fun areAllSeedLettersUsed(seedLetters: String, layout: CrosswordLayout): Boolean {
-    val usedLetters = BooleanArray(ALPHABET_SIZE)
-    for (word in layout.words.keys) {
-        for (char in word) {
-            if (char !in 'A'..'Z') {
-                continue
-            }
-            usedLetters[char - 'A'] = true
-        }
-    }
-    for (char in seedLetters.uppercase()) {
-        if (char !in 'A'..'Z') {
-            return false
-        }
-        if (!usedLetters[char - 'A']) {
-            return false
-        }
-    }
-    return true
 }
 
 internal fun generateRandomCrossword(
@@ -429,13 +339,6 @@ internal fun applyMissingWordGuess(
         lastGuessedWord = normalized
     )
     return MissingWordGuessResult(updatedState, MissingWordMatch.NewlyGuessed)
-}
-
-private fun horizontalWord(word: String, row: Int, startCol: Int): CrosswordWord {
-    val positions = word.indices
-        .map { colOffset -> GridPosition(row, startCol + colOffset) }
-        .toSet()
-    return CrosswordWord(word = word, positions = positions)
 }
 
 private fun normalizeCrosswordWords(words: List<String>): List<String> {

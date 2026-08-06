@@ -389,7 +389,6 @@ def _run_single_attempt(
     seed_vowel_count = _count_vowels(seed_letters)
     seed_consonant_count = len(seed_letters) - seed_vowel_count
     remaining_addition_alphabet = _build_remaining_addition_alphabet(seed_letters)
-    blocked_return_letters: set[str] = set()
     seed_length = len(seed_letters)
     _record_phase_timing(
         timing_stats=timing_stats,
@@ -597,12 +596,7 @@ def _run_single_attempt(
 
         seed_before_mutation = seed_letters
         seed_after_removal = _remove_one_letter(seed_letters, removed_letter)
-        blocked_return_letters.add(removed_letter)
-        add_pool = _build_addition_pool(
-            seed_letters=seed_after_removal,
-            remaining_addition_alphabet=remaining_addition_alphabet,
-            blocked_return_letters=blocked_return_letters,
-        )
+        add_pool = sorted(remaining_addition_alphabet)
         if not add_pool:
             _record_phase_timing(
                 timing_stats=timing_stats,
@@ -620,7 +614,6 @@ def _run_single_attempt(
                     "seed_before": seed_before_mutation,
                     "removed_letter": removed_letter,
                     "seed_after_removal": seed_after_removal,
-                    "blocked_return_letters": sorted(blocked_return_letters),
                     "remaining_addition_alphabet_size": len(remaining_addition_alphabet),
                     "mutation_result": "failed_addition_pool_empty",
                 },
@@ -652,7 +645,6 @@ def _run_single_attempt(
                 "removed_letter": removed_letter,
                 "added_letter": added_letter,
                 "seed_after": seed_letters,
-                "blocked_return_letters": sorted(blocked_return_letters),
                 "remaining_addition_alphabet_size": len(remaining_addition_alphabet),
             },
         )
@@ -906,20 +898,6 @@ def _shuffle_letters(letters: str, rng: random.Random) -> str:
 def _build_remaining_addition_alphabet(seed_letters: str) -> set[str]:
     current_letters = {char for char in seed_letters if char in ALPHABET}
     return {char for char in ALPHABET if char not in current_letters}
-
-
-def _build_addition_pool(
-    seed_letters: str,
-    remaining_addition_alphabet: set[str],
-    blocked_return_letters: set[str],
-) -> list[str]:
-    current_letters = {char for char in seed_letters if char in ALPHABET}
-    pool = [
-        char
-        for char in sorted(remaining_addition_alphabet)
-        if char not in blocked_return_letters and char not in current_letters
-    ]
-    return pool
 
 
 def _parse_crosswords_generated_comment(comment: str) -> int | None:

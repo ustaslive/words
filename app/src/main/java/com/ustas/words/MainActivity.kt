@@ -133,7 +133,6 @@ import com.ustas.words.ui.theme.TileText
 import com.ustas.words.ui.theme.WheelBackground
 import com.ustas.words.ui.theme.WheelLetter
 import com.ustas.words.ui.theme.WordsTheme
-import kotlin.math.floor
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -309,12 +308,8 @@ private const val SOUND_POOL_TAP_VOLUME = 0.6f
 private const val SOUND_POOL_BELL_VOLUME = SOUND_POOL_TAP_VOLUME
 private const val SOUND_POOL_SIDE_WORD_VOLUME = SOUND_POOL_TAP_VOLUME
 private const val SOUND_POOL_COMPLETED_VOLUME = SOUND_POOL_TAP_VOLUME
-private const val CROSSWORD_MODE_RANDOM_WORD = "random_word"
-private const val CROSSWORD_MODE_LOW_OVERLAP = "low_overlap"
-private const val CROSSWORD_MODE_VOWEL_RICH_LETTERS = "vowel_rich_letters"
 private const val CROSSWORD_MODE_RANDOM_LETTERS_AVD = "random_letters_avd"
 private const val DEFAULT_CROSSWORD_SELECTION_MODE_ID = CROSSWORD_MODE_RANDOM_LETTERS_AVD
-private const val LOW_OVERLAP_MAX_SHARED_RATIO = 0.2f
 private const val FULL_WEIGHT = 1f
 private val SETTINGS_DIALOG_SPACING = 12.dp
 private val SETTINGS_CONTROL_SPACING = 8.dp
@@ -336,10 +331,6 @@ private val NET_PLAY_STATS_ELEVATION = 6.dp
 private val NET_PLAY_TOGGLE_KNOB_SIZE = NET_PLAY_TOGGLE_HEIGHT -
     (NET_PLAY_TOGGLE_PADDING * NET_PLAY_PADDING_MULTIPLIER)
 private const val PLAYER_ID_TEXT_SIZE_DIVISOR = 1.5f
-private const val VOWELS = "AEIOU"
-private const val CONSONANTS = "BCDFGHJKLMNPQRSTVWXYZ"
-private const val MIN_RANDOM_VOWEL_COUNT = 2
-private const val MAX_RANDOM_VOWEL_COUNT = 3
 private const val COUNT_STEP = 1
 private const val ALREADY_SOLVED_CONFIRM_REPEAT_DELAY_MS = 90L
 private const val REVIEW_WORD_CONFIRM_TONE_HZ = 320.0
@@ -383,9 +374,6 @@ private enum class CrosswordSelectionMode(
     val id: String,
     val labelResId: Int
 ) {
-    RandomWord(CROSSWORD_MODE_RANDOM_WORD, R.string.crossword_mode_random_word),
-    LowOverlapWord(CROSSWORD_MODE_LOW_OVERLAP, R.string.crossword_mode_low_overlap),
-    VowelRichLetters(CROSSWORD_MODE_VOWEL_RICH_LETTERS, R.string.crossword_mode_vowel_rich_letters),
     RandomLettersAvd(CROSSWORD_MODE_RANDOM_LETTERS_AVD, R.string.crossword_mode_random_letters_avd);
 
     companion object {
@@ -476,7 +464,6 @@ private fun GameScreen() {
     soundEffects.muted = settings.muted
     var dictionary by remember { mutableStateOf(loadDictionaryWords(appContext)) }
     var mode005WordStats by remember { mutableStateOf(loadMode005WordStats(appContext)) }
-    val dictionarySet = remember(dictionary) { dictionary.toHashSet() }
     val mode005TopFrequentWordSet = remember(dictionary, mode005WordStats) {
         buildMode005TopFrequentWordSet(
             dictionary = dictionary,
@@ -484,9 +471,6 @@ private fun GameScreen() {
         )
     }
     val seedLengthRange = seedLetterLengthRange(settings.maxLetterSetSize)
-    val eligibleWords = remember(dictionarySet, seedLengthRange) {
-        dictionarySet.filter { it.length in seedLengthRange }
-    }
     var dictionaryUpdateInProgress by remember { mutableStateOf(false) }
     var seedLetters by remember { mutableStateOf("") }
     var letters by remember { mutableStateOf(emptyList<Char>()) }
@@ -789,37 +773,14 @@ private fun GameScreen() {
         if (netPlayEnabled && netRole == NetPlayRole.Guest) {
             return
         }
-        val previousSeedLetters = seedLetters
         val previousRoundWordSet = crosswordWords.keys
         highlightedPositions = emptySet()
-        val result = when (settings.selectionMode) {
-            CrosswordSelectionMode.RandomLettersAvd -> {
-                generateCrosswordWithMode005(
-                    dictionary = dictionary,
-                    previousRoundWordSet = previousRoundWordSet,
-                    topFrequentWordSet = mode005TopFrequentWordSet,
-                    seedLengthRange = seedLengthRange
-                )
-            }
-            else -> {
-                val seedLetterCandidates = buildSeedLetterCandidates(
-                    eligibleWords = eligibleWords,
-                    previousSeedLetters = previousSeedLetters,
-                    selectionMode = settings.selectionMode,
-                    maxLetterSetSize = settings.maxLetterSetSize
-                )
-                generateCrosswordWithQuality(
-                    seedLetterCandidates = seedLetterCandidates,
-                    dictionary = dictionary,
-                    isValidLayout = { candidateSeedLetters, layout ->
-                        if (settings.selectionMode != CrosswordSelectionMode.VowelRichLetters) {
-                            return@generateCrosswordWithQuality true
-                        }
-                        areAllSeedLettersUsed(candidateSeedLetters, layout)
-                    }
-                )
-            }
-        }
+        val result = generateCrosswordWithMode005(
+            dictionary = dictionary,
+            previousRoundWordSet = previousRoundWordSet,
+            topFrequentWordSet = mode005TopFrequentWordSet,
+            seedLengthRange = seedLengthRange
+        )
         val rejectedSeedLetters = when (result) {
             is CrosswordGenerationResult.Success -> result.rejectedSeedLetters
             is CrosswordGenerationResult.Failure -> result.rejectedSeedLetters
@@ -951,16 +912,11 @@ private fun GameScreen() {
 
     LaunchedEffect(Unit) {
         launchDictionaryUpdate(DictionaryUpdateReason.Scheduled, showToast = false)
+        startNewGame()
     }
 
     LaunchedEffect(seedLetters) {
         logSmallWordListIfNeeded(appContext, seedLetters, dictionary)
-    }
-
-    LaunchedEffect(eligibleWords) {
-        if (grid.isEmpty() || !eligibleWords.contains(seedLetters)) {
-            startNewGame()
-        }
     }
     LaunchedEffect(highlightedPositions, highlightTrigger) {
         if (highlightedPositions.isEmpty()) {
@@ -3411,132 +3367,6 @@ private fun seedLetterLengthRange(maxLetterSetSize: Int): IntRange {
     val clampedMax = maxLetterSetSize.coerceIn(MIN_SEED_LETTER_SET_SIZE, MAX_SEED_LETTER_SET_SIZE)
     val minSize = maxOf(MIN_SEED_LETTER_SET_SIZE, clampedMax - COUNT_STEP)
     return minSize..clampedMax
-}
-
-private fun buildSeedLetterCandidates(
-    eligibleWords: List<String>,
-    previousSeedLetters: String,
-    selectionMode: CrosswordSelectionMode,
-    maxLetterSetSize: Int,
-    random: Random = Random.Default
-): List<String> {
-    val seedLengthRange = seedLetterLengthRange(maxLetterSetSize)
-    return when (selectionMode) {
-        CrosswordSelectionMode.RandomWord -> eligibleWords
-        CrosswordSelectionMode.LowOverlapWord -> {
-            val filtered = eligibleWords.filter { hasLowLetterOverlap(it, previousSeedLetters) }
-            if (filtered.isEmpty()) eligibleWords else filtered
-        }
-        CrosswordSelectionMode.VowelRichLetters -> {
-            buildRandomSeedLetterCandidates(
-                seedLengthRange = seedLengthRange,
-                candidateCount = MAX_CROSSWORD_GENERATION_ATTEMPTS,
-                previousSeedLetters = previousSeedLetters,
-                random = random
-            )
-        }
-        CrosswordSelectionMode.RandomLettersAvd -> emptyList()
-    }
-}
-
-private fun hasLowLetterOverlap(candidate: String, previousSeedLetters: String): Boolean {
-    if (previousSeedLetters.isBlank()) {
-        return true
-    }
-    val normalizedCandidate = candidate.uppercase()
-    val normalizedPrevious = previousSeedLetters.uppercase()
-    val candidateCounts = countLetterMatches(normalizedCandidate) ?: return true
-    val previousCounts = countLetterMatches(normalizedPrevious) ?: return true
-    val sharedCount = candidateCounts.indices.sumOf { index ->
-        minOf(candidateCounts[index], previousCounts[index])
-    }
-    val maxShared = floor(normalizedCandidate.length * LOW_OVERLAP_MAX_SHARED_RATIO).toInt()
-    return sharedCount <= maxShared
-}
-
-private fun countLetterMatches(word: String): IntArray? {
-    val counts = IntArray(CONSONANTS.length + VOWELS.length)
-    for (char in word) {
-        if (char !in 'A'..'Z') {
-            return null
-        }
-        counts[char - 'A']++
-    }
-    return counts
-}
-
-private fun buildRandomSeedLetterCandidates(
-    seedLengthRange: IntRange,
-    candidateCount: Int,
-    previousSeedLetters: String,
-    random: Random = Random.Default
-): List<String> {
-    val consonantPool = buildAvailableConsonants(previousSeedLetters)
-    val lengthRange = seedLengthRange.last - seedLengthRange.first + COUNT_STEP
-    return List(candidateCount.coerceAtLeast(COUNT_STEP)) {
-        val seedLength = seedLengthRange.first + random.nextInt(lengthRange)
-        val vowelCount = pickRandomVowelCount(seedLength, random)
-        buildRandomSeedLetters(
-            seedLength = seedLength,
-            vowelCount = vowelCount,
-            consonantPool = consonantPool,
-            random = random
-        )
-    }
-}
-
-private fun buildAvailableConsonants(previousSeedLetters: String): List<Char> {
-    if (previousSeedLetters.isBlank()) {
-        return CONSONANTS.toList()
-    }
-    val previousConsonants = previousSeedLetters.uppercase()
-        .filter { it in CONSONANTS }
-        .toSet()
-    return CONSONANTS.filterNot { previousConsonants.contains(it) }.toList()
-}
-
-private fun pickRandomVowelCount(seedLength: Int, random: Random): Int {
-    val minVowels = MIN_RANDOM_VOWEL_COUNT.coerceAtMost(seedLength)
-    val maxVowels = MAX_RANDOM_VOWEL_COUNT.coerceAtMost(seedLength)
-    return if (minVowels == maxVowels) {
-        minVowels
-    } else {
-        if (random.nextBoolean()) minVowels else maxVowels
-    }
-}
-
-private fun buildRandomSeedLetters(
-    seedLength: Int,
-    vowelCount: Int,
-    consonantPool: List<Char>,
-    random: Random
-): String {
-    val vowels = pickRandomVowels(vowelCount, random)
-    val consonantCount = seedLength - vowels.size
-    val consonants = pickRandomConsonants(consonantPool, consonantCount, random)
-    return (vowels + consonants).shuffled(random).joinToString(separator = "")
-}
-
-private fun pickRandomVowels(vowelCount: Int, random: Random): List<Char> {
-    if (vowelCount < COUNT_STEP) {
-        return emptyList()
-    }
-    return List(vowelCount) { VOWELS[random.nextInt(VOWELS.length)] }
-}
-
-private fun pickRandomConsonants(
-    consonantPool: List<Char>,
-    consonantCount: Int,
-    random: Random
-): List<Char> {
-    if (consonantCount < COUNT_STEP || consonantPool.isEmpty()) {
-        return emptyList()
-    }
-    return if (consonantCount <= consonantPool.size) {
-        consonantPool.shuffled(random).take(consonantCount)
-    } else {
-        List(consonantCount) { consonantPool[random.nextInt(consonantPool.size)] }
-    }
 }
 
 private fun loadReviewWords(context: Context): List<String> {

@@ -18,7 +18,6 @@ private const val MODE005_DEFAULT_MAX_REPEAT_SHARE = 0.40
 private const val MODE005_DEFAULT_TOP_FREQUENT_SHARE = 0.10
 private const val MODE005_LINE_COMMENT_PREFIX = "#"
 private const val MODE005_VALUE_SEPARATOR = ':'
-private const val MODE005_CROSSWORDS_GENERATED_PREFIX = "crosswords_generated="
 private const val MODE005_ORIGIN_INDEX = 0
 private const val MODE005_INDEX_STEP = 1
 private const val MODE005_MIN_TOP_WORD_COUNT = 1
@@ -27,8 +26,7 @@ private const val MODE005_MIN_REPEAT_DENOMINATOR = 1
 private const val MODE005_EMPTY_WORD_COUNT = 0
 
 internal data class Mode005WordStats(
-    val frequencies: Map<String, Int>,
-    val crosswordsGenerated: Int?
+    val frequencies: Map<String, Int>
 )
 
 internal data class Mode005GeneratorConfig(
@@ -40,12 +38,11 @@ internal data class Mode005GeneratorConfig(
 )
 
 internal fun emptyMode005WordStats(): Mode005WordStats {
-    return Mode005WordStats(frequencies = emptyMap(), crosswordsGenerated = null)
+    return Mode005WordStats(frequencies = emptyMap())
 }
 
 internal fun parseMode005WordStats(lines: Sequence<String>): Mode005WordStats {
     val frequencies = linkedMapOf<String, Int>()
-    var crosswordsGenerated: Int? = null
     lines.forEachIndexed { index, rawLine ->
         val lineNumber = index + MODE005_INDEX_STEP
         val line = rawLine.trim()
@@ -53,11 +50,6 @@ internal fun parseMode005WordStats(lines: Sequence<String>): Mode005WordStats {
             return@forEachIndexed
         }
         if (line.startsWith(MODE005_LINE_COMMENT_PREFIX)) {
-            val comment = line.removePrefix(MODE005_LINE_COMMENT_PREFIX).trim()
-            val parsedCrosswordCount = parseCrosswordsGeneratedComment(comment)
-            if (parsedCrosswordCount != null) {
-                crosswordsGenerated = parsedCrosswordCount
-            }
             return@forEachIndexed
         }
 
@@ -83,10 +75,7 @@ internal fun parseMode005WordStats(lines: Sequence<String>): Mode005WordStats {
         }
         frequencies[word] = count
     }
-    return Mode005WordStats(
-        frequencies = frequencies.toMap(),
-        crosswordsGenerated = crosswordsGenerated
-    )
+    return Mode005WordStats(frequencies = frequencies.toMap())
 }
 
 internal fun buildMode005TopFrequentWordSet(
@@ -122,8 +111,7 @@ internal fun generateCrosswordWithMode005(
 ): CrosswordGenerationResult {
     if (dictionary.isEmpty() || config.maxGenerationAttempts < MODE005_INDEX_STEP) {
         return CrosswordGenerationResult.Failure(
-            rejectedSeedLetters = emptyList(),
-            attempts = MODE005_ORIGIN_INDEX
+            rejectedSeedLetters = emptyList()
         )
     }
     val repeatControlSet = if (previousRoundWordSet.isNotEmpty()) {
@@ -145,7 +133,6 @@ internal fun generateCrosswordWithMode005(
 
         var seedLetters = initialSeed
         val remainingAdditionAlphabet = buildMode005RemainingAdditionAlphabet(seedLetters).toMutableSet()
-        val blockedReturnLetters = mutableSetOf<Char>()
 
         for (swapCycle in MODE005_INDEX_STEP..maxSwapCycles) {
             val fullWordSet = buildMode005FullWordSet(
@@ -170,8 +157,7 @@ internal fun generateCrosswordWithMode005(
                     return CrosswordGenerationResult.Success(
                         seedLetters = finalizedSeedLetters,
                         layout = layout,
-                        rejectedSeedLetters = rejectedSeedLetters,
-                        attempts = attemptsUsed
+                        rejectedSeedLetters = rejectedSeedLetters
                     )
                 }
                 break
@@ -189,12 +175,7 @@ internal fun generateCrosswordWithMode005(
             if (seedAfterRemoval.isEmpty()) {
                 break
             }
-            blockedReturnLetters.add(removedLetter)
-            val additionPool = buildMode005AdditionPool(
-                seedLetters = seedAfterRemoval,
-                remainingAdditionAlphabet = remainingAdditionAlphabet,
-                blockedReturnLetters = blockedReturnLetters
-            )
+            val additionPool = remainingAdditionAlphabet.sorted()
             if (additionPool.isEmpty()) {
                 break
             }
@@ -206,19 +187,8 @@ internal fun generateCrosswordWithMode005(
         rejectedSeedLetters.add(initialSeed)
     }
     return CrosswordGenerationResult.Failure(
-        rejectedSeedLetters = rejectedSeedLetters,
-        attempts = attemptsUsed
+        rejectedSeedLetters = rejectedSeedLetters
     )
-}
-
-private fun parseCrosswordsGeneratedComment(comment: String): Int? {
-    val normalized = comment.lowercase()
-    if (!normalized.startsWith(MODE005_CROSSWORDS_GENERATED_PREFIX)) {
-        return null
-    }
-    val valueText = comment.substring(MODE005_CROSSWORDS_GENERATED_PREFIX.length).trim()
-    val value = valueText.toIntOrNull() ?: return null
-    return value.takeIf { it >= MODE005_ORIGIN_INDEX }
 }
 
 private fun normalizeMode005Dictionary(dictionary: List<String>): List<String> {
@@ -277,9 +247,6 @@ private fun generateMode005SeedLetters(seedLengthRange: IntRange, random: Random
     }
     repeat(consonantCount) {
         letters.add(MODE005_CONSONANTS[random.nextInt(MODE005_CONSONANTS.length)])
-    }
-    while (letters.size < seedLength) {
-        letters.add(MODE005_ALPHABET[random.nextInt(MODE005_ALPHABET.length)])
     }
     letters.shuffle(random)
     return letters.joinToString(separator = "")
@@ -421,18 +388,4 @@ private fun shuffleMode005Letters(letters: String, random: Random): String {
 private fun buildMode005RemainingAdditionAlphabet(seedLetters: String): Set<Char> {
     val currentLetters = seedLetters.filter { char -> char in MODE005_ALPHABET }.toSet()
     return MODE005_ALPHABET.filterNot { char -> currentLetters.contains(char) }.toSet()
-}
-
-private fun buildMode005AdditionPool(
-    seedLetters: String,
-    remainingAdditionAlphabet: Set<Char>,
-    blockedReturnLetters: Set<Char>
-): List<Char> {
-    val currentLetters = seedLetters.filter { char -> char in MODE005_ALPHABET }.toSet()
-    return remainingAdditionAlphabet
-        .asSequence()
-        .filter { char -> !blockedReturnLetters.contains(char) }
-        .filter { char -> !currentLetters.contains(char) }
-        .sorted()
-        .toList()
 }
