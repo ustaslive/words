@@ -16,6 +16,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
@@ -31,6 +32,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -88,6 +90,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -118,6 +121,8 @@ import com.ustas.words.ui.theme.DeepGreen
 import com.ustas.words.ui.theme.GoldHighlight
 import com.ustas.words.ui.theme.GoldMid
 import com.ustas.words.ui.theme.GoldShadow
+import com.ustas.words.ui.theme.GenerationActiveRed
+import com.ustas.words.ui.theme.GenerationActiveRedPulse
 import com.ustas.words.ui.theme.IconBase
 import com.ustas.words.ui.theme.LightGreen
 import com.ustas.words.ui.theme.MidGreen
@@ -139,10 +144,14 @@ import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.random.Random
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.yield
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -173,7 +182,9 @@ private const val PREFS_NAME = "words_settings"
 private const val KEY_MUTE = "mute"
 private const val KEY_MAX_LETTER_SET_SIZE = "max_letter_set_size"
 private const val LEGACY_KEY_MAX_WORD_LENGTH = "max_word_length"
-private const val KEY_CROSSWORD_SELECTION_MODE = "crossword_selection_mode"
+private const val KEY_GENERATOR_MIN_CROSSWORD_WORD_COUNT = "generator_min_crossword_word_count"
+private const val KEY_GENERATOR_MIN_HIDDEN_WORD_COUNT = "generator_min_hidden_word_count"
+private const val KEY_GENERATOR_EXCLUDED_LETTERS = "generator_excluded_letters"
 private const val KEY_REVIEW_WORDS = "review_words"
 private const val KEY_NET_PLAYER_NAME = "net_player_name"
 private const val KEY_NET_PLAYER_COLOR = "net_player_color"
@@ -239,7 +250,6 @@ private const val NET_JSON_POSITIONS = "positions"
 private const val NET_JSON_ROW = "row"
 private const val NET_JSON_COL = "col"
 private const val NET_JSON_SETTINGS = "settings"
-private const val NET_JSON_SELECTION_MODE = "selectionMode"
 private const val NET_JSON_MAX_LETTER_SET_SIZE = "maxLetterSetSize"
 private const val NET_JSON_MESSAGE = "message"
 private const val NET_VERSION_DEBUG_SUFFIX = "-debug"
@@ -251,8 +261,16 @@ private const val MAX_SEED_LETTER_SET_SIZE = 9
 private const val DEFAULT_MAX_LETTER_SET_SIZE = MAX_SEED_LETTER_SET_SIZE
 private const val MIN_PROBLEM_LOG_WORD_COUNT = 5
 private const val PROBLEM_LOG_TYPE_WORD = "word"
-private const val PROBLEM_LOG_TYPE_LOGIC = "logic"
-private const val PROBLEM_LOG_ATTEMPT_LIMIT_COMMENT = "Crossword generation attempt limit exceeded."
+private const val CROSSWORD_GENERATION_ATTEMPTS_PER_BATCH = 1
+private const val CROSSWORD_GENERATION_TIMEOUT_MINUTES = 10L
+private val CROSSWORD_GENERATION_TIMEOUT_MS =
+    TimeUnit.MINUTES.toMillis(CROSSWORD_GENERATION_TIMEOUT_MINUTES)
+private const val GENERATION_ICON_ROTATION_START_DEGREES = 0f
+private const val GENERATION_ICON_ROTATION_END_DEGREES = 360f
+private const val GENERATION_ICON_ROTATION_DURATION_MS = 3_000
+private const val GENERATION_ICON_PULSE_START = 0f
+private const val GENERATION_ICON_PULSE_END = 1f
+private const val GENERATION_ICON_PULSE_DURATION_MS = 1_500
 private const val WHEEL_SIZE_RATIO = 0.8f
 private val WHEEL_LETTER_SIZE = 48.dp
 private const val WHEEL_LETTER_SIZE_RATIO = 0.1875f
@@ -307,11 +325,12 @@ private const val SOUND_POOL_TAP_VOLUME = 0.6f
 private const val SOUND_POOL_BELL_VOLUME = SOUND_POOL_TAP_VOLUME
 private const val SOUND_POOL_SIDE_WORD_VOLUME = SOUND_POOL_TAP_VOLUME
 private const val SOUND_POOL_COMPLETED_VOLUME = SOUND_POOL_TAP_VOLUME
-private const val CROSSWORD_MODE_RANDOM_LETTERS_AVD = "random_letters_avd"
-private const val DEFAULT_CROSSWORD_SELECTION_MODE_ID = CROSSWORD_MODE_RANDOM_LETTERS_AVD
 private const val FULL_WEIGHT = 1f
 private val SETTINGS_DIALOG_SPACING = 12.dp
 private val SETTINGS_CONTROL_SPACING = 8.dp
+private const val SETTINGS_LETTERS_PER_ROW = 10
+private val SETTINGS_LETTER_CELL_SPACING = 4.dp
+private const val SETTINGS_SELECTED_LETTER_BACKGROUND_BLEND = 0.2f
 private val PLAYER_COLOR_SWATCH_SIZE = 16.dp
 private val NET_PLAY_FIELD_HORIZONTAL_PADDING = 12.dp
 private val NET_PLAY_FIELD_VERTICAL_PADDING = 8.dp
@@ -339,7 +358,7 @@ private const val REVIEW_WORD_CONFIRM_VOLUME = 0.45f
 private data class UserSettings(
     val muted: Boolean = false,
     val maxLetterSetSize: Int = DEFAULT_MAX_LETTER_SET_SIZE,
-    val selectionMode: CrosswordSelectionMode = DEFAULT_CROSSWORD_SELECTION_MODE,
+    val generator: CrosswordGeneratorConfig = CrosswordGeneratorConfig(),
     val playerId: String = "",
     val playerName: String = DEFAULT_NET_PLAYER_NAME,
     val playerColor: NetPlayerColor = NetPlayerColor.White,
@@ -368,21 +387,6 @@ private enum class NetPlayerColor(
         }
     }
 }
-
-private enum class CrosswordSelectionMode(
-    val id: String,
-    val labelResId: Int
-) {
-    RandomLettersAvd(CROSSWORD_MODE_RANDOM_LETTERS_AVD, R.string.crossword_mode_random_letters_avd);
-
-    companion object {
-        fun fromId(id: String): CrosswordSelectionMode {
-            return values().firstOrNull { it.id == id } ?: DEFAULT_CROSSWORD_SELECTION_MODE
-        }
-    }
-}
-
-private val DEFAULT_CROSSWORD_SELECTION_MODE = CrosswordSelectionMode.RandomLettersAvd
 
 private enum class HammerMode {
     Off,
@@ -483,7 +487,8 @@ private fun GameScreen() {
     var highlightTrigger by remember { mutableStateOf(0) }
     val highlightFade = remember { Animatable(NEW_WORD_HIGHLIGHT_NONE) }
     var hammerMode by remember { mutableStateOf(HammerMode.Off) }
-    var generationError by remember { mutableStateOf(false) }
+    var crosswordGenerationJob by remember { mutableStateOf<Job?>(null) }
+    var crosswordGenerationInProgress by remember { mutableStateOf(false) }
     var netPlayEnabled by remember { mutableStateOf(false) }
     var netConnectionStatus by remember { mutableStateOf(NetConnectionStatus.Off) }
     var netRole by remember { mutableStateOf(NetPlayRole.None) }
@@ -524,7 +529,6 @@ private fun GameScreen() {
             }
             highlightedPositions = emptySet()
             hammerMode = HammerMode.Off
-            generationError = false
             netConfirmedVersion = snapshot.stateVersion
             netSolvedBy = snapshot.solvedBy
             revealedGrid to wordMap
@@ -768,52 +772,60 @@ private fun GameScreen() {
         saveReviewWords(appContext, reviewWords)
     }
 
-    fun startNewGame() {
+    fun toggleCrosswordGeneration() {
+        if (crosswordGenerationInProgress) {
+            crosswordGenerationJob?.cancel()
+            crosswordGenerationJob = null
+            crosswordGenerationInProgress = false
+            return
+        }
         if (netPlayEnabled && netRole == NetPlayRole.Guest) {
             return
         }
+        val dictionarySnapshot = dictionary
         val previousRoundWordSet = crosswordWords.keys
-        highlightedPositions = emptySet()
-        val result = generateCrosswordWithMode005(
-            dictionary = dictionary,
-            previousRoundWordSet = previousRoundWordSet,
-            topFrequentWordSet = mode005TopFrequentWordSet,
-            seedLengthRange = seedLengthRange
-        )
-        val rejectedSeedLetters = when (result) {
-            is CrosswordGenerationResult.Success -> result.rejectedSeedLetters
-            is CrosswordGenerationResult.Failure -> result.rejectedSeedLetters
-        }
-        logRejectedSeedLetters(appContext, rejectedSeedLetters)
-        when (result) {
-            is CrosswordGenerationResult.Success -> {
+        val topFrequentWordSetSnapshot = mode005TopFrequentWordSet
+        val seedLengthRangeSnapshot = seedLengthRange
+        val generatorConfigSnapshot = settings.generator.normalizedUserSettings()
+        crosswordGenerationInProgress = true
+        val job = coroutineScope.launch(start = CoroutineStart.LAZY) {
+            val runningJob = coroutineContext[Job]
+            try {
+                val result = generateCrosswordUntilTimeout(
+                    dictionary = dictionarySnapshot,
+                    previousRoundWordSet = previousRoundWordSet,
+                    topFrequentWordSet = topFrequentWordSetSnapshot,
+                    seedLengthRange = seedLengthRangeSnapshot,
+                    generatorConfig = generatorConfigSnapshot
+                )
+                if (result == null) {
+                    return@launch
+                }
+                logRejectedSeedLetters(appContext, result.rejectedSeedLetters)
+                highlightedPositions = emptySet()
                 seedLetters = result.seedLetters
                 letters = generateLetterWheel(result.seedLetters).shuffled()
                 grid = result.layout.grid
                 crosswordWords = result.layout.words
-                missingWordsState = buildMissingWordsState(result.seedLetters, dictionary, result.layout.words)
+                missingWordsState = buildMissingWordsState(
+                    result.seedLetters,
+                    dictionarySnapshot,
+                    result.layout.words
+                )
                 hammerMode = HammerMode.Off
-                generationError = false
                 netSolvedBy = emptyMap()
                 if (netPlayEnabled && netRole == NetPlayRole.Host) {
                     netHostNeedsUpload = true
                 }
-            }
-            is CrosswordGenerationResult.Failure -> {
-                generationError = true
-                appendProblemLogEntry(
-                    appContext,
-                    PROBLEM_LOG_TYPE_LOGIC,
-                    PROBLEM_LOG_ATTEMPT_LIMIT_COMMENT
-                )
-                if (grid.isEmpty()) {
-                    seedLetters = ""
-                    letters = emptyList()
-                    crosswordWords = emptyMap()
-                    missingWordsState = emptyMissingWordsState()
+            } finally {
+                if (crosswordGenerationJob === runningJob) {
+                    crosswordGenerationJob = null
+                    crosswordGenerationInProgress = false
                 }
             }
         }
+        crosswordGenerationJob = job
+        job.start()
     }
 
     LaunchedEffect(netPlayEnabled, netServerUrl) {
@@ -911,7 +923,7 @@ private fun GameScreen() {
 
     LaunchedEffect(Unit) {
         launchDictionaryUpdate(DictionaryUpdateReason.Scheduled, showToast = false)
-        startNewGame()
+        toggleCrosswordGeneration()
     }
 
     LaunchedEffect(seedLetters) {
@@ -934,7 +946,8 @@ private fun GameScreen() {
     val isSolved = grid.isNotEmpty() && grid.all { row -> row.all { cell -> !cell.isActive || cell.isRevealed } }
     val hammerActive = hammerMode != HammerMode.Off
     val canStartNewGame = !netPlayEnabled || netRole == NetPlayRole.Host
-    val showNewGameButton = (isSolved || generationError) && canStartNewGame
+    val canControlGeneration = canStartNewGame || crosswordGenerationInProgress
+    val showNewGameButton = isSolved && canControlGeneration
 
     LaunchedEffect(isSolved) {
         if (isSolved) {
@@ -954,13 +967,14 @@ private fun GameScreen() {
                 netPlayEnabled = netPlayEnabled,
                 netConnectionStatus = netConnectionStatus,
                 netStats = netStats,
-                newGameEnabled = canStartNewGame,
+                newGameEnabled = canControlGeneration,
+                newGameInProgress = crosswordGenerationInProgress,
                 onNetPlayToggle = { enabled ->
                     netPlayEnabled = enabled
                 },
                 onSettings = { showSettings = true },
                 onNewGame = {
-                    startNewGame()
+                    toggleCrosswordGeneration()
                 },
                 onUpdateDictionary = {
                     launchDictionaryUpdate(DictionaryUpdateReason.Manual, showToast = true)
@@ -972,16 +986,6 @@ private fun GameScreen() {
                 onExit = { (context as? ComponentActivity)?.finishAffinity() },
                 onAbout = { showAbout = true }
             )
-            if (generationError) {
-                Text(
-                    text = stringResource(R.string.crossword_generation_failed),
-                    color = AccentOrange,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = NEW_GAME_TEXT_SIZE,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
             Spacer(modifier = Modifier.height(12.dp))
             CrosswordSection(
                 grid = grid,
@@ -1046,7 +1050,7 @@ private fun GameScreen() {
                     netConnectionStatus != NetConnectionStatus.Connected,
                 onShuffle = { letters = letters.shuffled() },
                 onNewGame = {
-                    startNewGame()
+                    toggleCrosswordGeneration()
                 },
                 onHammerTap = {
                     hammerMode = when (hammerMode) {
@@ -1140,7 +1144,8 @@ private fun GameScreen() {
                 onSave = { updated ->
                     val normalized = updated.copy(
                         maxLetterSetSize = updated.maxLetterSetSize
-                            .coerceIn(MIN_SEED_LETTER_SET_SIZE, MAX_SEED_LETTER_SET_SIZE)
+                            .coerceIn(MIN_SEED_LETTER_SET_SIZE, MAX_SEED_LETTER_SET_SIZE),
+                        generator = updated.generator.normalizedUserSettings()
                     )
                     settings = normalized
                     saveSettings(appContext, normalized)
@@ -1155,12 +1160,58 @@ private fun GameScreen() {
     }
 }
 
+private suspend fun generateCrosswordUntilTimeout(
+    dictionary: List<String>,
+    previousRoundWordSet: Set<String>,
+    topFrequentWordSet: Set<String>,
+    seedLengthRange: IntRange,
+    generatorConfig: CrosswordGeneratorConfig
+): CrosswordGenerationResult.Success? {
+    return withContext(Dispatchers.Default) {
+        withTimeoutOrNull(CROSSWORD_GENERATION_TIMEOUT_MS) {
+            val rejectedSeedLetters = linkedSetOf<String>()
+            val attemptConfig = generatorConfig.copy(
+                maxGenerationAttempts = CROSSWORD_GENERATION_ATTEMPTS_PER_BATCH
+            )
+            var success: CrosswordGenerationResult.Success? = null
+            while (success == null) {
+                when (
+                    val result = generateCrosswordWithMode005(
+                        dictionary = dictionary,
+                        previousRoundWordSet = previousRoundWordSet,
+                        topFrequentWordSet = topFrequentWordSet,
+                        seedLengthRange = seedLengthRange,
+                        config = attemptConfig
+                    )
+                ) {
+                    is CrosswordGenerationResult.Success -> {
+                        success = result.copy(
+                            rejectedSeedLetters = rejectedSeedLetters.toList() + result.rejectedSeedLetters
+                        )
+                    }
+                    is CrosswordGenerationResult.Failure -> {
+                        for (seedLetters in result.rejectedSeedLetters) {
+                            if (rejectedSeedLetters.size >= MAX_CROSSWORD_GENERATION_ATTEMPTS) {
+                                break
+                            }
+                            rejectedSeedLetters.add(seedLetters)
+                        }
+                        yield()
+                    }
+                }
+            }
+            success
+        }
+    }
+}
+
 @Composable
 private fun TopBar(
     netPlayEnabled: Boolean,
     netConnectionStatus: NetConnectionStatus,
     netStats: List<NetPlayerStat>,
     newGameEnabled: Boolean,
+    newGameInProgress: Boolean,
     onNetPlayToggle: (Boolean) -> Unit,
     onSettings: () -> Unit,
     onNewGame: () -> Unit,
@@ -1184,14 +1235,13 @@ private fun TopBar(
             onToggle = onNetPlayToggle
         )
         Spacer(modifier = Modifier.weight(FULL_WEIGHT))
-        CircleIconButton(
-            icon = Icons.Filled.Autorenew,
-            contentDescription = stringResource(R.string.new_game),
+        CrosswordGenerationIconButton(
+            inProgress = newGameInProgress,
+            enabled = newGameEnabled,
             onClick = {
                 menuExpanded = false
                 onNewGame()
-            },
-            enabled = newGameEnabled
+            }
         )
         Spacer(modifier = Modifier.width(8.dp))
         Box {
@@ -1257,6 +1307,62 @@ private fun TopBar(
             }
         }
     }
+}
+
+@Composable
+private fun CrosswordGenerationIconButton(
+    inProgress: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    if (!inProgress) {
+        CircleIconButton(
+            icon = Icons.Filled.Autorenew,
+            contentDescription = stringResource(R.string.new_game),
+            onClick = onClick,
+            enabled = enabled
+        )
+        return
+    }
+
+    val transition = rememberInfiniteTransition(label = "crosswordGenerationButton")
+    val rotationDegrees by transition.animateFloat(
+        initialValue = GENERATION_ICON_ROTATION_START_DEGREES,
+        targetValue = GENERATION_ICON_ROTATION_END_DEGREES,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = GENERATION_ICON_ROTATION_DURATION_MS,
+                easing = LinearEasing
+            ),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "crosswordGenerationRotation"
+    )
+    val pulseProgress by transition.animateFloat(
+        initialValue = GENERATION_ICON_PULSE_START,
+        targetValue = GENERATION_ICON_PULSE_END,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = GENERATION_ICON_PULSE_DURATION_MS,
+                easing = FastOutSlowInEasing
+            ),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "crosswordGenerationPulse"
+    )
+    CircleIconButton(
+        icon = Icons.Filled.Autorenew,
+        contentDescription = stringResource(R.string.stop_crossword_generation),
+        onClick = onClick,
+        enabled = enabled,
+        backgroundColor = lerp(
+            GenerationActiveRed,
+            GenerationActiveRedPulse,
+            pulseProgress
+        ),
+        iconTint = GoldHighlight,
+        iconRotationDegrees = rotationDegrees
+    )
 }
 
 @Composable
@@ -1416,8 +1522,15 @@ private fun SettingsDialog(
     var maxLetterSetSize by remember(current.maxLetterSetSize) {
         mutableStateOf(current.maxLetterSetSize.toFloat())
     }
-    var selectionMode by remember(current.selectionMode) { mutableStateOf(current.selectionMode) }
-    var selectionExpanded by remember { mutableStateOf(false) }
+    var minCrosswordWordCount by remember(current.generator.minCrosswordWordCount) {
+        mutableStateOf(current.generator.minCrosswordWordCount.toFloat())
+    }
+    var minHiddenWordCount by remember(current.generator.minHiddenWordCount) {
+        mutableStateOf(current.generator.minHiddenWordCount.toFloat())
+    }
+    var excludedLetters by remember(current.generator.excludedLetters) {
+        mutableStateOf(current.generator.excludedLetters)
+    }
     var selectedTab by remember { mutableStateOf(SettingsTab.General) }
     var playerName by remember(current.playerName) { mutableStateOf(current.playerName) }
     var playerColor by remember(current.playerColor) { mutableStateOf(current.playerColor) }
@@ -1442,7 +1555,11 @@ private fun SettingsDialog(
                         UserSettings(
                             muted = muted,
                             maxLetterSetSize = maxLetterSetSize.roundToInt(),
-                            selectionMode = selectionMode,
+                            generator = CrosswordGeneratorConfig(
+                                minCrosswordWordCount = minCrosswordWordCount.roundToInt(),
+                                minHiddenWordCount = minHiddenWordCount.roundToInt(),
+                                excludedLetters = excludedLetters
+                            ),
                             playerId = current.playerId,
                             playerName = trimmedPlayerName,
                             playerColor = playerColor,
@@ -1481,48 +1598,44 @@ private fun SettingsDialog(
                     SettingsTab.General -> {
                         Column(verticalArrangement = Arrangement.spacedBy(SETTINGS_DIALOG_SPACING)) {
                             Column {
-                                Text(text = stringResource(R.string.settings_next_crossword))
-                                Box(modifier = Modifier.fillMaxWidth()) {
-                                    TextButton(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        onClick = { selectionExpanded = true }
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                text = stringResource(selectionMode.labelResId),
-                                                modifier = Modifier.weight(FULL_WEIGHT),
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                            Icon(
-                                                imageVector = Icons.Filled.ArrowDropDown,
-                                                contentDescription = stringResource(R.string.dropdown_open)
-                                            )
-                                        }
-                                    }
-                                    DropdownMenu(
-                                        expanded = selectionExpanded,
-                                        onDismissRequest = { selectionExpanded = false }
-                                    ) {
-                                        for (mode in CrosswordSelectionMode.values()) {
-                                            DropdownMenuItem(
-                                                text = { Text(text = stringResource(mode.labelResId)) },
-                                                onClick = {
-                                                    selectionMode = mode
-                                                    selectionExpanded = false
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
+                                Text(
+                                    text = stringResource(
+                                        R.string.settings_min_crossword_words,
+                                        minCrosswordWordCount.roundToInt()
+                                    )
+                                )
+                                Slider(
+                                    value = minCrosswordWordCount,
+                                    onValueChange = {
+                                        minCrosswordWordCount = it.roundToInt().toFloat()
+                                    },
+                                    valueRange = MIN_CONFIGURED_CROSSWORD_WORD_COUNT.toFloat()..
+                                        MAX_CONFIGURED_CROSSWORD_WORD_COUNT.toFloat(),
+                                    steps = (
+                                        MAX_CONFIGURED_CROSSWORD_WORD_COUNT -
+                                            MIN_CONFIGURED_CROSSWORD_WORD_COUNT - COUNT_STEP
+                                        ).coerceAtLeast(0)
+                                )
                             }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(checked = muted, onCheckedChange = { muted = it })
-                                Spacer(modifier = Modifier.width(SETTINGS_CONTROL_SPACING))
-                                Text(text = "Mute sounds")
+                            Column {
+                                Text(
+                                    text = stringResource(
+                                        R.string.settings_min_hidden_words,
+                                        minHiddenWordCount.roundToInt()
+                                    )
+                                )
+                                Slider(
+                                    value = minHiddenWordCount,
+                                    onValueChange = {
+                                        minHiddenWordCount = it.roundToInt().toFloat()
+                                    },
+                                    valueRange = MIN_CONFIGURED_HIDDEN_WORD_COUNT.toFloat()..
+                                        MAX_CONFIGURED_HIDDEN_WORD_COUNT.toFloat(),
+                                    steps = (
+                                        MAX_CONFIGURED_HIDDEN_WORD_COUNT -
+                                            MIN_CONFIGURED_HIDDEN_WORD_COUNT - COUNT_STEP
+                                        ).coerceAtLeast(0)
+                                )
                             }
                             Column {
                                 Text(text = "Max letter set size: ${maxLetterSetSize.roundToInt()}")
@@ -1533,6 +1646,24 @@ private fun SettingsDialog(
                                     steps = (MAX_SEED_LETTER_SET_SIZE - MIN_SEED_LETTER_SET_SIZE - COUNT_STEP)
                                         .coerceAtLeast(0)
                                 )
+                            }
+                            Column(verticalArrangement = Arrangement.spacedBy(SETTINGS_CONTROL_SPACING)) {
+                                Text(text = stringResource(R.string.settings_excluded_letters))
+                                ExcludedLettersPicker(
+                                    excludedLetters = excludedLetters,
+                                    onLetterClick = { letter ->
+                                        excludedLetters = if (letter in excludedLetters) {
+                                            excludedLetters - letter
+                                        } else {
+                                            excludedLetters + letter
+                                        }
+                                    }
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = muted, onCheckedChange = { muted = it })
+                                Spacer(modifier = Modifier.width(SETTINGS_CONTROL_SPACING))
+                                Text(text = "Mute sounds")
                             }
                         }
                     }
@@ -1628,6 +1759,61 @@ private fun SettingsDialog(
             }
         }
     )
+}
+
+@Composable
+private fun ExcludedLettersPicker(
+    excludedLetters: Set<Char>,
+    onLetterClick: (Char) -> Unit
+) {
+    val colors = MaterialTheme.colorScheme
+    val selectedBackground = lerp(
+        colors.surfaceVariant,
+        colors.onSurface,
+        SETTINGS_SELECTED_LETTER_BACKGROUND_BLEND
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(SETTINGS_LETTER_CELL_SPACING)) {
+        for (letters in CROSSWORD_GENERATOR_ALPHABET.chunked(SETTINGS_LETTERS_PER_ROW)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(SETTINGS_LETTER_CELL_SPACING)
+            ) {
+                for (letter in letters) {
+                    val excluded = letter in excludedLetters
+                    Surface(
+                        onClick = { onLetterClick(letter) },
+                        modifier = Modifier
+                            .weight(FULL_WEIGHT)
+                            .aspectRatio(FULL_WEIGHT),
+                        color = if (excluded) {
+                            selectedBackground
+                        } else {
+                            colors.surfaceVariant
+                        },
+                        contentColor = colors.onSurface,
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = letter.toString(),
+                                fontWeight = if (excluded) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                }
+                repeat(SETTINGS_LETTERS_PER_ROW - letters.length) {
+                    Spacer(
+                        modifier = Modifier
+                            .weight(FULL_WEIGHT)
+                            .aspectRatio(FULL_WEIGHT)
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -2447,10 +2633,17 @@ private fun CircleIconButton(
     contentDescription: String,
     onClick: () -> Unit,
     enabled: Boolean = true,
+    backgroundColor: Color = IconBase,
+    iconTint: Color = Color.White,
+    iconRotationDegrees: Float = GENERATION_ICON_ROTATION_START_DEGREES,
     modifier: Modifier = Modifier
 ) {
     Surface(
-        color = if (enabled) IconBase else IconBase.copy(alpha = NET_PLAY_ICON_DISABLED_ALPHA),
+        color = if (enabled) {
+            backgroundColor
+        } else {
+            backgroundColor.copy(alpha = NET_PLAY_ICON_DISABLED_ALPHA)
+        },
         shape = CircleShape,
         shadowElevation = 6.dp,
         modifier = modifier.size(44.dp)
@@ -2459,7 +2652,14 @@ private fun CircleIconButton(
             Icon(
                 imageVector = icon,
                 contentDescription = contentDescription,
-                tint = if (enabled) Color.White else Color.White.copy(alpha = NET_PLAY_ICON_DISABLED_ALPHA)
+                modifier = Modifier.graphicsLayer {
+                    rotationZ = iconRotationDegrees
+                },
+                tint = if (enabled) {
+                    iconTint
+                } else {
+                    iconTint.copy(alpha = NET_PLAY_ICON_DISABLED_ALPHA)
+                }
             )
         }
     }
@@ -2492,7 +2692,6 @@ private fun AbstractBackground(modifier: Modifier = Modifier) {
 }
 
 private data class NetSnapshotSettings(
-    val selectionModeId: String,
     val maxLetterSetSize: Int
 )
 
@@ -2732,7 +2931,6 @@ private fun buildNetSnapshotFromState(
 
 private fun buildNetSnapshotSettings(settings: UserSettings): NetSnapshotSettings {
     return NetSnapshotSettings(
-        selectionModeId = settings.selectionMode.id,
         maxLetterSetSize = settings.maxLetterSetSize
     )
 }
@@ -2812,7 +3010,6 @@ private fun buildNetSolvedByJson(solvedBy: Map<String, String>): JSONObject {
 
 private fun buildSettingsJson(settings: NetSnapshotSettings): JSONObject {
     val root = JSONObject()
-    root.put(NET_JSON_SELECTION_MODE, settings.selectionModeId)
     root.put(NET_JSON_MAX_LETTER_SET_SIZE, settings.maxLetterSetSize)
     return root
 }
@@ -2887,20 +3084,14 @@ private fun parseNetSnapshot(snapshot: JSONObject): NetSnapshot? {
 private fun parseNetSnapshotSettings(settings: JSONObject?): NetSnapshotSettings {
     if (settings == null) {
         return NetSnapshotSettings(
-            selectionModeId = DEFAULT_CROSSWORD_SELECTION_MODE.id,
             maxLetterSetSize = DEFAULT_MAX_LETTER_SET_SIZE
         )
     }
-    val selectionModeId = settings.optString(
-        NET_JSON_SELECTION_MODE,
-        DEFAULT_CROSSWORD_SELECTION_MODE.id
-    )
     val maxLetterSetSize = settings.optInt(
         NET_JSON_MAX_LETTER_SET_SIZE,
         DEFAULT_MAX_LETTER_SET_SIZE
     )
     return NetSnapshotSettings(
-        selectionModeId = selectionModeId,
         maxLetterSetSize = maxLetterSetSize
     )
 }
@@ -3332,9 +3523,19 @@ private fun loadSettings(context: Context): UserSettings {
         MAX_SEED_LETTER_SET_SIZE
     )
     val muted = prefs.getBoolean(KEY_MUTE, false)
-    val selectionModeId = prefs.getString(KEY_CROSSWORD_SELECTION_MODE, DEFAULT_CROSSWORD_SELECTION_MODE_ID)
-        ?: DEFAULT_CROSSWORD_SELECTION_MODE_ID
-    val selectionMode = CrosswordSelectionMode.fromId(selectionModeId)
+    val generator = CrosswordGeneratorConfig(
+        minCrosswordWordCount = prefs.getInt(
+            KEY_GENERATOR_MIN_CROSSWORD_WORD_COUNT,
+            MIN_CROSSWORD_WORD_COUNT
+        ),
+        minHiddenWordCount = prefs.getInt(
+            KEY_GENERATOR_MIN_HIDDEN_WORD_COUNT,
+            DEFAULT_MIN_HIDDEN_WORD_COUNT
+        ),
+        excludedLetters = prefs.getString(KEY_GENERATOR_EXCLUDED_LETTERS, "")
+            .orEmpty()
+            .toSet()
+    ).normalizedUserSettings()
     val playerName = prefs.getString(KEY_NET_PLAYER_NAME, DEFAULT_NET_PLAYER_NAME) ?: DEFAULT_NET_PLAYER_NAME
     val playerColorId = prefs.getString(KEY_NET_PLAYER_COLOR, NET_PLAYER_COLOR_WHITE) ?: NET_PLAYER_COLOR_WHITE
     val playerColor = NetPlayerColor.fromId(playerColorId)
@@ -3345,7 +3546,7 @@ private fun loadSettings(context: Context): UserSettings {
     return UserSettings(
         muted = muted,
         maxLetterSetSize = maxLetterSetSize,
-        selectionMode = selectionMode,
+        generator = generator,
         playerId = generatePlayerId(),
         playerName = playerName,
         playerColor = playerColor,
@@ -3395,11 +3596,12 @@ private fun logRejectedSeedLetters(context: Context, rejectedSeedLetters: List<S
 }
 
 private fun buildRejectedSeedLettersDescription(seedLetters: String): String {
-    return "$seedLetters: crossword word count below minimum of $MIN_CROSSWORD_WORD_COUNT."
+    return "$seedLetters: rejected by crossword generation constraints."
 }
 
 private fun saveSettings(context: Context, settings: UserSettings) {
     val normalizedServerIp = settings.serverIp.trim().ifBlank { DEFAULT_NET_SERVER_IP }
+    val generator = settings.generator.normalizedUserSettings()
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         .edit()
         .putBoolean(KEY_MUTE, settings.muted)
@@ -3407,7 +3609,12 @@ private fun saveSettings(context: Context, settings: UserSettings) {
             KEY_MAX_LETTER_SET_SIZE,
             settings.maxLetterSetSize.coerceIn(MIN_SEED_LETTER_SET_SIZE, MAX_SEED_LETTER_SET_SIZE)
         )
-        .putString(KEY_CROSSWORD_SELECTION_MODE, settings.selectionMode.id)
+        .putInt(KEY_GENERATOR_MIN_CROSSWORD_WORD_COUNT, generator.minCrosswordWordCount)
+        .putInt(KEY_GENERATOR_MIN_HIDDEN_WORD_COUNT, generator.minHiddenWordCount)
+        .putString(
+            KEY_GENERATOR_EXCLUDED_LETTERS,
+            generator.excludedLetters.sorted().joinToString("")
+        )
         .putString(KEY_NET_PLAYER_NAME, settings.playerName.trim())
         .putString(KEY_NET_PLAYER_COLOR, settings.playerColor.id)
         .putString(KEY_NET_SERVER_IP, normalizedServerIp)

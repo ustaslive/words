@@ -163,16 +163,13 @@ internal fun revealCells(
 }
 
 internal fun buildCrosswordLayout(
-    seedLetters: String,
-    dictionary: List<String>,
+    availableWords: List<String>,
     random: Random = Random.Default
 ): CrosswordLayout {
-    val miniDictionary = buildMiniDictionary(seedLetters, dictionary)
-        .filter { it.length >= MIN_CROSSWORD_WORD_LENGTH }
-    val rows = generateRandomCrossword(miniDictionary, random)
+    val rows = generateRandomCrossword(availableWords, random)
     val grid = buildCrosswordGridFromRows(rows)
-    val words = extractCrosswordWords(rows).associateBy { it.word }
-    return CrosswordLayout(grid = grid, words = words)
+    val crosswordWords = extractCrosswordWords(rows).associateBy { it.word }
+    return CrosswordLayout(grid = grid, words = crosswordWords)
 }
 
 internal fun generateRandomCrossword(
