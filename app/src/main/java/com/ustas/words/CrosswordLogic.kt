@@ -87,13 +87,8 @@ internal sealed interface WordResult {
     data object NotFound : WordResult
 }
 
-internal data class MissingWordEntry(
-    val word: String,
-    val isGuessed: Boolean
-)
-
 internal data class MissingWordsState(
-    val entries: Map<String, MissingWordEntry>,
+    val entries: Map<String, Boolean>,
     val remainingCount: Int,
     val lastGuessedWord: String?
 )
@@ -313,7 +308,7 @@ internal fun buildMissingWordsState(
         .filter { it.length >= MIN_CROSSWORD_WORD_LENGTH }
     val normalizedCandidates = normalizeCrosswordWords(candidates)
     val missingWords = normalizedCandidates.filterNot { crosswordWords.containsKey(it) }
-    val entries = missingWords.associateWith { MissingWordEntry(word = it, isGuessed = false) }
+    val entries = missingWords.associateWith { false }
     return MissingWordsState(entries, entries.size, null)
 }
 
@@ -325,13 +320,14 @@ internal fun applyMissingWordGuess(
     if (normalized.isEmpty()) {
         return MissingWordGuessResult(state, MissingWordMatch.None)
     }
-    val entry = state.entries[normalized] ?: return MissingWordGuessResult(state, MissingWordMatch.None)
-    if (entry.isGuessed) {
+    val isGuessed = state.entries[normalized]
+        ?: return MissingWordGuessResult(state, MissingWordMatch.None)
+    if (isGuessed) {
         val updatedState = state.copy(lastGuessedWord = normalized)
         return MissingWordGuessResult(updatedState, MissingWordMatch.AlreadyGuessed)
     }
     val updatedEntries = state.entries.toMutableMap()
-    updatedEntries[normalized] = entry.copy(isGuessed = true)
+    updatedEntries[normalized] = true
     val updatedCount = (state.remainingCount - INDEX_STEP).coerceAtLeast(ORIGIN_INDEX)
     val updatedState = state.copy(
         entries = updatedEntries.toMap(),

@@ -3245,14 +3245,7 @@ private class SoundEffects(
     var muted: Boolean = false
     private val bellBaseHz = 660.0
     private val bellStepRatio = 1.08
-    private val initialTapHz = 220.0
     private val mainHandler = Handler(Looper.getMainLooper())
-
-    fun initialTap() {
-        if (!muted) {
-            player.playTone(listOf(initialTapHz), durationMs = 70, volume = 0.35f)
-        }
-    }
 
     fun letterBell(stepIndex: Int): Double {
         val freq = bellFrequency(stepIndex)

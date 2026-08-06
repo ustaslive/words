@@ -20,7 +20,7 @@ class MissingWordsStateTest {
         assertEquals(expectedMissing, state.entries.keys)
         assertEquals(expectedMissing.size, state.remainingCount)
         assertEquals(null, state.lastGuessedWord)
-        assertTrue(state.entries.values.all { !it.isGuessed })
+        assertTrue(state.entries.values.none { it })
     }
 
     @Test
@@ -37,7 +37,7 @@ class MissingWordsStateTest {
         assertEquals(MissingWordMatch.NewlyGuessed, result.match)
         assertEquals(initial.remainingCount - INDEX_STEP, result.state.remainingCount)
         assertEquals("TONE", result.state.lastGuessedWord)
-        assertTrue(result.state.entries["TONE"]?.isGuessed == true)
+        assertTrue(result.state.entries["TONE"] == true)
 
         val repeat = applyMissingWordGuess("TONE", result.state)
 

@@ -1,3 +1,12 @@
+
+[ ] genertion
+    [ ] params in settings
+    [ ] stop generation mode - red icon
+[ ] see unresolved hidden words
+[ ] counters about how much different players found uniques hidden words
+
+
+
 [x] this change v1.0.9
     [x] server instalable | updatable
     [x] update words dict
