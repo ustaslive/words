@@ -4,7 +4,6 @@ import android.os.Build
 import android.os.Bundle
 import android.media.AudioAttributes
 import android.media.AudioFormat
-import android.media.AudioManager
 import android.media.AudioTrack
 import android.media.SoundPool
 import android.content.Context
@@ -3166,7 +3165,6 @@ private class TonePlayer {
                 )
                 .setBufferSizeInBytes(buffer.size * Short.SIZE_BYTES)
                 .setTransferMode(AudioTrack.MODE_STATIC)
-                .setSessionId(AudioManager.AUDIO_SESSION_ID_GENERATE)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 audioTrackBuilder.setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
             }
