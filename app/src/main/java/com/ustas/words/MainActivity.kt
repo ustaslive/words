@@ -297,6 +297,7 @@ private val MISSING_WORD_COUNT_TEXT_SIZE = 20.sp
 private val MISSING_WORD_LABEL_TEXT_SIZE = 12.sp
 private val MISSING_WORD_LABEL_SPACING = 4.dp
 private const val MISSING_WORD_LABEL_ALPHA = 0.8f
+private val MISSING_WORDS_DIALOG_WORD_SPACING = 4.dp
 private val ABOUT_DIALOG_LINE_SPACING = 8.dp
 private const val NEW_WORD_HIGHLIGHT_DURATION_MS = 2_000
 private const val NEW_WORD_HIGHLIGHT_NONE = 0f
@@ -455,6 +456,7 @@ private fun GameScreen() {
     var settings by remember { mutableStateOf(loadSettings(appContext)) }
     var showSettings by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
+    var showRemainingHiddenWords by remember { mutableStateOf(false) }
     DisposableEffect(tonePlayer, letterTapSample, bellSample, sideWordSample, completedSample) {
         onDispose {
             tonePlayer.dispose()
@@ -952,6 +954,8 @@ private fun GameScreen() {
     LaunchedEffect(isSolved) {
         if (isSolved) {
             soundEffects.crosswordCompleted()
+        } else {
+            showRemainingHiddenWords = false
         }
     }
 
@@ -1046,6 +1050,8 @@ private fun GameScreen() {
                 hasMissingWords = missingWordsState.entries.isNotEmpty(),
                 missingWordsCount = missingWordsState.remainingCount,
                 lastMissingWord = missingWordsState.lastGuessedWord,
+                missingWordsClickEnabled = isSolved,
+                onMissingWordsClick = { showRemainingHiddenWords = true },
                 playImmediateSuccessSound = !netPlayEnabled ||
                     netConnectionStatus != NetConnectionStatus.Connected,
                 onShuffle = { letters = letters.shuffled() },
@@ -1156,6 +1162,15 @@ private fun GameScreen() {
         }
         if (showAbout) {
             AboutDialog(onDismiss = { showAbout = false })
+        }
+        if (showRemainingHiddenWords) {
+            RemainingHiddenWordsDialog(
+                words = missingWordsState.entries
+                    .filterValues { guessed -> !guessed }
+                    .keys
+                    .sorted(),
+                onDismiss = { showRemainingHiddenWords = false }
+            )
         }
     }
 }
@@ -1923,6 +1938,36 @@ private fun AboutDialog(
 }
 
 @Composable
+private fun RemainingHiddenWordsDialog(
+    words: List<String>,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.remaining_hidden_words_close))
+            }
+        },
+        title = { Text(text = stringResource(R.string.remaining_hidden_words_title)) },
+        text = {
+            if (words.isEmpty()) {
+                Text(text = stringResource(R.string.remaining_hidden_words_empty))
+            } else {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(MISSING_WORDS_DIALOG_WORD_SPACING)
+                ) {
+                    for (word in words) {
+                        Text(text = word)
+                    }
+                }
+            }
+        }
+    )
+}
+
+@Composable
 private fun CrosswordSection(
     grid: List<List<CrosswordCell>>,
     highlightedPositions: Set<GridPosition>,
@@ -2091,6 +2136,8 @@ private fun LetterWheelSection(
     hasMissingWords: Boolean,
     missingWordsCount: Int,
     lastMissingWord: String?,
+    missingWordsClickEnabled: Boolean,
+    onMissingWordsClick: () -> Unit,
     playImmediateSuccessSound: Boolean,
     onShuffle: () -> Unit,
     onNewGame: () -> Unit,
@@ -2203,6 +2250,8 @@ private fun LetterWheelSection(
                         MissingWordsIndicator(
                             remainingCount = missingWordsCount,
                             lastGuessedWord = lastMissingWord,
+                            clickEnabled = missingWordsClickEnabled,
+                            onClick = onMissingWordsClick,
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
                                 .padding(end = WHEEL_CORNER_BUTTON_PADDING, top = WHEEL_CORNER_BUTTON_PADDING)
@@ -2578,6 +2627,8 @@ private fun HammerButton(
 private fun MissingWordsIndicator(
     remainingCount: Int,
     lastGuessedWord: String?,
+    clickEnabled: Boolean,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -2595,11 +2646,18 @@ private fun MissingWordsIndicator(
             )
             Spacer(modifier = Modifier.height(MISSING_WORD_LABEL_SPACING))
         }
+        val countModifier = if (clickEnabled) {
+            Modifier
+                .size(WHEEL_CORNER_BUTTON_SIZE)
+                .clickable(onClick = onClick)
+        } else {
+            Modifier.size(WHEEL_CORNER_BUTTON_SIZE)
+        }
         Surface(
             color = IconBase,
             shape = CircleShape,
             shadowElevation = 8.dp,
-            modifier = Modifier.size(WHEEL_CORNER_BUTTON_SIZE)
+            modifier = countModifier
         ) {
             Box(
                 modifier = Modifier.fillMaxSize(),
