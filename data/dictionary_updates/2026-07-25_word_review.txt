@@ -1,0 +1,136 @@
+# Copy reviewed words into the appropriate sections.
+# Only the first whitespace-separated value on each line is processed.
+
+[dictionary.add]
+quilt — одеяло
+foyer — фойе, вестибюль
+magenta — пурпурный, маджента
+muscat — мускат
+debt — долг
+sandy — песчаный
+czar — царь
+goalie — вратарь
+vertigo — головокружение
+bidet — биде
+wicket — калитка
+fringe — бахрома, челка
+saloon — салон, бар
+runny — жидкий, текучий
+epoch — эпоха
+dreamt — снилось, мечтал
+edit — редактировать
+sedan — седан
+tuner — тюнер
+heath — пустошь
+loosen — ослабить
+trough — корыто, лоток
+broth — бульон
+swear — клясться, ругаться
+tapir — тапир
+reek — вонь, вонять
+dupe — простофиля, обманывать
+rejoin — воссоединиться
+relink — связывать заново
+linker — linker (компоновщик)
+rewind — перематывать
+resin — смола
+cello — виолончель
+braid — коса, плести
+farce — фарс
+gopher — суслик
+whom — кого, кому
+deal — сделка, иметь дело
+bail — залог, поручительство
+wept — плакал
+divert — отвлекать, перенаправлять
+latent — скрытый, латентный
+slate — шифер, грифельная доска
+steward — стюард, управляющий
+stride — шагать, крупный шаг
+teary — слезливый
+brook — ручей
+mirage — мираж
+manger — кормушка, ясли
+gimme — дай мне
+yarn — пряжа, нить
+ramen — рамен
+amper — ampere (ампер)
+ample — обильный, достаточный
+droid — дроид
+mebel — furniture (мебель)
+neuro — приставка, не отдельное слово
+metal — металл (в исходном тексте letal, опечатка)
+
+[dictionary.remove]
+haha — ха-ха
+letal — опечатка, правильно lethal
+geer — опечатка, правильно gear
+galon — опечатка, правильно gallon
+aploud — опечатка, правильно applaud
+choko — опечатка, правильно choco
+girafe — опечатка, правильно giraffe
+init — узкоспециальный IT-термин (initialization)
+tefal — имя собственное, бренд
+remety — опечатка, правильно remedy
+termary — опечатка, правильно tertiary
+bing — имя собственное, бренд
+rubin — опечатка, правильно ruby
+tribun — опечатка, правильно tribune
+pudel — опечатка, правильно poodle
+sil — опечатка, правильно sill или seal
+satir — опечатка, правильно satyr
+defakt — опечатка, правильно defect
+sooth — устаревшее слово
+exil — опечатка, правильно exile
+codium — узкоспециальный биологический термин
+bigot — религиозный фанатик, ханжа
+cock — неприличное слово
+linkor — опечатка, правильно battleship
+rejion — опечатка, правильно region
+proto — приставка, не отдельное слово
+pluto — имя собственное
+flore — опечатка, правильно floor
+walts — опечатка, правильно waltz
+begar — опечатка, правильно beggar
+bizzar — опечатка, правильно bizarre
+panteon — опечатка, правильно pantheon
+falce — опечатка, правильно false
+calmar — опечатка, правильно squid
+grany — опечатка, правильно granny
+sanex — имя собственное, бренд
+faux — заимствованное слово, не используется отдельно
+embrio — опечатка, правильно embryo
+carret — опечатка, правильно carrot
+holden — имя собственное
+waisting — опечатка, правильно wasting
+salive — опечатка, правильно saliva
+duran — имя собственное
+gemma — имя собственное
+pandor — опечатка, правильно pandora
+payrol — опечатка, правильно payroll
+aderol — имя собственное, бренд (Adderall)
+
+[forbidden.add]
+harem — гарем
+jerk — рывок, придурок
+pusse — опечатка или неприличное слово
+fekal — опечатка, правильно fecal
+fart — неприличное слово
+sexy — слово не для детских игр
+genital
+fecal — узкоспециальный медицинское термин (faecalis)
+anus — anus (слово не для детских игр)
+arse — неприличное слово
+cunt — матерное слово
+vagina — vagina (слово не для детских игр)
+turd — неприличное слово
+meth — слово не для детских игр, наркотическое вещество
+orgy — слово не для детских игр
+porn — слово не для детских игр
+
+[forbidden.remove]
+# example — allow this word again
+
+
+
+
