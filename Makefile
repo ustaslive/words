@@ -1,14 +1,22 @@
 .DEFAULT_GOAL := all
 
-.PHONY: build install all uninstall test release connect list
+.PHONY: help build install all uninstall test release connect list
 
 DEBUG_APK := app/build/outputs/apk/debug/app-debug.apk
-DOTENV_FILE := .env
-EXAMPLE_ADB_HOSTS := 203.0.113.10 203.0.113.11
 
-ifneq (,$(wildcard $(DOTENV_FILE)))
-	include $(DOTENV_FILE)
-endif
+help:
+	@echo "Usage: make <target>"
+	@echo ""
+	@echo "Targets:"
+	@echo "  help       Show this help"
+	@echo "  build      Build the debug APK"
+	@echo "  install    Install the debug APK on connected devices"
+	@echo "  all        Build and install the debug APK (default)"
+	@echo "  uninstall  Uninstall the debug app"
+	@echo "  test       Run debug unit tests"
+	@echo "  release    Build the release app bundle"
+	@echo "  connect    Connect to a device over TCP/IP"
+	@echo "  list       List adb devices"
 
 build:
 	./gradlew assembleDebug
@@ -42,23 +50,17 @@ release:
 	./gradlew bundleRelease
 
 connect:
-	@if [ -z "$(ADB_HOSTS)" ]; then \
-		echo "Missing ADB_HOSTS in $(DOTENV_FILE)."; \
-		echo "Create $(DOTENV_FILE) with:"; \
-		echo "  ADB_HOSTS=$(EXAMPLE_ADB_HOSTS)"; \
-		echo "This sets the device IPs used by 'make connect' to run adb over TCP/IP."; \
-		echo "You can separate IPs with spaces or commas."; \
-		exit 1; \
+	@read -p "IP address (Enter to cancel): " HOST; \
+	if [ -z "$$HOST" ]; then \
+		echo "Connection cancelled."; \
+		exit 0; \
 	fi; \
-	hosts="$$(echo "$(ADB_HOSTS)" | tr ',' ' ')"; \
-	for host in $$hosts; do \
-		read -p "Port for $$host (Enter to skip): " PORT; \
-		if [ -z "$$PORT" ]; then \
-			echo "Skipping $$host"; \
-			continue; \
-		fi; \
-		adb connect "$$host:$$PORT" || exit 1; \
-	done
+	read -p "Port for $$HOST (Enter to cancel): " PORT; \
+	if [ -z "$$PORT" ]; then \
+		echo "Connection cancelled."; \
+		exit 0; \
+	fi; \
+	adb connect "$$HOST:$$PORT"
 
 list:
 	adb devices

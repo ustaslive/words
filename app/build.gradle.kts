@@ -60,6 +60,10 @@ android {
         buildConfig = true
     }
 
+    androidResources {
+        ignoreAssetsPatterns.addAll(listOf("tmp", "*_ed.txt"))
+    }
+
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.7"
     }

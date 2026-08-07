@@ -21,7 +21,6 @@ private const val KEY_DICTIONARY_LAST_MODIFIED = "dictionary_last_modified"
 private const val KEY_MODE005_STATS_ETAG = "mode005_stats_etag"
 private const val KEY_MODE005_STATS_LAST_MODIFIED = "mode005_stats_last_modified"
 private const val KEY_DICTIONARY_LAST_CHECK = "dictionary_last_check"
-private const val KEY_DICTIONARY_LAST_SUCCESS = "dictionary_last_success"
 private const val DEFAULT_LAST_CHECK_MS = 0L
 private const val UNKNOWN_UPDATE_TIME_MS = 0L
 private const val PACKAGE_INFO_FLAGS = 0L
@@ -44,7 +43,6 @@ private const val DICTIONARY_URL = "https://raw.githubusercontent.com/ustaslive/
 private const val MODE005_STATS_URL = "https://raw.githubusercontent.com/ustaslive/words/develop/lab/crossword_repeatability/005.stat.txt"
 private const val HTTP_RESPONSE_NOT_MODIFIED = HttpURLConnection.HTTP_NOT_MODIFIED
 private const val HTTP_RESPONSE_OK = HttpURLConnection.HTTP_OK
-private const val EMPTY_CONTENT_LENGTH = 0
 
 internal enum class DictionaryUpdateReason {
     Scheduled,
@@ -108,12 +106,9 @@ internal fun updateDictionaryIfNeeded(
     val dictionaryResult = downloadDictionary(context, prefs)
     val mode005Result = downloadMode005Stats(context, prefs)
     val result = combineUpdateResults(context, dictionaryResult, mode005Result)
-    val editor = prefs.edit()
+    prefs.edit()
         .putLong(KEY_DICTIONARY_LAST_CHECK, nowMs)
-    if (result is DictionaryUpdateResult.Updated) {
-        editor.putLong(KEY_DICTIONARY_LAST_SUCCESS, nowMs)
-    }
-    editor.apply()
+        .apply()
     return result
 }
 
@@ -273,7 +268,7 @@ private fun handleMode005StatsDownload(
     val rawStatsText = connection.inputStream.bufferedReader().use { reader ->
         reader.readText()
     }
-    if (rawStatsText.isBlank() || rawStatsText.length <= EMPTY_CONTENT_LENGTH) {
+    if (rawStatsText.isBlank()) {
         return SupplementalUpdateResult.Failed("Downloaded mode 005 stats are empty.")
     }
     val parsedStats = runCatching {

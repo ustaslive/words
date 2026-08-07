@@ -4,10 +4,19 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.random.Random
+
+private const val TEST_SEED_LENGTH = 6
+private const val TEST_GENERATION_ATTEMPTS = 1
+private const val TEST_MIN_HIDDEN_WORD_COUNT = 1
+private const val TEST_MIN_CROSSWORD_WORD_COUNT = 2
+private const val TEST_RANDOM_SEED = 1234
+private const val TEST_WORD = "ABAB"
+private const val TEST_SECOND_WORD = "BABA"
 
 class Mode005SelectionTest {
     @Test
-    fun parseMode005WordStatsReadsMetadataAndWords() {
+    fun parseMode005WordStatsReadsWordsAndIgnoresMetadata() {
         val lines = sequenceOf(
             "# format=v1",
             "# crosswords_generated=123",
@@ -17,7 +26,6 @@ class Mode005SelectionTest {
 
         val result = parseMode005WordStats(lines)
 
-        assertEquals(123, result.crosswordsGenerated)
         assertEquals(7, result.frequencies["NEAR"])
         assertEquals(5, result.frequencies["IDEA"])
     }
@@ -52,7 +60,109 @@ class Mode005SelectionTest {
         )
 
         assertTrue(result is CrosswordGenerationResult.Failure)
-        assertEquals(0, (result as CrosswordGenerationResult.Failure).attempts)
+    }
+
+    @Test
+    fun generateCrosswordWithMode005UsesOnlyAllowedLetters() {
+        val allowedLetters = setOf('A', 'B')
+        val result = generateCrosswordWithMode005(
+            dictionary = listOf(TEST_WORD),
+            previousRoundWordSet = emptySet(),
+            topFrequentWordSet = emptySet(),
+            seedLengthRange = TEST_SEED_LENGTH..TEST_SEED_LENGTH,
+            config = CrosswordGeneratorConfig(
+                minCrosswordWordCount = MIN_CONFIGURED_CROSSWORD_WORD_COUNT,
+                excludedLetters = CROSSWORD_GENERATOR_ALPHABET
+                    .filterNot { letter -> letter in allowedLetters }
+                    .toSet(),
+                maxGenerationAttempts = TEST_GENERATION_ATTEMPTS
+            ),
+            random = Random(TEST_RANDOM_SEED)
+        )
+
+        assertTrue(result is CrosswordGenerationResult.Success)
+        val success = result as CrosswordGenerationResult.Success
+        assertTrue(success.seedLetters.all { letter -> letter in allowedLetters })
+    }
+
+    @Test
+    fun generateCrosswordWithMode005RejectsPoolSmallerThanCombinedMinimums() {
+        val result = generateCrosswordWithMode005(
+            dictionary = listOf(TEST_WORD),
+            previousRoundWordSet = emptySet(),
+            topFrequentWordSet = emptySet(),
+            seedLengthRange = TEST_SEED_LENGTH..TEST_SEED_LENGTH,
+            config = CrosswordGeneratorConfig(
+                minCrosswordWordCount = MIN_CONFIGURED_CROSSWORD_WORD_COUNT,
+                minHiddenWordCount = TEST_MIN_HIDDEN_WORD_COUNT,
+                excludedLetters = CROSSWORD_GENERATOR_ALPHABET
+                    .filterNot { letter -> letter == 'A' || letter == 'B' }
+                    .toSet(),
+                maxGenerationAttempts = TEST_GENERATION_ATTEMPTS
+            ),
+            random = Random(TEST_RANDOM_SEED)
+        )
+
+        assertTrue(result is CrosswordGenerationResult.Failure)
+    }
+
+    @Test
+    fun generateCrosswordWithMode005ChecksHiddenMinimumAfterLayout() {
+        val result = generateCrosswordWithMode005(
+            dictionary = listOf(TEST_WORD, TEST_SECOND_WORD),
+            previousRoundWordSet = emptySet(),
+            topFrequentWordSet = emptySet(),
+            seedLengthRange = TEST_SEED_LENGTH..TEST_SEED_LENGTH,
+            config = CrosswordGeneratorConfig(
+                minCrosswordWordCount = MIN_CONFIGURED_CROSSWORD_WORD_COUNT,
+                minHiddenWordCount = TEST_MIN_HIDDEN_WORD_COUNT,
+                excludedLetters = CROSSWORD_GENERATOR_ALPHABET
+                    .filterNot { letter -> letter == 'A' || letter == 'B' }
+                    .toSet(),
+                maxGenerationAttempts = TEST_GENERATION_ATTEMPTS
+            ),
+            random = Random(TEST_RANDOM_SEED)
+        )
+
+        assertTrue(result is CrosswordGenerationResult.Failure)
+    }
+
+    @Test
+    fun generateCrosswordWithMode005RequiresMinimumCrosswordWordCount() {
+        val result = generateCrosswordWithMode005(
+            dictionary = listOf(TEST_WORD),
+            previousRoundWordSet = emptySet(),
+            topFrequentWordSet = emptySet(),
+            seedLengthRange = TEST_SEED_LENGTH..TEST_SEED_LENGTH,
+            config = CrosswordGeneratorConfig(
+                minCrosswordWordCount = TEST_MIN_CROSSWORD_WORD_COUNT,
+                excludedLetters = CROSSWORD_GENERATOR_ALPHABET
+                    .filterNot { letter -> letter == 'A' || letter == 'B' }
+                    .toSet(),
+                maxGenerationAttempts = TEST_GENERATION_ATTEMPTS
+            ),
+            random = Random(TEST_RANDOM_SEED)
+        )
+
+        assertTrue(result is CrosswordGenerationResult.Failure)
+    }
+
+    @Test
+    fun generateCrosswordWithMode005FailsWhenNoLettersAreAvailable() {
+        val result = generateCrosswordWithMode005(
+            dictionary = listOf(TEST_WORD),
+            previousRoundWordSet = emptySet(),
+            topFrequentWordSet = emptySet(),
+            seedLengthRange = TEST_SEED_LENGTH..TEST_SEED_LENGTH,
+            config = CrosswordGeneratorConfig(
+                minCrosswordWordCount = MIN_CONFIGURED_CROSSWORD_WORD_COUNT,
+                excludedLetters = CROSSWORD_GENERATOR_ALPHABET.toSet(),
+                maxGenerationAttempts = TEST_GENERATION_ATTEMPTS
+            ),
+            random = Random(TEST_RANDOM_SEED)
+        )
+
+        assertTrue(result is CrosswordGenerationResult.Failure)
     }
 
     @Test
