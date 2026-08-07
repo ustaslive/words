@@ -1,16 +1,20 @@
 
-[ ] genertion
-    [ ] params in settings
+[ ] counters about how much different players found uniques hidden words
+    [ ] server changes??
+
+
+[x] genertion
+    [x] params in settings
         [x] min words in crossword
         [x] chars to exclude
         [ ] indication that settings have restrictions
     [x] stop generation mode - red icon
     [x] animated icon during xword generation
 
-[ ] see unresolved hidden words
-[ ] counters about how much different players found uniques hidden words
-[ ] after xword is completed - to see which words left in hidden area
-[ ] algo to generate xword improvement
+[x] see unresolved hidden words
+
+[x] after xword is completed - to see which words left in hidden area
+[x] algo to generate xword improvement
     [x] rename it. better delete it completely - I mean from settings. remove the name
     [x] when many words try several times starting from different words
     [ ] 

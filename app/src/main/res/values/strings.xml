@@ -23,9 +23,11 @@
     <string name="about_open_source">Open Source: github.com/ustaslive/words</string>
     <string name="about_copyright">Copyright: © 2026 Familiar Apps</string>
     <string name="about_close">Close</string>
-    <string name="remaining_hidden_words_title">Remaining hidden words</string>
-    <string name="remaining_hidden_words_empty">All hidden words were found.</string>
-    <string name="remaining_hidden_words_close">Close</string>
+    <string name="hidden_words_title">Hidden words</string>
+    <string name="hidden_words_found">Found (%1$d)</string>
+    <string name="hidden_words_not_found">Not found (%1$d)</string>
+    <string name="hidden_words_all_found">All found</string>
+    <string name="hidden_words_close">Close</string>
     <string name="dropdown_open">Open options</string>
     <string name="settings_min_crossword_words">Minimum crossword words: %1$d</string>
     <string name="settings_min_hidden_words">Minimum hidden words: %1$d</string>

@@ -47,6 +47,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -298,6 +299,16 @@ private val MISSING_WORD_LABEL_TEXT_SIZE = 12.sp
 private val MISSING_WORD_LABEL_SPACING = 4.dp
 private const val MISSING_WORD_LABEL_ALPHA = 0.8f
 private val MISSING_WORDS_DIALOG_WORD_SPACING = 4.dp
+private val HIDDEN_WORDS_DIALOG_LIST_HEIGHT = 320.dp
+private val HIDDEN_WORDS_DIALOG_COLUMN_SPACING = 12.dp
+private val HIDDEN_WORDS_DIALOG_COLUMN_PADDING = 8.dp
+private val HIDDEN_WORDS_DIALOG_HEADER_SPACING = 8.dp
+private val HIDDEN_WORDS_DIALOG_COLUMN_CORNER_RADIUS = 8.dp
+private val HIDDEN_WORDS_DIALOG_PATTERN_SPACING = 14.dp
+private val HIDDEN_WORDS_DIALOG_PATTERN_STROKE_WIDTH = 2.dp
+private const val HIDDEN_WORDS_DIALOG_COLUMN_BACKGROUND_ALPHA = 0.05f
+private const val HIDDEN_WORDS_DIALOG_DISABLED_BACKGROUND_ALPHA = 0.08f
+private const val HIDDEN_WORDS_DIALOG_PATTERN_ALPHA = 0.12f
 private val ABOUT_DIALOG_LINE_SPACING = 8.dp
 private const val NEW_WORD_HIGHLIGHT_DURATION_MS = 2_000
 private const val NEW_WORD_HIGHLIGHT_NONE = 0f
@@ -1050,7 +1061,6 @@ private fun GameScreen() {
                 hasMissingWords = missingWordsState.entries.isNotEmpty(),
                 missingWordsCount = missingWordsState.remainingCount,
                 lastMissingWord = missingWordsState.lastGuessedWord,
-                missingWordsClickEnabled = isSolved,
                 onMissingWordsClick = { showRemainingHiddenWords = true },
                 playImmediateSuccessSound = !netPlayEnabled ||
                     netConnectionStatus != NetConnectionStatus.Connected,
@@ -1164,11 +1174,16 @@ private fun GameScreen() {
             AboutDialog(onDismiss = { showAbout = false })
         }
         if (showRemainingHiddenWords) {
-            RemainingHiddenWordsDialog(
-                words = missingWordsState.entries
+            HiddenWordsDialog(
+                foundWords = missingWordsState.entries
+                    .filterValues { guessed -> guessed }
+                    .keys
+                    .sorted(),
+                notFoundWords = missingWordsState.entries
                     .filterValues { guessed -> !guessed }
                     .keys
                     .sorted(),
+                showNotFoundWords = isSolved,
                 onDismiss = { showRemainingHiddenWords = false }
             )
         }
@@ -1938,33 +1953,115 @@ private fun AboutDialog(
 }
 
 @Composable
-private fun RemainingHiddenWordsDialog(
-    words: List<String>,
+private fun HiddenWordsDialog(
+    foundWords: List<String>,
+    notFoundWords: List<String>,
+    showNotFoundWords: Boolean,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text(text = stringResource(R.string.remaining_hidden_words_close))
+                Text(text = stringResource(R.string.hidden_words_close))
             }
         },
-        title = { Text(text = stringResource(R.string.remaining_hidden_words_title)) },
+        title = { Text(text = stringResource(R.string.hidden_words_title)) },
         text = {
-            if (words.isEmpty()) {
-                Text(text = stringResource(R.string.remaining_hidden_words_empty))
-            } else {
-                Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(MISSING_WORDS_DIALOG_WORD_SPACING)
-                ) {
-                    for (word in words) {
-                        Text(text = word)
-                    }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(HIDDEN_WORDS_DIALOG_LIST_HEIGHT),
+                horizontalArrangement = Arrangement.spacedBy(HIDDEN_WORDS_DIALOG_COLUMN_SPACING)
+            ) {
+                HiddenWordsColumn(
+                    title = stringResource(R.string.hidden_words_found, foundWords.size),
+                    words = foundWords,
+                    modifier = Modifier.weight(FULL_WEIGHT)
+                )
+                if (showNotFoundWords) {
+                    HiddenWordsColumn(
+                        title = stringResource(R.string.hidden_words_not_found, notFoundWords.size),
+                        words = notFoundWords,
+                        emptyText = stringResource(R.string.hidden_words_all_found),
+                        modifier = Modifier.weight(FULL_WEIGHT)
+                    )
+                } else {
+                    HiddenWordsUnavailableColumn(modifier = Modifier.weight(FULL_WEIGHT))
                 }
             }
         }
     )
+}
+
+@Composable
+private fun HiddenWordsColumn(
+    title: String,
+    words: List<String>,
+    modifier: Modifier = Modifier,
+    emptyText: String? = null
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .clip(RoundedCornerShape(HIDDEN_WORDS_DIALOG_COLUMN_CORNER_RADIUS))
+            .background(
+                MaterialTheme.colorScheme.onSurface.copy(
+                    alpha = HIDDEN_WORDS_DIALOG_COLUMN_BACKGROUND_ALPHA
+                )
+            )
+            .padding(HIDDEN_WORDS_DIALOG_COLUMN_PADDING)
+    ) {
+        Text(
+            text = title,
+            fontWeight = FontWeight.SemiBold,
+            style = MaterialTheme.typography.titleSmall
+        )
+        Spacer(modifier = Modifier.height(HIDDEN_WORDS_DIALOG_HEADER_SPACING))
+        if (words.isEmpty() && emptyText != null) {
+            Text(text = emptyText)
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(MISSING_WORDS_DIALOG_WORD_SPACING)
+            ) {
+                items(count = words.size) { index ->
+                    Text(text = words[index])
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HiddenWordsUnavailableColumn(modifier: Modifier = Modifier) {
+    val backgroundColor = MaterialTheme.colorScheme.onSurface.copy(
+        alpha = HIDDEN_WORDS_DIALOG_DISABLED_BACKGROUND_ALPHA
+    )
+    val patternColor = MaterialTheme.colorScheme.onSurface.copy(
+        alpha = HIDDEN_WORDS_DIALOG_PATTERN_ALPHA
+    )
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .clip(RoundedCornerShape(HIDDEN_WORDS_DIALOG_COLUMN_CORNER_RADIUS))
+            .background(backgroundColor)
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val patternSpacing = HIDDEN_WORDS_DIALOG_PATTERN_SPACING.toPx()
+            val strokeWidth = HIDDEN_WORDS_DIALOG_PATTERN_STROKE_WIDTH.toPx()
+            var startX = -size.height
+            while (startX < size.width) {
+                drawLine(
+                    color = patternColor,
+                    start = Offset(startX, size.height),
+                    end = Offset(startX + size.height, 0f),
+                    strokeWidth = strokeWidth
+                )
+                startX += patternSpacing
+            }
+        }
+    }
 }
 
 @Composable
@@ -2136,7 +2233,6 @@ private fun LetterWheelSection(
     hasMissingWords: Boolean,
     missingWordsCount: Int,
     lastMissingWord: String?,
-    missingWordsClickEnabled: Boolean,
     onMissingWordsClick: () -> Unit,
     playImmediateSuccessSound: Boolean,
     onShuffle: () -> Unit,
@@ -2250,7 +2346,6 @@ private fun LetterWheelSection(
                         MissingWordsIndicator(
                             remainingCount = missingWordsCount,
                             lastGuessedWord = lastMissingWord,
-                            clickEnabled = missingWordsClickEnabled,
                             onClick = onMissingWordsClick,
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
@@ -2627,7 +2722,6 @@ private fun HammerButton(
 private fun MissingWordsIndicator(
     remainingCount: Int,
     lastGuessedWord: String?,
-    clickEnabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -2646,18 +2740,13 @@ private fun MissingWordsIndicator(
             )
             Spacer(modifier = Modifier.height(MISSING_WORD_LABEL_SPACING))
         }
-        val countModifier = if (clickEnabled) {
-            Modifier
-                .size(WHEEL_CORNER_BUTTON_SIZE)
-                .clickable(onClick = onClick)
-        } else {
-            Modifier.size(WHEEL_CORNER_BUTTON_SIZE)
-        }
         Surface(
             color = IconBase,
             shape = CircleShape,
             shadowElevation = 8.dp,
-            modifier = countModifier
+            modifier = Modifier
+                .size(WHEEL_CORNER_BUTTON_SIZE)
+                .clickable(onClick = onClick)
         ) {
             Box(
                 modifier = Modifier.fillMaxSize(),
