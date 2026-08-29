@@ -7,4 +7,4 @@
 
 ## Google Play release notes (en-US)
 
-Network games now show each player's solved-word count and weighted score. Earlier solved words are worth fewer points, while later words are worth more. The dictionary and blocked-word list have also been updated.
+Network games now show each player's solved-word count and weighted score. Later solved words are worth more points.
