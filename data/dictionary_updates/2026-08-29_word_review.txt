@@ -1,0 +1,220 @@
+[dictionary.add]
+wonder - чудо, удивляться
+perennial - многолетний, вечный
+zodiac - зодиак
+afro - афро
+aroma - аромат
+despot - деспот, тиран
+ache - боль, болеть
+alien - инопланетянин, чужой
+loaf - буханка, бездельничать
+mince - фарш, рубить
+blower - вентилятор, воздуходувка
+bowler - котелок, игрок в боулинг
+delve - вникать, копаться
+denier - отрицатель
+fable - басня, миф
+camper - турист
+visor - козырек
+flask - колба, фляжка
+recoil - отдача, отступать
+gash - глубокая рана
+denim - джинсовая ткань
+teary - слезливый, в слезах
+aside - в сторону
+cyan - голубой цвет
+macro - макро, макрос (macro)
+primal - первобытный, основной
+tease - дразнить
+finer - лучший, более тонкий
+curing - лечение, отверждение
+configure - настраивать (configure)
+wartime - военное время
+invert - инвертировать, перевернуть
+repost - репост, перепост (repost)
+sealing - герметизация, запечатывание
+valet - камердинер, парковщик
+granule - гранула, крупинка
+glue - клей, клеить
+parity - паритет, равенство
+silo - бункер, силос
+hipster - хипстер
+strobe - стробоскоп
+storey - этаж
+sortie - вылазка, боевой вылет
+filet - филе
+pulsar - пульсар
+redact - редактировать
+adept - адепт, знаток
+maiden - дева, девичий
+modesty - скромность
+snail - улитка
+triage - медицинская сортировка, триаж
+canister - канистра
+stormy - штормовой, бурный
+enact - вводить в действие, принимать закон
+hank - моток, клубок
+stomp - топать, растаптывать
+shin - голень (tibia)
+maestro - маэстро
+pastel - пастель, пастельный
+mist - туман, дымка
+realist - реалист
+retina - сетчатка (retina)
+stern - суровый, корма
+stapler - степлер
+lapse - упущение, сбой
+mantle - мантия, покров
+butler - дворецкий
+bistro - бистро
+tumor - опухоль (tumor)
+lisp - шепелявить, шепелявость
+trope - троп, метафора
+louse - вошь (pediculus)
+honk - сигналить, гудок
+hind - задний, лань
+coma - кома (coma)
+choir - хор
+trim - подрезать, отделка
+moat - ров
+atop - наверху, поверх
+liar - лжец
+pealing - звон
+detach - отсоединять, отделять
+cater - обслуживать, угождать
+brawl - скандал, драка
+molar - коренной зуб (dens molaris)
+robin - малиновка, дрозд
+incur - подвергаться, навлечь на себя
+auditor - аудитор, ревизор
+hate - ненависть, ненавидеть
+walnut - грецкий орех
+route - маршрут, путь
+roasting - жарка, обжаривание
+wrath - гнев, ярость
+grant - грант, даровать
+dole - пособие, раздавать
+abrupt - резкий, внезапный
+iron - железо, утюг
+slate - сланец, шифер
+hostel - хостел, общежитие
+astro - префикс, не является самостоятельным словом
+clothes - существительное множественного числа
+bible - узкоспециальное, религиозное слово
+
+[dictionary.remove]
+norma - опечатка, правильно norm
+farma - опечатка, правильно pharma
+potus - аббревиатура
+plenar - не существует, правильно plenary
+fowler - узкоспециальное слово, профессия или фамилия
+etalon - редко используемое, правильно standard
+bloger - опечатка, правильно blogger
+yodle - опечатка, правильно yodel
+buldog - опечатка, правильно bulldog
+dolby - имя собственное, бренд
+earnt - устаревшая форма, правильно earned
+filty - опечатка, правильно filthy
+rele - опечатка, правильно relay
+apollo - имя собственное
+tearup - не существует, пишется раздельно tear up
+panter - опечатка, правильно panther
+apache - имя собственное
+dosier - опечатка, правильно dossier
+dietory - опечатка, правильно dietary
+varicos - опечатка, правильно varicose (varicosus)
+omar - имя собственное
+hunta - опечатка, правильно junta
+ancor - опечатка, правильно anchor
+conway - имя собственное
+vacine - опечатка, правильно vaccine
+psalm - узкоспециальное, религиозное слово
+restle - опечатка, правильно wrestle
+emirat - опечатка, правильно emirate
+liga - опечатка, правильно league
+intel - имя собственное, бренд
+pioner - опечатка, правильно pioneer
+colapse - опечатка, правильно collapse
+cortel - опечатка, правильно cartel
+carosel - опечатка, правильно carousel
+granit - опечатка, правильно granite
+lunat - опечатка, правильно lunatic
+postery - не существует
+husle - опечатка, правильно hustle
+pulsary - не существует, правильно pulsar
+pisuar - опечатка, правильно urinal
+celar - опечатка, правильно cellar
+bulgary - опечатка, правильно burglary
+alergy - опечатка, правильно allergy
+amnesy - опечатка, правильно amnesia
+denasty - опечатка, правильно dynasty
+gaslite - опечатка, правильно gaslight
+missel - опечатка, правильно missile
+disert - опечатка, правильно desert
+decimetr - опечатка, правильно decimeter
+ribon - опечатка, правильно ribbon
+vapore - опечатка, правильно vapor
+secator - опечатка, правильно secateurs
+vanil - опечатка, правильно vanilla
+speach - опечатка, правильно speech
+termal - опечатка, правильно thermal
+empaty - опечатка, правильно empathy
+tample - опечатка, правильно temple
+steril - опечатка, правильно sterile
+hoster - узкоспециальное слово (hoster)
+fasion - опечатка, правильно fashion
+dought - опечатка, правильно dough или doubt
+tonus - редко используемое, правильно tone
+tromb - опечатка, правильно thrombus
+carot - опечатка, правильно carrot
+mario - имя собственное
+tilda - опечатка, правильно tilde
+unior - опечатка, правильно junior
+contra - узкоспециальное или префикс
+sambo - узкоспециальное слово
+anthic - опечатка, правильно antique
+spirt - опечатка, правильно spirit
+stip - не существует
+inlist - опечатка, правильно enlist
+recash - не существует
+ogry - опечатка, правильно ogre
+orgi - опечатка, правильно orgy
+yan - имя собственное или не существует
+dural - узкоспециальное слово
+craying - опечатка, правильно crying
+troyan - опечатка, правильно trojan
+sloath - опечатка, правильно sloth
+barbie - имя собственное, бренд
+senat - опечатка, правильно senate
+swolen - опечатка, правильно swollen
+
+[forbidden.add]
+boner - неприличное слово
+bitch - матерное слово
+slut - матерное слово
+lust - слово не для детских игр
+nudity - слово не для детских игр
+vagines - неприличное слово, опечатка
+vagine - 
+fuck - матерное слово
+genital - слово не для детских игр
+porn - неприличное слово
+anus - слово не для детских игр
+stoner - слово не для детских игр
+whore - матерное слово
+erotic - слово не для детских игр
+sperm - неприличное слово
+strapon - неприличное слово
+incest - неприличное слово
+clit - неприличное слово
+cliter - 
+clitter -
+naked - слово не для детских игр
+fart - неприличное слово
+orgy - слово не для детских игр
+trany - неприличное, матерное слово
+adulter - слово не для детских игр, опечатка
+urinal - 
+jerk - рывок, вяленое мясо
+
+[forbidden.remove]
