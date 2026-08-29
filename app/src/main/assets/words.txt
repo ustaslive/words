@@ -15,6 +15,7 @@ abortion
 about
 above
 abroad
+abrupt
 abruptly
 absence
 absent
@@ -81,6 +82,7 @@ addictive
 adding
 addition
 address
+adept
 adequate
 adhere
 adjacent
@@ -130,6 +132,7 @@ affinity
 afford
 afghan
 afraid
+afro
 after
 aftermath
 afternoon
@@ -280,7 +283,6 @@ anywhere
 apart
 apartment
 apex
-apollo
 apologise
 apologize
 apology
@@ -328,6 +330,7 @@ arising
 armor
 armour
 army
+aroma
 arose
 around
 arrange
@@ -380,6 +383,7 @@ assurance
 assure
 asteroid
 asthma
+astro
 astronaut
 astronomy
 asylum
@@ -412,6 +416,7 @@ audience
 audio
 audit
 audition
+auditor
 augment
 august
 aunt
@@ -650,6 +655,7 @@ birth
 birthday
 bishop
 bison
+bistro
 bite
 biting
 bitter
@@ -693,6 +699,7 @@ bloom
 blossom
 blouse
 blow
+blower
 blowing
 blown
 blue
@@ -764,6 +771,7 @@ bout
 boutique
 bowel
 bowl
+bowler
 bowling
 boxer
 boxing
@@ -932,6 +940,7 @@ camera
 camo
 camp
 campaign
+camper
 camping
 campus
 canal
@@ -941,6 +950,7 @@ candidate
 candle
 candy
 cane
+canister
 cannabis
 cannon
 cannot
@@ -1213,6 +1223,7 @@ closet
 closing
 closure
 cloth
+clothes
 clothing
 cloud
 cloudy
@@ -1343,6 +1354,7 @@ conductor
 cone
 confess
 confident
+configure
 confine
 confirm
 conflict
@@ -1550,6 +1562,7 @@ cultural
 culture
 curator
 cure
+curing
 curiosity
 curious
 curl
@@ -1570,6 +1583,7 @@ customer
 cute
 cutter
 cutting
+cyan
 cycle
 cycling
 cyclist
@@ -1686,6 +1700,7 @@ deliver
 delivery
 delta
 deluxe
+delve
 demand
 demanding
 dementia
@@ -1695,6 +1710,7 @@ democracy
 democrat
 demon
 denial
+denier
 denim
 dense
 density
@@ -1736,10 +1752,12 @@ despair
 desperate
 despise
 despite
+despot
 dessert
 destiny
 destroy
 destroyer
+detach
 detail
 detailing
 detain
@@ -1879,6 +1897,7 @@ doctrine
 document
 dodge
 doing
+dole
 doll
 dollar
 dolly
@@ -2115,6 +2134,7 @@ empower
 empty
 enable
 enabling
+enact
 enclose
 enclosure
 encounter
@@ -2304,6 +2324,7 @@ extra
 extract
 extreme
 extremely
+fable
 fabric
 fabulous
 face
@@ -2431,6 +2452,7 @@ figure
 figuring
 file
 filer
+filet
 filing
 fill
 filler
@@ -2453,6 +2475,7 @@ finder
 finding
 fine
 finely
+finer
 finest
 finger
 finish
@@ -2487,6 +2510,7 @@ flank
 flare
 flash
 flashing
+flask
 flat
 flavor
 flavour
@@ -2606,7 +2630,6 @@ fountain
 four
 fourteen
 fourth
-fowler
 foyer
 fraction
 fracture
@@ -2704,6 +2727,7 @@ garlic
 garment
 garner
 garrison
+gash
 gasoline
 gasp
 gate
@@ -2839,6 +2863,7 @@ granite
 granny
 grant
 granting
+granule
 grape
 graph
 graphic
@@ -3059,6 +3084,7 @@ hill
 himself
 hind
 hint
+hipster
 hire
 hiring
 historian
@@ -3095,6 +3121,7 @@ honestly
 honesty
 honey
 honeymoon
+honk
 honor
 honorable
 honorary
@@ -3121,6 +3148,7 @@ hose
 hospital
 host
 hostage
+hostel
 hostile
 hostility
 hosting
@@ -3245,6 +3273,7 @@ incoming
 incorrect
 increase
 incumbent
+incur
 indeed
 indent
 index
@@ -3369,6 +3398,7 @@ invention
 inventor
 inventory
 inverse
+invert
 invest
 investing
 investor
@@ -3518,6 +3548,7 @@ lane
 lang
 language
 lantern
+lapse
 laptop
 large
 largely
@@ -3660,6 +3691,7 @@ lion
 lipstick
 liquid
 liquor
+lisp
 list
 listen
 listener
@@ -3683,6 +3715,7 @@ living
 lizard
 load
 loading
+loaf
 loan
 lobby
 lobbying
@@ -3736,6 +3769,7 @@ loud
 louder
 loudly
 lounge
+louse
 love
 lovely
 lover
@@ -3775,6 +3809,7 @@ madame
 madden
 made
 madness
+maestro
 mafia
 magazine
 magenta
@@ -4046,11 +4081,13 @@ modelling
 moderate
 modern
 modest
+modesty
 modify
 modular
 module
 moist
 moisture
+molar
 mold
 mole
 molecular
@@ -4520,6 +4557,7 @@ parent
 parental
 parenting
 parish
+parity
 park
 parking
 parrot
@@ -4547,6 +4585,7 @@ password
 past
 pasta
 paste
+pastel
 pastor
 pastoral
 pastry
@@ -4582,6 +4621,7 @@ peace
 peaceful
 peach
 peak
+pealing
 peanut
 pear
 pearl
@@ -4884,6 +4924,7 @@ priceless
 pricing
 pride
 priest
+primal
 primarily
 primary
 prime
@@ -4990,6 +5031,7 @@ pull
 pulling
 pulmonary
 pulp
+pulsar
 pulse
 puma
 pump
@@ -5134,6 +5176,7 @@ ready
 real
 realise
 realism
+realist
 realistic
 reality
 realize
@@ -5168,6 +5211,7 @@ reckless
 reckon
 recognise
 recognize
+recoil
 recommend
 reconcile
 record
@@ -5179,6 +5223,7 @@ recreate
 recruit
 recurring
 recycling
+redact
 redeem
 redo
 reduce
@@ -5294,6 +5339,7 @@ replying
 report
 reporter
 reporting
+repost
 represent
 reprint
 reproduce
@@ -5345,6 +5391,7 @@ retain
 retaining
 retarded
 retention
+retina
 retire
 retiring
 retreat
@@ -5418,6 +5465,7 @@ roaming
 roar
 roaring
 roast
+roasting
 robbed
 robbery
 robe
@@ -5620,6 +5668,7 @@ sculpture
 scum
 seafood
 seal
+sealing
 seam
 search
 searching
@@ -5988,6 +6037,7 @@ sore
 sorrow
 sorry
 sort
+sortie
 sorting
 sought
 soul
@@ -6113,6 +6163,7 @@ stand
 standard
 standing
 staple
+stapler
 star
 stare
 staring
@@ -6180,6 +6231,7 @@ stoke
 stole
 stolen
 stomach
+stomp
 stone
 stood
 stool
@@ -6190,6 +6242,7 @@ store
 storey
 storing
 storm
+stormy
 story
 stout
 stove
@@ -6226,6 +6279,7 @@ stripe
 stripping
 strive
 striving
+strobe
 stroke
 stroll
 strong
@@ -6723,6 +6777,7 @@ trend
 trending
 trey
 triad
+triage
 trial
 triangle
 tribal
@@ -7021,6 +7076,7 @@ vision
 visit
 visiting
 visitor
+visor
 vista
 visual
 visually
@@ -7302,6 +7358,7 @@ yummy
 zebra
 zero
 zinc
+zodiac
 zombie
 zone
 zoning

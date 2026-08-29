@@ -2,16 +2,16 @@
 
 ## TL;DR (quick checklist)
 
-- Create `release_v<version>` from `develop`, bump versions in `version.txt` and `app/build.gradle.kts`, and add release notes in `doc/releases/release_v<version>.md`.
+- Create `release_v<version>` from `develop`, bump versions in `version.txt` and `app/build.gradle.kts`, and add release notes in `doc/releases/release_v<version>.md`. Include a copy-ready Google Play summary of no more than 500 Unicode characters.
 - If `app/src/main/assets/words.txt` or `app/src/main/assets/forbidden_words.txt` changed, regenerate `Random letters (adv)` stats and sync `lab/crossword_repeatability/005.stat.txt` with `app/src/main/assets/005.stat.txt`.
 - Build and verify the release bundle, then merge to `develop` and `master`, build again, and upload to Google Play (internal testing).
-- Tag and push only after the upload succeeds.
+- Tag and push only after the Google Play rollout succeeds, update the production server, then return the development checkout to `develop`.
 
 Command template:
 
 ```
 git checkout develop
-git pull
+git pull --ff-only
 git checkout -b release_v<version>
 # Edit version.txt (versionName) and app/build.gradle.kts (versionCode)
 # If words.txt or forbidden_words.txt changed, run tools/update_mode005_stats.py
@@ -21,20 +21,30 @@ git add version.txt app/build.gradle.kts doc/releases/release_v<version>.md
 git commit -m "Release v<version>"
 ./gradlew bundleRelease
 git checkout develop
-git merge release_v<version>
+git merge --no-ff release_v<version> -m "Merge release_v<version> into develop"
 git checkout master
-git merge develop
+git pull --ff-only
+git merge --no-ff develop -m "Merge develop for v<version>"
 ./gradlew bundleRelease
+# Upload the AAB to Google Play and roll it out to internal testing before continuing.
 git tag v<version>
 git push origin develop master
 git push origin v<version>
+# On the production server:
+cd /srv/xword
+sudo -v
+sudo make update XWORD_REF=master
+sudo make status
+# Exit SSH and return to the local development checkout:
+git checkout develop
+git pull --ff-only
 ```
 
 Files and fields to update:
 
 - `version.txt`: `versionName` value (must match `v<version>` without the `v`)
 - `app/build.gradle.kts`: `versionCode` (must strictly increase)
-- `doc/releases/release_v<version>.md`: release notes text
+- `doc/releases/release_v<version>.md`: release notes text, including a Google Play summary limited to 500 Unicode characters per language
 - If the dictionary or forbidden-word list changed:
   - `app/src/main/assets/words.txt`
   - `app/src/main/assets/forbidden_words.txt`
@@ -45,6 +55,29 @@ This guide documents how to prepare a release for internal testing and publish i
 `master` contains only stable versions; release builds and version tags are created on `master`.
 `develop` may contain unstable work; builds from `develop` are debug-only for local testing via ADB and are not uploaded to Google Play.
 Production release steps are not finalized yet. Placeholder sections are marked as TODO.
+
+## One-time Google Play CLI setup
+
+1. Rebuild the devcontainer after changes to `.devcontainer/Dockerfile`. The image includes
+   Google Cloud CLI and the Python Google API client.
+2. Select a Google Cloud project and enable the Google Play Android Developer API.
+3. Start browser authorization from `/words`:
+
+   ```bash
+   make play-login
+   ```
+
+   Open the printed URL, sign in with the Google account that has access to the app in
+   Google Play Console, grant access, and paste the authorization code back into the shell.
+4. Verify the stored Application Default Credentials:
+
+   ```bash
+   make play-auth-status
+   ```
+
+The credentials live only inside the current devcontainer. Run `make play-login` again after
+the container is recreated. Revoke the current credentials with
+`gcloud auth application-default revoke` when they are no longer needed.
 
 ## Pre-release checks
 
@@ -68,7 +101,7 @@ The release version must match both the Gradle config and the Git tag.
 
 - Start from `develop`:
   - `git checkout develop`
-  - `git pull`
+  - `git pull --ff-only`
 - Create `release_v<version>`:
   - `git checkout -b release_v<version>`
 - Only release-specific changes are allowed in this branch:
@@ -77,6 +110,7 @@ The release version must match both the Gradle config and the Git tag.
   - If the dictionary or forbidden-word list changed, regenerate `Random letters (adv)` stats and update both `005.stat.txt` copies.
   - Create `doc/releases` if it does not exist.
   - Create release notes in `doc/releases/release_v<version>.md`.
+  - Include a clearly marked, copy-ready Google Play summary of no more than 500 Unicode characters per language.
   - Commit the release changes.
 
 ## If the dictionary or forbidden-word list changed: regenerate `Random letters (adv)` stats
@@ -141,7 +175,7 @@ git add app/src/main/assets/005.stat.txt
 
 - Build from `master`:
   - `git checkout master`
-  - `git pull`
+  - `git pull --ff-only`
 - Build the release bundle:
   - `./gradlew bundleRelease`
 - Output path:
@@ -160,19 +194,27 @@ jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.a
 Run on the host:
 
 ```
-cd ~/Download
+cd ~/Downloads
 docker cp words:/words/app/build/outputs/bundle/release/app-release.aab ./app-release-v<version>.aab
 ```
 
-## Google Play Console steps (internal testing)
+## Google Play upload (internal testing)
 
-- Open Google Play Console and select the app.
-- Go to the Internal testing track.
-- Create a new release and upload the AAB.
-- Paste the release notes from `doc/releases/release_v<version>.md`.
-- Review and roll out the release to internal testers.
+Upload the AAB without making it available to testers:
 
-## Tag and push (after successful upload)
+```bash
+make play-upload-draft
+make play-status
+```
+
+After the server is updated to the same version, publish the draft:
+
+```bash
+make play-publish-internal
+make play-status
+```
+
+## Tag and push (after successful Google Play rollout)
 
 - Only tag after the AAB is successfully uploaded and rolled out.
 - Create the tag on `master`:
@@ -180,6 +222,41 @@ docker cp words:/words/app/build/outputs/bundle/release/app-release.aab ./app-re
 - Push code and tags:
   - `git push origin develop master`
   - `git push origin v<version>`
+
+## Update the production server
+
+The client and server currently require exact version equality. Update the production server immediately after pushing `master` and the release tag so newly updated clients can connect.
+
+The following commands apply to the project server installed at `/srv/xword`:
+
+```bash
+# SSH to the server that runs the words-server Docker container.
+cd /srv/xword
+sudo -v
+sudo make update XWORD_REF=master
+sudo make status
+```
+
+Confirm that `make status` reports:
+
+- `state=running`
+- `version=<version>`
+
+The update rebuilds and recreates the Docker container. The room state is stored in memory, so active connections and the current network game are reset during the update.
+
+For other server installation layouts, follow `server/README.md` instead of using the `/srv/xword` path.
+
+## Return to development
+
+After the release and server update, leave the local development checkout on the current `develop` branch:
+
+```bash
+git checkout develop
+git pull --ff-only
+git status --short --branch
+```
+
+Create every new feature branch from an up-to-date `develop`, not from `master`.
 
 ## If upload fails
 
