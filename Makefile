@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := all
 
-.PHONY: help build install all uninstall test release connect list play-login play-auth-status play-status play-upload-draft play-publish-internal
+.PHONY: help build install all uninstall test release connect list play-login play-auth-status play-status play-upload-draft play-publish-internal release-prepare release-server release-publish release-status
 
 DEBUG_APK := app/build/outputs/apk/debug/app-debug.apk
 RELEASE_AAB := app/build/outputs/bundle/release/app-release.aab
@@ -27,6 +27,10 @@ help:
 	@echo "  play-status Show Google Play internal-testing releases"
 	@echo "  play-upload-draft Upload the release bundle as an internal draft"
 	@echo "  play-publish-internal Publish the current internal draft"
+	@echo "  release-prepare Prepare and upload a release draft (requires VERSION=x.y.z)"
+	@echo "  release-server Update and verify the Plex server"
+	@echo "  release-publish Publish, tag, synchronize Git, and return to develop"
+	@echo "  release-status Show the current release state"
 
 build:
 	./gradlew assembleDebug
@@ -99,6 +103,22 @@ play-publish-internal:
 	python3 tools/google_play.py publish \
 		--package "$(PLAY_PACKAGE)" \
 		--track "$(PLAY_TRACK)"
+
+release-prepare:
+	@if [ -z "$(VERSION)" ]; then \
+		echo "Usage: make release-prepare VERSION=x.y.z"; \
+		exit 1; \
+	fi
+	python3 tools/release.py prepare "$(VERSION)"
+
+release-server:
+	python3 tools/release.py server
+
+release-publish:
+	python3 tools/release.py publish
+
+release-status:
+	python3 tools/release.py status
 
 # All unit tests (debug + release)
 # ./gradlew :app:test
