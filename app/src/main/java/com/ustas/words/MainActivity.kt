@@ -214,7 +214,6 @@ private const val NET_PLAY_ICON_DISABLED_ALPHA = 0.4f
 private const val NET_PLAY_TOGGLE_ANIMATION_MS = 160
 private const val NET_PLAY_CORNER_DIVISOR = 2f
 private const val NET_PLAY_PADDING_MULTIPLIER = 2f
-private const val NET_PLAY_DEFAULT_SCORE = 0
 private const val NET_STATE_VERSION_INITIAL = 1
 private const val NET_INVALID_INDEX = -1
 private const val NET_MESSAGE_TYPE_JOIN = "join"
@@ -246,6 +245,7 @@ private const val NET_JSON_GRID_ROWS = "gridRows"
 private const val NET_JSON_REVEALED = "revealed"
 private const val NET_JSON_WORDS = "words"
 private const val NET_JSON_SOLVED_BY = "solvedBy"
+private const val NET_JSON_SOLVED_ORDER = "solvedOrder"
 private const val NET_JSON_WORD = "word"
 private const val NET_JSON_POSITIONS = "positions"
 private const val NET_JSON_ROW = "row"
@@ -427,7 +427,8 @@ private enum class NetPlayRole(val id: String) {
 
 private data class NetPlayerStat(
     val color: Color,
-    val count: Int
+    val count: Int,
+    val score: Int
 )
 
 private data class NetPlayerInfo(
@@ -438,15 +439,20 @@ private data class NetPlayerInfo(
 
 private fun buildNetStats(
     players: List<NetPlayerInfo>,
-    solvedBy: Map<String, String>
+    solvedBy: Map<String, String>,
+    solvedWordOrder: List<String>
 ): List<NetPlayerStat> {
     if (players.isEmpty()) {
         return emptyList()
     }
-    val counts = solvedBy.values.groupingBy { it }.eachCount()
+    val scores = calculateNetPlayerScores(solvedWordOrder, solvedBy)
     return players.map { player ->
-        val count = counts[player.playerId] ?: NET_PLAY_DEFAULT_SCORE
-        NetPlayerStat(color = player.playerColor.swatch, count = count)
+        val playerScore = scores[player.playerId] ?: NetPlayerScore()
+        NetPlayerStat(
+            color = player.playerColor.swatch,
+            count = playerScore.wordCount,
+            score = playerScore.points
+        )
     }
 }
 
@@ -513,6 +519,7 @@ private fun GameScreen() {
     var netSubmissionInFlight by remember { mutableStateOf(false) }
     var netNeedsResend by remember { mutableStateOf(false) }
     var netSolvedBy by remember { mutableStateOf(emptyMap<String, String>()) }
+    var netSolvedWordOrder by remember { mutableStateOf(emptyList<String>()) }
     var netPlayers by remember { mutableStateOf(emptyList<NetPlayerInfo>()) }
     val netPlayEnabledState = rememberUpdatedState(netPlayEnabled)
     val netClient = remember {
@@ -544,6 +551,7 @@ private fun GameScreen() {
             hammerMode = HammerMode.Off
             netConfirmedVersion = snapshot.stateVersion
             netSolvedBy = snapshot.solvedBy
+            netSolvedWordOrder = reconcileSolvedWordOrder(snapshot.solvedWordOrder, snapshot.solvedBy)
             revealedGrid to wordMap
         }
     fun rebasePendingWordsIfNeeded(
@@ -563,12 +571,14 @@ private fun GameScreen() {
             pendingWords = pendingWords,
             pendingReveals = pendingReveals,
             baseSolvedBy = netSolvedBy,
+            baseSolvedWordOrder = netSolvedWordOrder,
             playerId = settings.playerId
         )
         if (rebaseResult.grid != baseGrid) {
             grid = rebaseResult.grid
         }
         netSolvedBy = rebaseResult.solvedBy
+        netSolvedWordOrder = rebaseResult.solvedWordOrder
         netPendingWords = rebaseResult.pendingWords
         netPendingReveals = rebaseResult.pendingReveals
         netNeedsResend = allowResend && (
@@ -700,7 +710,9 @@ private fun GameScreen() {
         letters,
         grid,
         crosswordWords,
-        settings
+        settings,
+        netSolvedBy,
+        netSolvedWordOrder
     ) {
         if (!netNeedsResend) {
             return@LaunchedEffect
@@ -721,6 +733,7 @@ private fun GameScreen() {
             crosswordWords = crosswordWords,
             settings = settings,
             solvedBy = netSolvedBy,
+            solvedWordOrder = netSolvedWordOrder,
             stateVersion = netConfirmedVersion
         )
         if (snapshot == null) {
@@ -735,9 +748,9 @@ private fun GameScreen() {
     val netServerUrl = remember(settings.serverIp, settings.serverPort) {
         buildNetServerUrl(settings.serverIp, settings.serverPort)
     }
-    val netStats = remember(netConnectionStatus, netPlayers, netSolvedBy) {
+    val netStats = remember(netConnectionStatus, netPlayers, netSolvedBy, netSolvedWordOrder) {
         if (netConnectionStatus == NetConnectionStatus.Connected) {
-            buildNetStats(netPlayers, netSolvedBy)
+            buildNetStats(netPlayers, netSolvedBy, netSolvedWordOrder)
         } else {
             emptyList()
         }
@@ -827,6 +840,7 @@ private fun GameScreen() {
                 )
                 hammerMode = HammerMode.Off
                 netSolvedBy = emptyMap()
+                netSolvedWordOrder = emptyList()
                 if (netPlayEnabled && netRole == NetPlayRole.Host) {
                     netHostNeedsUpload = true
                 }
@@ -852,6 +866,7 @@ private fun GameScreen() {
             netSubmissionInFlight = false
             netNeedsResend = false
             netSolvedBy = emptyMap()
+            netSolvedWordOrder = emptyList()
             netPlayers = emptyList()
             netConnectionStatus = NetConnectionStatus.Connecting
             netConnection.connect(netServerUrl)
@@ -867,6 +882,7 @@ private fun GameScreen() {
             netSubmissionInFlight = false
             netNeedsResend = false
             netSolvedBy = emptyMap()
+            netSolvedWordOrder = emptyList()
             netPlayers = emptyList()
         }
     }
@@ -912,7 +928,9 @@ private fun GameScreen() {
         letters,
         grid,
         crosswordWords,
-        settings
+        settings,
+        netSolvedBy,
+        netSolvedWordOrder
     ) {
         if (
             netPlayEnabled &&
@@ -926,6 +944,7 @@ private fun GameScreen() {
                 crosswordWords = crosswordWords,
                 settings = settings,
                 solvedBy = netSolvedBy,
+                solvedWordOrder = netSolvedWordOrder,
                 stateVersion = NET_STATE_VERSION_INITIAL
             )
             if (snapshot != null && netConnection.send(buildNetNewGameMessage(snapshot))) {
@@ -1035,6 +1054,7 @@ private fun GameScreen() {
                                     crosswordWords = crosswordWords,
                                     settings = settings,
                                     solvedBy = netSolvedBy,
+                                    solvedWordOrder = netSolvedWordOrder,
                                     stateVersion = netConfirmedVersion
                                 )
                                 if (snapshot != null && netConnection.send(
@@ -1098,6 +1118,7 @@ private fun GameScreen() {
                     if (result == WordResult.Success && netPlayEnabled) {
                         if (settings.playerId.isNotBlank()) {
                             netSolvedBy = netSolvedBy + (normalizedWord to settings.playerId)
+                            netSolvedWordOrder = appendSolvedWord(netSolvedWordOrder, normalizedWord)
                         }
                         if (!netPendingWords.contains(normalizedWord)) {
                             netPendingWords = netPendingWords + normalizedWord
@@ -1109,6 +1130,7 @@ private fun GameScreen() {
                                 crosswordWords = crosswordWords,
                                 settings = settings,
                                 solvedBy = netSolvedBy,
+                                solvedWordOrder = netSolvedWordOrder,
                                 stateVersion = netConfirmedVersion
                             )
                             if (snapshot != null && netConnection.send(
@@ -1520,7 +1542,7 @@ private fun NetPlayStatsPill(
                     Spacer(modifier = Modifier.width(NET_PLAY_STATS_ITEM_SPACING))
                 }
                 Text(
-                    text = stat.count.toString(),
+                    text = "${stat.count}/${stat.score}",
                     color = stat.color,
                     fontWeight = FontWeight.Bold,
                     fontSize = NET_PLAY_STATS_TEXT_SIZE
@@ -2849,6 +2871,7 @@ private data class NetSnapshot(
     val revealedPositions: List<GridPosition>,
     val words: List<CrosswordWord>,
     val solvedBy: Map<String, String>,
+    val solvedWordOrder: List<String>,
     val settings: NetSnapshotSettings
 )
 
@@ -2884,6 +2907,7 @@ private data class NetRebaseResult(
     val discardedWords: List<String>,
     val confirmedWords: List<String>,
     val solvedBy: Map<String, String>,
+    val solvedWordOrder: List<String>,
     val pendingReveals: List<GridPosition>
 )
 
@@ -2898,6 +2922,7 @@ private fun rebasePendingWords(
     pendingWords: List<String>,
     pendingReveals: List<GridPosition>,
     baseSolvedBy: Map<String, String>,
+    baseSolvedWordOrder: List<String>,
     playerId: String
 ): NetRebaseResult {
     if (pendingWords.isEmpty()) {
@@ -2908,6 +2933,7 @@ private fun rebasePendingWords(
             emptyList(),
             emptyList(),
             baseSolvedBy,
+            baseSolvedWordOrder,
             revealResult.pendingReveals
         )
     }
@@ -2916,6 +2942,7 @@ private fun rebasePendingWords(
     val discarded = mutableListOf<String>()
     val confirmed = mutableListOf<String>()
     val updatedSolvedBy = baseSolvedBy.toMutableMap()
+    var updatedSolvedWordOrder = reconcileSolvedWordOrder(baseSolvedWordOrder, baseSolvedBy)
     for (word in pendingWords) {
         val match = crosswordWords[word]
         if (match == null) {
@@ -2937,6 +2964,7 @@ private fun rebasePendingWords(
             remaining.add(word)
             if (playerId.isNotBlank()) {
                 updatedSolvedBy[word] = playerId
+                updatedSolvedWordOrder = appendSolvedWord(updatedSolvedWordOrder, word)
             }
         } else if (result != WordResult.Success) {
             discarded.add(word)
@@ -2949,6 +2977,7 @@ private fun rebasePendingWords(
         discarded,
         confirmed,
         updatedSolvedBy.toMap(),
+        updatedSolvedWordOrder,
         revealResult.pendingReveals
     )
 }
@@ -3057,6 +3086,7 @@ private fun buildNetSnapshotFromState(
     crosswordWords: Map<String, CrosswordWord>,
     settings: UserSettings,
     solvedBy: Map<String, String>,
+    solvedWordOrder: List<String>,
     stateVersion: Int
 ): NetSnapshot? {
     if (seedLetters.isBlank() || grid.isEmpty()) {
@@ -3072,6 +3102,7 @@ private fun buildNetSnapshotFromState(
         revealedPositions = revealedPositions,
         words = words,
         solvedBy = solvedBy,
+        solvedWordOrder = reconcileSolvedWordOrder(solvedWordOrder, solvedBy),
         settings = buildNetSnapshotSettings(settings)
     )
 }
@@ -3090,6 +3121,7 @@ private fun buildNetSnapshotJson(snapshot: NetSnapshot): JSONObject {
     root.put(NET_JSON_REVEALED, buildPositionsJson(snapshot.revealedPositions))
     root.put(NET_JSON_WORDS, buildWordsJson(snapshot.words))
     root.put(NET_JSON_SOLVED_BY, buildNetSolvedByJson(snapshot.solvedBy))
+    root.put(NET_JSON_SOLVED_ORDER, JSONArray(snapshot.solvedWordOrder))
     root.put(NET_JSON_SETTINGS, buildSettingsJson(snapshot.settings))
     return root
 }
@@ -3215,6 +3247,10 @@ private fun parseNetSnapshot(snapshot: JSONObject): NetSnapshot? {
     val revealedPositions = parsePositions(snapshot.optJSONArray(NET_JSON_REVEALED))
     val words = parseWords(snapshot.optJSONArray(NET_JSON_WORDS))
     val solvedBy = parseSolvedBy(snapshot.optJSONObject(NET_JSON_SOLVED_BY))
+    val solvedWordOrder = reconcileSolvedWordOrder(
+        parseSolvedWordOrder(snapshot.optJSONArray(NET_JSON_SOLVED_ORDER)),
+        solvedBy
+    )
     val settings = parseNetSnapshotSettings(snapshot.optJSONObject(NET_JSON_SETTINGS))
     val stateVersion = snapshot.optInt(NET_JSON_STATE_VERSION, NET_STATE_VERSION_INITIAL)
     return NetSnapshot(
@@ -3224,6 +3260,7 @@ private fun parseNetSnapshot(snapshot: JSONObject): NetSnapshot? {
         revealedPositions = revealedPositions,
         words = words,
         solvedBy = solvedBy,
+        solvedWordOrder = solvedWordOrder,
         settings = settings
     )
 }
@@ -3340,6 +3377,22 @@ private fun parseSolvedBy(data: JSONObject?): Map<String, String> {
         }
     }
     return result.toMap()
+}
+
+private fun parseSolvedWordOrder(data: JSONArray?): List<String> {
+    if (data == null) {
+        return emptyList()
+    }
+    val result = mutableListOf<String>()
+    val seen = mutableSetOf<String>()
+    val count = data.length()
+    repeat(count) { index ->
+        val word = data.optString(index, "").trim().uppercase()
+        if (word.isNotBlank() && seen.add(word)) {
+            result.add(word)
+        }
+    }
+    return result
 }
 
 private fun applyRevealedPositions(

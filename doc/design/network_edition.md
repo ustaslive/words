@@ -30,6 +30,7 @@ continue the same crossword on any client.
 Snapshot fields:
 - Grid with letters, isActive, and isRevealed flags.
 - CrosswordWords map (word -> positions).
+- SolvedBy map (word -> player) and the ordered list of solved words.
 - Wheel letters (ordered list shown in the wheel).
 - Generation settings used by the host (for reference).
 - StateVersion (monotonic integer).
@@ -107,9 +108,11 @@ Same as Word Submission, but the update is a single cell reveal.
 
 ### Live Stats Indicator
 - When connected, a pill-shaped stats field appears to the right of the toggle.
-- The field shows a number for each connected player.
+- The field shows `word count/points` for each connected player.
 - Each number is colored with that player's selected color.
-- The number represents how many crossword words the player solved first.
+- The word count represents how many crossword words the player solved first.
+- The first solved word is worth one point, the second two points, and so on.
+- Points are summed per player using the shared solve order.
 - Counts do not include repeated solves or missing-words guesses.
 
 ## Settings UI (Net Play Tab)

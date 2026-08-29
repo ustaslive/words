@@ -37,7 +37,7 @@
       ]
     }
   },
-  "postCreateCommand": "sdkmanager --list",
+  "postCreateCommand": "gcloud --version && sdkmanager --list",
   "runServices": [
     "devcontainer"
   ],
