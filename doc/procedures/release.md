@@ -56,6 +56,29 @@ This guide documents how to prepare a release for internal testing and publish i
 `develop` may contain unstable work; builds from `develop` are debug-only for local testing via ADB and are not uploaded to Google Play.
 Production release steps are not finalized yet. Placeholder sections are marked as TODO.
 
+## One-time Google Play CLI setup
+
+1. Rebuild the devcontainer after changes to `.devcontainer/Dockerfile`. The image includes
+   Google Cloud CLI and the Python Google API client.
+2. Select a Google Cloud project and enable the Google Play Android Developer API.
+3. Start browser authorization from `/words`:
+
+   ```bash
+   make play-login
+   ```
+
+   Open the printed URL, sign in with the Google account that has access to the app in
+   Google Play Console, grant access, and paste the authorization code back into the shell.
+4. Verify the stored Application Default Credentials:
+
+   ```bash
+   make play-auth-status
+   ```
+
+The credentials live only inside the current devcontainer. Run `make play-login` again after
+the container is recreated. Revoke the current credentials with
+`gcloud auth application-default revoke` when they are no longer needed.
+
 ## Pre-release checks
 
 - All development branches intended for the release are verified to compile in release mode.
@@ -175,15 +198,21 @@ cd ~/Downloads
 docker cp words:/words/app/build/outputs/bundle/release/app-release.aab ./app-release-v<version>.aab
 ```
 
-## Google Play Console steps (internal testing)
+## Google Play upload (internal testing)
 
-- Open Google Play Console and select the app.
-- Go to `Test and release` > `Testing` > `Internal testing` and open the `Releases` tab.
-- Create a new release and upload the AAB.
-- Verify that Google Play shows the expected `versionName` and `versionCode`.
-- Paste the copy-ready Google Play summary from `doc/releases/release_v<version>.md`.
-- Keep release notes within the Google Play limit of 500 Unicode characters per language.
-- Review and roll out the release to internal testers.
+Upload the AAB without making it available to testers:
+
+```bash
+make play-upload-draft
+make play-status
+```
+
+After the server is updated to the same version, publish the draft:
+
+```bash
+make play-publish-internal
+make play-status
+```
 
 ## Tag and push (after successful Google Play rollout)
 

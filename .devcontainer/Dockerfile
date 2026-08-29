@@ -5,6 +5,8 @@ ARG ANDROID_PLATFORM=android-34
 ARG ANDROID_BUILD_TOOLS_VERSION=34.0.0
 ARG ANDROID_NDK_VERSION=26.1.10909125
 ARG GRADLE_VERSION=8.4
+ARG GOOGLE_API_PYTHON_CLIENT_VERSION=2.199.0
+ARG GOOGLE_AUTH_VERSION=2.57.0
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV ANDROID_SDK_ROOT=/opt/android/sdk
@@ -66,5 +68,17 @@ RUN mkdir -p /opt/gradle && \
     unzip -q gradle-${GRADLE_VERSION}-bin.zip -d /opt/gradle && \
     rm gradle-${GRADLE_VERSION}-bin.zip && \
     chown -R vscode:vscode /opt/gradle
+
+RUN curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | \
+    gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg && \
+    printf '%s\n' \
+    'deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main' \
+    > /etc/apt/sources.list.d/google-cloud-sdk.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends google-cloud-cli && \
+    python3 -m pip install --no-cache-dir \
+    google-api-python-client==${GOOGLE_API_PYTHON_CLIENT_VERSION} \
+    google-auth==${GOOGLE_AUTH_VERSION} && \
+    rm -rf /var/lib/apt/lists/*
 
 USER vscode

@@ -1,8 +1,13 @@
 .DEFAULT_GOAL := all
 
-.PHONY: help build install all uninstall test release connect list
+.PHONY: help build install all uninstall test release connect list play-login play-auth-status play-status play-upload-draft play-publish-internal
 
 DEBUG_APK := app/build/outputs/apk/debug/app-debug.apk
+RELEASE_AAB := app/build/outputs/bundle/release/app-release.aab
+PLAY_PACKAGE := com.familiarapps.words
+PLAY_TRACK := internal
+PLAY_CLOUD_SCOPE := https://www.googleapis.com/auth/cloud-platform
+PLAY_PUBLISHER_SCOPE := https://www.googleapis.com/auth/androidpublisher
 
 help:
 	@echo "Usage: make <target>"
@@ -17,6 +22,11 @@ help:
 	@echo "  release    Build the release app bundle"
 	@echo "  connect    Connect to a device over TCP/IP"
 	@echo "  list       List adb devices"
+	@echo "  play-login Authorize Google Play API access in a browser"
+	@echo "  play-auth-status Check Google Play API credentials"
+	@echo "  play-status Show Google Play internal-testing releases"
+	@echo "  play-upload-draft Upload the release bundle as an internal draft"
+	@echo "  play-publish-internal Publish the current internal draft"
 
 build:
 	./gradlew assembleDebug
@@ -64,6 +74,31 @@ connect:
 
 list:
 	adb devices
+
+play-login:
+	gcloud auth application-default login \
+		--no-launch-browser \
+		--scopes="$(PLAY_CLOUD_SCOPE),$(PLAY_PUBLISHER_SCOPE)"
+
+play-auth-status:
+	@gcloud auth application-default print-access-token >/dev/null
+	@echo "Google Play API credentials are available."
+
+play-status:
+	python3 tools/google_play.py status \
+		--package "$(PLAY_PACKAGE)" \
+		--track "$(PLAY_TRACK)"
+
+play-upload-draft:
+	python3 tools/google_play.py upload-draft \
+		--package "$(PLAY_PACKAGE)" \
+		--track "$(PLAY_TRACK)" \
+		--aab "$(RELEASE_AAB)"
+
+play-publish-internal:
+	python3 tools/google_play.py publish \
+		--package "$(PLAY_PACKAGE)" \
+		--track "$(PLAY_TRACK)"
 
 # All unit tests (debug + release)
 # ./gradlew :app:test
