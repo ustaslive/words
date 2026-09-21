@@ -1,7 +1,7 @@
 # Dictionary update
 
 Work in the `develop` branch. Review files are named
-`YYYY-MM-DD_word_review.txt`.
+`data/dictionary_updates/YYYY-MM-DD_word_review.txt`.
 
 ```text
 [dictionary.add]
