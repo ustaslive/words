@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "com.ustas.words"
-    compileSdk = 35
+    compileSdk = 36
 
     val versionFile = rootProject.file("version.txt")
     val appVersion = versionFile.readText().trim()
@@ -24,8 +24,8 @@ android {
     defaultConfig {
         applicationId = "com.familiarapps.words"
         minSdk = 24
-        targetSdk = 35
-        versionCode = 12
+        targetSdk = 36
+        versionCode = 13
         versionName = appVersion
         buildConfigField("String", "BUILD_TIME_UTC", "\"$buildTimeUtc\"")
     }

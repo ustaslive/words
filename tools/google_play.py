@@ -134,7 +134,8 @@ def upload_draft(args: argparse.Namespace) -> None:
         previous_releases = [
             release
             for release in current_track.get("releases", [])
-            if str(expected_code) not in release.get("versionCodes", [])
+            if release.get("status") != "draft"
+            and str(expected_code) not in release.get("versionCodes", [])
         ]
         draft_release = {
             "name": f"{expected_code} ({version})",
