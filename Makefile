@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := all
 
-.PHONY: help build install all uninstall test release connect list play-login play-auth-status play-status play-upload-draft play-publish-internal
+.PHONY: help build install all uninstall test release pair connect list play-login play-auth-status play-status play-upload-draft play-publish-internal release-prepare release-server release-publish release-status
 
 DEBUG_APK := app/build/outputs/apk/debug/app-debug.apk
 RELEASE_AAB := app/build/outputs/bundle/release/app-release.aab
@@ -8,6 +8,7 @@ PLAY_PACKAGE := com.familiarapps.words
 PLAY_TRACK := internal
 PLAY_CLOUD_SCOPE := https://www.googleapis.com/auth/cloud-platform
 PLAY_PUBLISHER_SCOPE := https://www.googleapis.com/auth/androidpublisher
+ADB_IP_FILE ?= .adb-device-ip
 
 help:
 	@echo "Usage: make <target>"
@@ -20,6 +21,7 @@ help:
 	@echo "  uninstall  Uninstall the debug app"
 	@echo "  test       Run debug unit tests"
 	@echo "  release    Build the release app bundle"
+	@echo "  pair       Pair with a device over TCP/IP"
 	@echo "  connect    Connect to a device over TCP/IP"
 	@echo "  list       List adb devices"
 	@echo "  play-login Authorize Google Play API access in a browser"
@@ -27,6 +29,10 @@ help:
 	@echo "  play-status Show Google Play internal-testing releases"
 	@echo "  play-upload-draft Upload the release bundle as an internal draft"
 	@echo "  play-publish-internal Publish the current internal draft"
+	@echo "  release-prepare Prepare and upload a release draft (requires VERSION=x.y.z)"
+	@echo "  release-server Update and verify the Plex server"
+	@echo "  release-publish Publish, tag, synchronize Git, and return to develop"
+	@echo "  release-status Show the current release state"
 
 build:
 	./gradlew assembleDebug
@@ -59,18 +65,11 @@ test:
 release:
 	./gradlew bundleRelease
 
+pair:
+	@sh tools/adb_wireless.sh pair "$(ADB_IP_FILE)"
+
 connect:
-	@read -p "IP address (Enter to cancel): " HOST; \
-	if [ -z "$$HOST" ]; then \
-		echo "Connection cancelled."; \
-		exit 0; \
-	fi; \
-	read -p "Port for $$HOST (Enter to cancel): " PORT; \
-	if [ -z "$$PORT" ]; then \
-		echo "Connection cancelled."; \
-		exit 0; \
-	fi; \
-	adb connect "$$HOST:$$PORT"
+	@sh tools/adb_wireless.sh connect "$(ADB_IP_FILE)"
 
 list:
 	adb devices
@@ -99,6 +98,22 @@ play-publish-internal:
 	python3 tools/google_play.py publish \
 		--package "$(PLAY_PACKAGE)" \
 		--track "$(PLAY_TRACK)"
+
+release-prepare:
+	@if [ -z "$(VERSION)" ]; then \
+		echo "Usage: make release-prepare VERSION=x.y.z"; \
+		exit 1; \
+	fi
+	python3 tools/release.py prepare "$(VERSION)"
+
+release-server:
+	python3 tools/release.py server
+
+release-publish:
+	python3 tools/release.py publish
+
+release-status:
+	python3 tools/release.py status
 
 # All unit tests (debug + release)
 # ./gradlew :app:test

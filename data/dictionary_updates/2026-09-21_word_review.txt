@@ -1,0 +1,206 @@
+[dictionary.add]
+orchid - орхидея
+driest - самый сухой
+winery - винодельня
+novice - новичок
+pausing - пауза/остановка
+taping - приклеивание ленты
+sling - праща/строп
+vineyard - виноградник
+shutter - ставень/затвор
+trustee - попечитель
+thrust - толчок
+gull - чайка
+scare - пугать
+warmest - самый теплый
+fitter - слесарь / находящийся в хорошей форме
+shaker - шейкер
+louse - вошь
+field - поле
+gash - глубокая рана
+frame - рамка
+binary - бинарный (перевод русского "binar")
+magnet - магнит (перевод русского "magnit")
+scone - булочка
+hustling - суета/толкотня
+loon - гагара/безумец
+broth - бульон
+right - правильный/право
+fiesta - фиеста
+ampere - ампер (перевод русского "amper")
+karma - карма (перевод русского "carma")
+skater - скейтер/конькобежец
+amaze - изумлять
+heath - пустошь
+dagger - кинжал
+trope - троп/метафора
+dupe - простофиля
+epoch - эпоха
+zodiac - зодиак
+quid - фунт стерлингов (разговорное, но активное)
+lobster - омар (перевод русского "omar")
+crayon - цветной мелок
+modern - современный
+pastel - пастель
+repost - репост
+granule - гранула
+starch - крахмал
+modesty - скромность
+mantle - мантия
+amplitude - амплитуда
+hostel - хостел
+aspire - стремиться
+spree - веселье/кутеж
+shading - затенение
+prone - склонный
+tailor - портной
+tanker - танкер
+auditor - аудитор
+sensor - сенсор
+carton - картонная коробка
+outran - обогнал
+roast - жаркое/жарить
+treason - измена
+methane - метан (перевод русского "metan")
+citadel - цитадель
+term - термин (перевод русского "termin")
+scarlet - алый
+tapir - тапир
+validate - подтверждать
+gasoline - бензин (перевод русского "gasolin")
+driveway - подъездная дорожка
+deny - отрицать
+list - список
+soar - парить
+loader - грузчик/погрузчик
+allergy - аллергия (перевод русского "alergy")
+gallery - галерея (перевод русского "galery")
+mileage - пробег (исправленный вариант "milage")
+chat - чат
+tenet - принцип/догма
+utter - полный/произносить
+darken - темнеть
+bearish - медвежий (в т.ч. биржевой термин)
+dialer - номеронабиратель
+savour - смаковать
+lisp - шепелявить
+redial - повторный набор
+medial - срединный
+healer - целитель
+lapse - упущение
+muster - собирать/смотр
+calorie - калория (перевод русского "calory")
+skip - пропускать
+rude - грубый
+sloth - ленивец
+globe - глобус (перевод русского "globus")
+eject - извлекать
+dynasty - династия (перевод русского "dinasty")
+lance - копье
+fossil - ископаемое (перевод русского "fosile")
+braid - коса/плести
+derail - пускать под откос
+diaper - подгузник
+claimer - заявитель
+diesel - дизель (перевод русского "disel")
+usher - билетер
+grantee - стипендиат
+tandem - тандем
+eraser - ластик (перевод русского "lastic")
+blogger - блогер (перевод русского "bloger")
+flair - чутье/стиль
+lodge - домик/ложа
+plasma - плазма (перевод русского "plasm")
+macho - мачо
+homage - дань уважения
+despot - деспот
+compass - компас (перевод русского "compas")
+calibre - калибр
+swarm - рой
+manic - маниакальный
+chimp - шимпанзе
+scull - весло / грести
+scalp - скальп
+skull - череп
+
+[dictionary.remove]
+pruner - секатор (перевод русского "secator")
+cohert - опечатка (cohort)
+potray - опечатка (portray)
+bargin - опечатка (bargain)
+thurst - опечатка (thirst)
+venus - Венера (имя собственное)
+sculp - опечатка (sculpt)
+belgian - бельгиец (имя собственное / национальность)
+speach - опечатка (speech)
+dermal - узкоспециальный термин (медицина)
+sooth - устаревшее слово
+hebrew - иврит (имя собственное / религия)
+sain - опечатка / устаревшее
+woabn - несуществующее слово
+bizzare - опечатка (bizarre)
+taylor - Тейлор (имя собственное)
+cholk - опечатка (chalk)
+pharma - сокращение, узкоспециальный сленг
+ours - притяжательное местоимение с окончанием -s
+desort - опечатка (desert / resort)
+donet - опечатка (donut)
+reagent - узкоспециальный химический термин
+hers - притяжательное местоимение с окончанием -s
+fowler - имя собственное / узкоспециальное
+lamer - сленг
+nare - устаревшее (ноздря)
+tanklig - несуществующее слово
+asider - несуществующее слово
+vagine - опечатка (vagina), неприличное
+todler - опечатка (toddler)
+vitale - имя собственное
+seaking - опечатка (seeking)
+hering - опечатка (herring)
+others - местоимение во множественном числе (-s)
+toples - опечатка (topless)
+spector - опечатка (specter) / имя собственное
+tucker - имя собственное
+dural - узкоспециальное (медицина)
+marple - Марпл (имя собственное)
+baerish - опечатка (bearish)
+dosier - опечатка (dossier)
+blader - опечатка (bladder)
+mase - опечатка (maze / mace)
+prevale - опечатка (prevail)
+slouth - опечатка (sloth / sleuth)
+modus - латынь / узкоспециальное
+poast - опечатка (post)
+afirm - опечатка (affirm)
+daiper - опечатка (diaper)
+mialer - опечатка (mailer)
+pharm - сокращение / сленг
+ideom - опечатка (idiom)
+capitol - Капитолий (имя собственное)
+saldo - сальдо (узкоспециальное бухгалтерское)
+hoster - сленг
+merch - сленг / сокращение
+mesure - опечатка (measure)
+sirup - устаревшее написание (syrup)
+tilda - опечатка (tilde)
+ba - слишком короткое (менее 3 букв)
+scrab - опечатка (scrap / scrub)
+bluf - опечатка (bluff)
+bulgur - булгур (перевод русского "bulgar")
+
+[forbidden.add]
+lesbian - сексуальная ориентация, не для детских игр
+incest - инцест, не для детских игр
+crap - ругательство
+niger - оскорбление / название страны
+sucker - грубое оскорбление
+arse - ругательство
+penis - анатомический термин, не для детских игр
+pedo - сленг, неприличное
+urine - выделения, не для детских игр
+boner - нецензурное, взрослый контекст
+sambo - расовое оскорбление
+harem - гарем, взрослая тематика
+brotel - опечатка (brothel), взрослая тематика
+
+[forbidden.remove]

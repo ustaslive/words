@@ -211,6 +211,7 @@ altitude
 aluminium
 alumni
 amateur
+amaze
 amazing
 amazingly
 amazon
@@ -230,7 +231,9 @@ among
 amongst
 amount
 amper
+ampere
 ample
+amplitude
 amulet
 amusement
 amusing
@@ -360,6 +363,7 @@ asking
 asleep
 aspect
 asphalt
+aspire
 aspirin
 aspiring
 assassin
@@ -557,6 +561,7 @@ bean
 bear
 beard
 bearing
+bearish
 beast
 beastie
 beat
@@ -690,6 +695,7 @@ block
 blockade
 blocking
 blog
+blogger
 bloke
 blond
 blonde
@@ -927,6 +933,7 @@ calculus
 calendar
 calf
 caliber
+calibre
 call
 caller
 calling
@@ -964,7 +971,6 @@ capacity
 cape
 capita
 capital
-capitol
 capsule
 captain
 caption
@@ -997,6 +1003,7 @@ carry
 carrying
 cart
 cartel
+carton
 cartoon
 cartridge
 carve
@@ -1131,6 +1138,7 @@ chilling
 chilly
 chime
 chimney
+chimp
 chin
 chip
 chocolate
@@ -1164,6 +1172,7 @@ circle
 circuit
 circular
 circus
+citadel
 citation
 cite
 citing
@@ -1174,6 +1183,7 @@ civic
 civil
 civilian
 claim
+claimer
 claiming
 clan
 clap
@@ -1497,6 +1507,7 @@ crave
 craving
 crawl
 crawling
+crayon
 crazy
 cream
 create
@@ -1610,6 +1621,7 @@ danish
 dare
 daring
 dark
+darken
 darker
 darkest
 darkness
@@ -1733,6 +1745,7 @@ depot
 deprive
 depth
 deputy
+derail
 derby
 derive
 descend
@@ -1784,9 +1797,11 @@ diagnosis
 diagram
 dial
 dialect
+dialer
 dialogue
 diameter
 diamond
+diaper
 diarrhea
 diary
 dice
@@ -1965,6 +1980,7 @@ dreamt
 dress
 dressing
 drew
+driest
 drift
 drifting
 drill
@@ -2078,6 +2094,7 @@ eighteen
 eighth
 eighty
 either
+eject
 elaborate
 elastic
 elbow
@@ -2442,6 +2459,7 @@ fidelity
 field
 fierce
 fiery
+fiesta
 fifteen
 fifth
 fifty
@@ -2496,6 +2514,7 @@ fishermen
 fishing
 fist
 fitness
+fitter
 fitting
 five
 fixer
@@ -2862,6 +2881,7 @@ grandson
 granite
 granny
 grant
+grantee
 granting
 granule
 grape
@@ -2926,6 +2946,7 @@ guilty
 guitar
 guitarist
 gulf
+gull
 gunfire
 guru
 gypsy
@@ -3017,6 +3038,7 @@ heading
 headline
 headset
 heal
+healer
 healing
 health
 healthier
@@ -3191,6 +3213,7 @@ hurt
 hurting
 husband
 hustle
+hustling
 hybrid
 hydraulic
 hydro
@@ -3714,6 +3737,7 @@ livestock
 living
 lizard
 load
+loader
 loading
 loaf
 loan
@@ -3749,6 +3773,7 @@ longtime
 look
 looking
 lookout
+loon
 loop
 loose
 loosely
@@ -3803,6 +3828,7 @@ lyre
 lyric
 machine
 machinery
+macho
 macro
 madam
 madame
@@ -3850,6 +3876,7 @@ mane
 maneuver
 manger
 mango
+manic
 manifest
 manifesto
 mankind
@@ -3941,6 +3968,7 @@ mechanic
 mechanism
 medal
 media
+medial
 median
 mediation
 medic
@@ -4181,6 +4209,7 @@ musician
 must
 mustang
 mustard
+muster
 mutant
 mutation
 mute
@@ -4319,6 +4348,7 @@ nova
 novel
 novelist
 novelty
+novice
 nowadays
 nowhere
 nuclear
@@ -4433,6 +4463,7 @@ orbital
 orca
 orchard
 orchestra
+orchid
 ordeal
 order
 ordering
@@ -4606,6 +4637,7 @@ patron
 pattern
 patty
 pause
+pausing
 pave
 pavement
 pavilion
@@ -5084,6 +5116,7 @@ queue
 quick
 quicker
 quickly
+quid
 quiet
 quietly
 quilt
@@ -5225,6 +5258,7 @@ recurring
 recycling
 redact
 redeem
+redial
 redo
 reduce
 reducing
@@ -5611,12 +5645,14 @@ save
 saver
 saving
 savior
+savour
 savvy
 sawyer
 saying
 scalar
 scale
 scaling
+scalp
 scam
 scan
 scandal
@@ -5642,6 +5678,7 @@ school
 schooling
 science
 scientist
+scone
 scoop
 scooter
 scope
@@ -5664,6 +5701,7 @@ scroll
 scrub
 scrutiny
 scuba
+scull
 sculpture
 scum
 seafood
@@ -5766,11 +5804,13 @@ sewage
 sewer
 sewing
 shade
+shading
 shadow
 shady
 shaft
 shake
 shaken
+shaker
 shaking
 shale
 shall
@@ -5842,6 +5882,7 @@ shrimp
 shrink
 shut
 shutdown
+shutter
 shutting
 shuttle
 sibling
@@ -5897,6 +5938,7 @@ sixth
 sixty
 size
 skate
+skater
 skating
 skeleton
 skeptical
@@ -5935,6 +5977,7 @@ slight
 slightest
 slightly
 slim
+sling
 slip
 slipper
 slippery
@@ -5944,6 +5987,7 @@ slop
 slope
 sloppy
 slot
+sloth
 slow
 slower
 slowing
@@ -5983,6 +6027,7 @@ snore
 snow
 soak
 soap
+soar
 sober
 soccer
 social
@@ -6165,6 +6210,7 @@ standing
 staple
 stapler
 star
+starch
 stare
 staring
 stark
@@ -6399,6 +6445,7 @@ swallow
 swamp
 swan
 swap
+swarm
 sway
 swear
 swearing
@@ -6471,8 +6518,10 @@ tandem
 tangible
 tango
 tank
+tanker
 tanner
 tape
+taping
 tapir
 tapping
 tare
@@ -6529,6 +6578,7 @@ tenant
 tend
 tendency
 tender
+tenet
 tennis
 tenor
 tense
@@ -6973,6 +7023,7 @@ vain
 vale
 valet
 valid
+validate
 validity
 valley
 valuable
@@ -7134,6 +7185,7 @@ warehouse
 warfare
 warm
 warmer
+warmest
 warming
 warmth
 warmup
@@ -7252,6 +7304,7 @@ winding
 window
 windy
 wine
+winery
 wing
 winger
 wink
