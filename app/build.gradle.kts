@@ -25,7 +25,7 @@ android {
         applicationId = "com.familiarapps.words"
         minSdk = 24
         targetSdk = 35
-        versionCode = 11
+        versionCode = 12
         versionName = appVersion
         buildConfigField("String", "BUILD_TIME_UTC", "\"$buildTimeUtc\"")
     }
