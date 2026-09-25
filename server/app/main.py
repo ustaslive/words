@@ -21,6 +21,7 @@ MESSAGE_TYPE_NEW_GAME = "newGame"
 MESSAGE_TYPE_SUBMIT_WORD = "submitWord"
 MESSAGE_TYPE_REVEAL_CELL = "revealCell"
 MESSAGE_TYPE_PLAYERS_UPDATE = "playersUpdate"
+MESSAGE_TYPE_ROLE_UPDATE = "roleUpdate"
 MESSAGE_TYPE_ERROR = "error"
 MESSAGE_ERROR_CONFLICT = "conflict"
 MESSAGE_ERROR_VERSION_MISMATCH = "version_mismatch"
@@ -35,6 +36,7 @@ JSON_KEY_PLAYER_COLOR = "playerColor"
 JSON_KEY_ROLE = "role"
 JSON_KEY_SNAPSHOT = "snapshot"
 JSON_KEY_ACTIVE_COUNT = "activeCount"
+JSON_KEY_HAS_GAME = "hasGame"
 JSON_KEY_MESSAGE = "message"
 JSON_KEY_STATE_VERSION = "stateVersion"
 JSON_KEY_BASE_VERSION = "baseVersion"
@@ -43,6 +45,7 @@ JSON_KEY_CLIENT_VERSION = "clientVersion"
 JSON_KEY_SERVER_VERSION = "serverVersion"
 JSON_KEY_REQUIRED_CLIENT_VERSION = "requiredClientVersion"
 JSON_KEY_PLAYERS = "players"
+JSON_KEY_GAME_ID = "gameId"
 JSON_KEY_SEED_LETTERS = "seedLetters"
 JSON_KEY_WHEEL_LETTERS = "wheelLetters"
 JSON_KEY_GRID_ROWS = "gridRows"
@@ -91,7 +94,7 @@ class RoomState:
     def __init__(self) -> None:
         self._clients: dict[str, ClientSession] = {}
         self.snapshot: dict | None = None
-        self.host_player_id: str | None = None
+        self.host_client_id: str | None = None
         self.state_version: int = STATE_VERSION_INITIAL
 
     def add_client(self, session: ClientSession) -> int:
@@ -105,6 +108,9 @@ class RoomState:
 
     def sessions(self) -> list[ClientSession]:
         return list(self._clients.values())
+
+    def has_client(self, client_id: str) -> bool:
+        return client_id in self._clients
 
 
 ROOM = RoomState()
@@ -165,6 +171,14 @@ def build_players_update_message(players: list[dict], active_count: int) -> dict
         JSON_KEY_TYPE: MESSAGE_TYPE_PLAYERS_UPDATE,
         JSON_KEY_ACTIVE_COUNT: active_count,
         JSON_KEY_PLAYERS: players,
+    }
+
+
+def build_role_update_message(role: str, has_game: bool) -> dict:
+    return {
+        JSON_KEY_TYPE: MESSAGE_TYPE_ROLE_UPDATE,
+        JSON_KEY_ROLE: role,
+        JSON_KEY_HAS_GAME: has_game,
     }
 
 
@@ -325,6 +339,37 @@ def strip_wheel_letters(snapshot: dict) -> None:
     snapshot.pop(JSON_KEY_WHEEL_LETTERS, None)
 
 
+def ensure_game_id(snapshot: dict) -> str:
+    game_id = snapshot.get(JSON_KEY_GAME_ID)
+    if not isinstance(game_id, str) or not game_id.strip():
+        game_id = str(uuid.uuid4())
+        snapshot[JSON_KEY_GAME_ID] = game_id
+    return game_id
+
+
+def same_crossword_layout(first: dict, second: dict) -> bool:
+    seed_letters = get_required_str(first, JSON_KEY_SEED_LETTERS)
+    if seed_letters is None or seed_letters != get_required_str(second, JSON_KEY_SEED_LETTERS):
+        return False
+    first_words = first.get(JSON_KEY_WORDS)
+    second_words = second.get(JSON_KEY_WORDS)
+    if not isinstance(first_words, list) or not isinstance(second_words, list):
+        return False
+    first_rows = first.get(JSON_KEY_GRID_ROWS)
+    second_rows = second.get(JSON_KEY_GRID_ROWS)
+    if not isinstance(first_rows, list) or not isinstance(second_rows, list):
+        return False
+    if not first_rows or len(first_rows) != len(second_rows):
+        return False
+    if not all(isinstance(row, str) for row in first_rows + second_rows):
+        return False
+    return (
+        [row.lower() for row in first_rows]
+        == [row.lower() for row in second_rows]
+        and first_words == second_words
+    )
+
+
 def build_grid_rows_for_log(snapshot: dict) -> list[str]:
     grid_rows = snapshot.get(JSON_KEY_GRID_ROWS)
     if not isinstance(grid_rows, list) or not grid_rows:
@@ -448,9 +493,21 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             return
 
         async with ROOM_LOCK:
+            replaced_sessions = [
+                existing for existing in ROOM.sessions()
+                if existing.player_id == player_id
+            ]
+            for existing in replaced_sessions:
+                ROOM.remove_client(existing.client_id)
+                if ROOM.host_client_id == existing.client_id:
+                    ROOM.host_client_id = None
+            promoted_host = None
+            if ROOM.host_client_id is None and ROOM.sessions():
+                promoted_host = ROOM.sessions()[0]
+                ROOM.host_client_id = promoted_host.client_id
             role = ROLE_GUEST
-            if ROOM.host_player_id is None:
-                ROOM.host_player_id = player_id
+            if ROOM.host_client_id is None:
+                ROOM.host_client_id = client_id
                 role = ROLE_HOST
             session = ClientSession(
                 client_id=client_id,
@@ -461,8 +518,24 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             )
             active_count = ROOM.add_client(session)
             snapshot = ROOM.snapshot
+            if snapshot is not None:
+                ensure_game_id(snapshot)
             targets = ROOM.sessions()
             players = build_players_payload(targets)
+            await websocket.send_json(
+                build_snapshot_message(role, snapshot, active_count, players)
+            )
+
+        for existing in replaced_sessions:
+            try:
+                await existing.websocket.close()
+            except Exception:
+                pass
+        if promoted_host is not None:
+            await broadcast_message(
+                build_role_update_message(ROLE_HOST, snapshot is not None),
+                [promoted_host],
+            )
 
         player_label = format_player_label(player_id, player_name, role)
         LOGGER.info(
@@ -487,9 +560,6 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         )
         if snapshot is not None:
             log_snapshot_grid(srv, "snapshot", player_label, snapshot)
-        await websocket.send_json(
-            build_snapshot_message(role, snapshot, active_count, players)
-        )
         players_message = build_players_update_message(players, active_count)
         await broadcast_message(players_message, targets)
 
@@ -558,10 +628,12 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             was_host = False
             active_count = 0
             players_message = None
+            promoted_host = None
+            has_game = False
             targets: list[ClientSession] = []
             async with ROOM_LOCK:
-                active_count, removed_player_id = ROOM.remove_client(client_id)
-                was_host = removed_player_id == ROOM.host_player_id
+                active_count, _removed_player_id = ROOM.remove_client(client_id)
+                was_host = client_id == ROOM.host_client_id
                 if was_host:
                     LOGGER.info(
                         "%s released host role",
@@ -571,7 +643,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                             ROLE_HOST,
                         ),
                     )
-                    ROOM.host_player_id = None
+                    ROOM.host_client_id = None
                 if active_count == EMPTY_ROOM_CLIENT_COUNT:
                     if ROOM.snapshot is not None:
                         LOGGER.info(
@@ -583,8 +655,16 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     ROOM.state_version = STATE_VERSION_INITIAL
                 else:
                     targets = ROOM.sessions()
+                    if ROOM.host_client_id is None:
+                        promoted_host = targets[0]
+                        ROOM.host_client_id = promoted_host.client_id
+                        has_game = ROOM.snapshot is not None
                     players = build_players_payload(targets)
                     players_message = build_players_update_message(players, active_count)
+            if promoted_host is not None:
+                await broadcast_message(
+                    build_role_update_message(ROLE_HOST, has_game), [promoted_host]
+                )
             if players_message is not None:
                 await broadcast_message(players_message, targets)
             LOGGER.info(
@@ -632,7 +712,7 @@ async def receive_payload(websocket: WebSocket, client_id: str) -> dict:
 
 async def handle_new_game_message(session: ClientSession, payload: dict) -> None:
     srv = server_label()
-    player_role = ROLE_HOST if session.player_id == ROOM.host_player_id else None
+    player_role = ROLE_HOST if session.client_id == ROOM.host_client_id else None
     player_label = format_player_label(
         session.player_id,
         session.player_name,
@@ -650,7 +730,10 @@ async def handle_new_game_message(session: ClientSession, payload: dict) -> None
         return
 
     async with ROOM_LOCK:
-        if session.player_id != ROOM.host_player_id:
+        if not ROOM.has_client(session.client_id):
+            await session.websocket.send_json(build_error_message("session_replaced"))
+            return
+        if session.client_id != ROOM.host_client_id:
             LOGGER.info(
                 "%s -> newGame -> %s rejected reason=host_required",
                 format_player_label(session.player_id, session.player_name, None),
@@ -659,6 +742,7 @@ async def handle_new_game_message(session: ClientSession, payload: dict) -> None
             await session.websocket.send_json(build_error_message("host_required"))
             return
         strip_wheel_letters(snapshot)
+        ensure_game_id(snapshot)
         snapshot[JSON_KEY_STATE_VERSION] = STATE_VERSION_INITIAL
         ROOM.snapshot = snapshot
         ROOM.state_version = STATE_VERSION_INITIAL
@@ -683,7 +767,7 @@ async def handle_state_update_message(
     failure_message: str,
 ) -> None:
     srv = server_label()
-    player_role = ROLE_HOST if session.player_id == ROOM.host_player_id else None
+    player_role = ROLE_HOST if session.client_id == ROOM.host_client_id else None
     player_label = format_player_label(
         session.player_id,
         session.player_name,
@@ -722,11 +806,19 @@ async def handle_state_update_message(
     current_version = None
     players: list[dict] = []
     async with ROOM_LOCK:
-        if ROOM.snapshot is None:
+        if not ROOM.has_client(session.client_id):
+            error_message = "session_replaced"
+        elif ROOM.snapshot is None:
             error_message = "room_empty"
         else:
             current_version = ROOM.state_version
-            if base_version != current_version:
+            current_game_id = ensure_game_id(ROOM.snapshot)
+            incoming_game_id = get_required_str(snapshot, JSON_KEY_GAME_ID)
+            same_game = incoming_game_id == current_game_id or (
+                incoming_game_id is None
+                and same_crossword_layout(snapshot, ROOM.snapshot)
+            )
+            if base_version != current_version or not same_game:
                 players = build_players_payload(ROOM.sessions())
                 conflict_message = build_conflict_message(
                     ROOM.snapshot,
@@ -735,6 +827,7 @@ async def handle_state_update_message(
                 )
             else:
                 next_version = current_version + STATE_VERSION_INCREMENT
+                snapshot[JSON_KEY_GAME_ID] = current_game_id
                 snapshot[JSON_KEY_STATE_VERSION] = next_version
                 ROOM.snapshot = snapshot
                 ROOM.state_version = next_version

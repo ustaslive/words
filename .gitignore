@@ -56,6 +56,7 @@ replay_pid*.log
 # Local environment overrides
 .env
 /secrets/
+/.adb-device-ip
 
 # Devcontainer
 .devcontainer/.env
