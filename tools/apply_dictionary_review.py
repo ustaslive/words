@@ -21,12 +21,13 @@ SECTION_DICTIONARY_ADD = "dictionary.add"
 SECTION_DICTIONARY_REMOVE = "dictionary.remove"
 SECTION_FORBIDDEN_ADD = "forbidden.add"
 SECTION_FORBIDDEN_REMOVE = "forbidden.remove"
-VALID_SECTIONS = {
+REVIEW_SECTIONS = (
     SECTION_DICTIONARY_ADD,
     SECTION_DICTIONARY_REMOVE,
     SECTION_FORBIDDEN_ADD,
     SECTION_FORBIDDEN_REMOVE,
-}
+)
+VALID_SECTIONS = set(REVIEW_SECTIONS)
 WORD_AND_REST_MAX_SPLIT = 1
 WORD_PATTERN = re.compile(r"^[a-z]+$")
 
@@ -237,6 +238,40 @@ def print_plan(plan: UpdatePlan) -> None:
     print_word_group("already absent", plan.forbidden_already_absent)
 
 
+def render_short_review(review_text: str, plan: UpdatePlan) -> str:
+    pending_words = {
+        SECTION_DICTIONARY_ADD: set(plan.dictionary_added),
+        SECTION_DICTIONARY_REMOVE: set(plan.dictionary_removed),
+        SECTION_FORBIDDEN_ADD: set(plan.forbidden_added),
+        SECTION_FORBIDDEN_REMOVE: set(plan.forbidden_removed),
+    }
+    sections: dict[str, list[str]] = {}
+    current_section: str | None = None
+
+    for raw_line in review_text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            current_section = line[1:-1].strip()
+            sections.setdefault(current_section, [])
+            continue
+
+        word = line.split(maxsplit=WORD_AND_REST_MAX_SPLIT)[0].lower()
+        if current_section is not None and word in pending_words[current_section]:
+            sections[current_section].append(raw_line)
+            pending_words[current_section].remove(word)
+
+    for section in REVIEW_SECTIONS:
+        sections.setdefault(section, [])
+
+    rendered_sections = [
+        f"[{section}]" + ("\n" + "\n".join(lines) if lines else "")
+        for section, lines in sections.items()
+    ]
+    return "\n\n".join(rendered_sections) + "\n"
+
+
 def write_word_list_atomically(path: Path, words: tuple[str, ...]) -> None:
     temporary_path: Path | None = None
     destination_mode = stat.S_IMODE(path.stat().st_mode)
@@ -305,6 +340,8 @@ def parse_args() -> argparse.Namespace:
             "      Automatically preview the newest *_word_review.txt file.\n"
             "  apply_dictionary_review.py 2026-07-25_word_review.txt\n"
             "      Preview a specific review file.\n"
+            "  apply_dictionary_review.py --short\n"
+            "      Print only actions that would change the dictionaries.\n"
             "  apply_dictionary_review.py --apply\n"
             "      Apply the newest review file after showing the plan."
         ),
@@ -333,7 +370,13 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_FORBIDDEN_PATH,
         help=f"Forbidden dictionary path (default: {DEFAULT_FORBIDDEN_PATH}).",
     )
-    parser.add_argument(
+    action_group = parser.add_mutually_exclusive_group()
+    action_group.add_argument(
+        "--short",
+        action="store_true",
+        help="Print a shortened review file with only pending changes.",
+    )
+    action_group.add_argument(
         "--apply",
         action="store_true",
         help="Write the planned changes. Without this flag, only preview them.",
@@ -349,8 +392,17 @@ def main() -> None:
         dictionary_words = load_word_list(args.dictionary)
         forbidden_words = load_word_list(args.forbidden)
         plan = build_update_plan(decisions, dictionary_words, forbidden_words)
+        short_review = (
+            render_short_review(review_file.read_text(encoding="utf-8"), plan)
+            if args.short
+            else None
+        )
     except (OSError, ReviewFormatError, ValueError) as error:
         raise SystemExit(f"Error: {error}") from error
+
+    if short_review is not None:
+        print(short_review, end="")
+        return
 
     print(f"Review file: {review_file}")
     print_plan(plan)

@@ -609,6 +609,7 @@ belonging
 beloved
 below
 belt
+beluga
 bench
 benchmark
 bend
@@ -1140,6 +1141,7 @@ chime
 chimney
 chimp
 chin
+china
 chip
 chocolate
 choice
@@ -1274,6 +1276,7 @@ coke
 cola
 cold
 colder
+coldest
 collapse
 collar
 colleague
@@ -2182,13 +2185,16 @@ enjoy
 enjoyable
 enjoying
 enjoyment
+enlarge
 enlist
 enormous
 enough
+enrage
 ensemble
 ensuing
 ensure
 ensuring
+entail
 enter
 entering
 entertain
@@ -2535,6 +2541,7 @@ flavor
 flavour
 flaw
 flawless
+flea
 fled
 flee
 fleeing
@@ -2981,6 +2988,7 @@ handmade
 handsome
 handy
 hang
+hanger
 hanging
 hangover
 hank
@@ -3004,6 +3012,7 @@ hardship
 hardware
 hardy
 hare
+harem
 harm
 harmful
 harmless
@@ -3330,6 +3339,7 @@ inform
 informal
 informing
 infrared
+infuse
 ingest
 inherent
 inherit
@@ -3752,6 +3762,7 @@ locate
 location
 lock
 lockdown
+locked
 locker
 locket
 locking
@@ -3970,6 +3981,7 @@ medal
 media
 medial
 median
+mediate
 mediation
 medic
 medicaid
@@ -4003,6 +4015,7 @@ mentally
 mention
 mentor
 menu
+merch
 merchant
 mercury
 mercy
@@ -4595,6 +4608,7 @@ parrot
 parody
 parole
 parse
+parser
 part
 parter
 partial
@@ -4712,6 +4726,7 @@ phaser
 phenomena
 phoenix
 phone
+phony
 photo
 phrase
 physical
@@ -4840,6 +4855,7 @@ polo
 poly
 polymer
 pond
+ponder
 pong
 pony
 poodle
@@ -4959,6 +4975,7 @@ priest
 primal
 primarily
 primary
+primate
 prime
 primer
 primitive
@@ -5139,6 +5156,7 @@ racism
 racist
 rack
 radar
+radial
 radiation
 radical
 radically
@@ -5216,6 +5234,7 @@ realize
 realizing
 really
 realm
+realty
 reap
 reaper
 rear
@@ -5381,6 +5400,7 @@ republic
 request
 require
 requiring
+resale
 rescue
 research
 resemble
@@ -5604,6 +5624,7 @@ salad
 salary
 sale
 salesman
+salient
 saliva
 salmon
 salon
@@ -5621,6 +5642,7 @@ sampling
 samurai
 sanctuary
 sand
+sandal
 sandstone
 sandwich
 sandy
@@ -6442,6 +6464,7 @@ suspense
 suspicion
 sustain
 swallow
+swam
 swamp
 swan
 swap
@@ -6882,6 +6905,7 @@ tune
 tuner
 tuning
 tunnel
+turban
 turbine
 turbo
 turf
@@ -7026,6 +7050,7 @@ valid
 validate
 validity
 valley
+valor
 valuable
 valuation
 value
@@ -7287,6 +7312,7 @@ wicked
 wicket
 wide
 widely
+widen
 wider
 widget
 widow

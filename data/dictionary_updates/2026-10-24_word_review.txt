@@ -1,0 +1,36 @@
+[dictionary.add]
+radial - радиальный
+sandal - сандалия
+china - фарфор (существует как нарицательное слово)
+merch - мерч (широко используемое сокращение)
+swam - плыл (прошедшее время от swim)
+phony - фальшивый
+valor - доблесть
+infuse - настаивать, вселять
+turban - тюрбан
+mediate - посредничать
+realty - недвижимость
+parser - парсер (IT термин)
+ponder - обдумывать
+locked - запертый (прилагательное / прошедшее время)
+flea - блоха
+widen - расширять
+enlarge - увеличивать
+hanger - вешалка
+coldest - самый холодный
+entail - влечь за собой
+resale - перепродажа
+beluga - белуга
+primate - примат (Primates)
+salient - выдающийся, заметный
+enrage - приводить в ярость
+harem - гарем
+
+[dictionary.remove]
+
+[forbidden.add]
+moron - оскорбление
+jerk - рывок
+
+
+[forbidden.remove]

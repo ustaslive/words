@@ -1,16 +1,21 @@
 from __future__ import annotations
 
+import io
 import stat
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
+from unittest.mock import patch
 
 from tools.apply_dictionary_review import (
     ReviewDecisions,
     ReviewFormatError,
     build_update_plan,
     find_latest_review_file,
+    main,
     parse_review,
+    render_short_review,
     resolve_review_file,
     write_word_list_atomically,
 )
@@ -154,6 +159,89 @@ quilt note
 
         self.assertFalse(repeated_plan.dictionary_changed)
         self.assertFalse(repeated_plan.forbidden_changed)
+
+    def test_short_prints_only_pending_actions_in_review_format(self) -> None:
+        review_text = """\
+# Review notes
+[dictionary.add]
+Alpha — already present
+beta — add this
+beta — duplicate entry
+banned — present only in forbidden
+
+[dictionary.remove]
+gamma — remove this
+missing — already absent
+
+[forbidden.add]
+banned — already present
+delta — add this
+
+[forbidden.remove]
+old — remove this
+absent — already absent
+"""
+        expected = """\
+[dictionary.add]
+beta — add this
+banned — present only in forbidden
+
+[dictionary.remove]
+gamma — remove this
+
+[forbidden.add]
+delta — add this
+
+[forbidden.remove]
+old — remove this
+"""
+        with tempfile.TemporaryDirectory(dir=PROJECT_ROOT) as directory:
+            directory_path = Path(directory)
+            review_path = directory_path / "review.txt"
+            dictionary_path = directory_path / "words.txt"
+            forbidden_path = directory_path / "forbidden_words.txt"
+            review_path.write_text(review_text, encoding="utf-8")
+            dictionary_path.write_text("alpha\ngamma\n", encoding="utf-8")
+            forbidden_path.write_text("banned\nold\n", encoding="utf-8")
+            output = io.StringIO()
+            arguments = [
+                "apply_dictionary_review.py",
+                "--short",
+                str(review_path),
+                "--dictionary",
+                str(dictionary_path),
+                "--forbidden",
+                str(forbidden_path),
+            ]
+
+            with patch("sys.argv", arguments), redirect_stdout(output):
+                main()
+
+            self.assertEqual(expected, output.getvalue())
+            self.assertEqual("alpha\ngamma\n", dictionary_path.read_text(encoding="utf-8"))
+            self.assertEqual("banned\nold\n", forbidden_path.read_text(encoding="utf-8"))
+
+    def test_short_keeps_empty_and_missing_sections(self) -> None:
+        decisions = ReviewDecisions(
+            dictionary_add=frozenset({"alpha"}),
+            dictionary_remove=frozenset({"missing"}),
+            forbidden_add=frozenset(),
+            forbidden_remove=frozenset(),
+        )
+        plan = build_update_plan(decisions, ["alpha"], [])
+        review_text = "[dictionary.add]\nalpha — known\n\n[dictionary.remove]\nmissing\n"
+
+        expected = """\
+[dictionary.add]
+
+[dictionary.remove]
+
+[forbidden.add]
+
+[forbidden.remove]
+"""
+
+        self.assertEqual(expected, render_short_review(review_text, plan))
 
     def test_write_word_list_atomically_writes_one_word_per_line(self) -> None:
         with tempfile.TemporaryDirectory(dir=PROJECT_ROOT) as directory:

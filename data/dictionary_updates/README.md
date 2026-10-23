@@ -24,6 +24,7 @@ From `data/dictionary_updates`:
 
 ```bash
 ../../tools/apply_dictionary_review.py
+../../tools/apply_dictionary_review.py --short
 ../../tools/apply_dictionary_review.py --apply
 
 cd /words
@@ -37,5 +38,11 @@ git add lab/crossword_repeatability/005.stat.txt app/src/main/assets/005.stat.tx
 git commit -m "Update dictionaries YYYY-MM-DD"
 git push origin develop
 ```
+
+`--short` prints only additions absent from their target dictionary and removals
+present in it. It keeps the review file's section format, word order, and notes,
+keeps all four section headers even when they have no words, and does not change
+any files. Without a path, it uses the newest review file, just like the normal
+preview.
 
 Wait about 10 minutes, then select **Update dictionary** in the app.
